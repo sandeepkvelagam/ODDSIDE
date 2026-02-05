@@ -196,48 +196,86 @@ class InviteMemberRequest(BaseModel):
 
 # ============== AUTH HELPERS ==============
 
+async def verify_supabase_jwt(token: str) -> dict:
+    """Verify Supabase JWT token and return claims."""
+    if not SUPABASE_JWT_SECRET:
+        return None
+    
+    try:
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            audience="authenticated"
+        )
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError as e:
+        logger.error(f"JWT verification failed: {e}")
+        return None
+
 async def get_current_user(request: Request) -> User:
-    """Get current authenticated user from session token."""
-    # Check cookie first
+    """Get current authenticated user from session token or Supabase JWT."""
+    # Check Authorization header first for JWT
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        
+        # Try Supabase JWT first
+        if SUPABASE_JWT_SECRET:
+            payload = await verify_supabase_jwt(token)
+            if payload:
+                supabase_id = payload.get("sub")
+                user_doc = await db.users.find_one(
+                    {"supabase_id": supabase_id},
+                    {"_id": 0}
+                )
+                if user_doc:
+                    return User(**user_doc)
+        
+        # Fallback to session token
+        session_doc = await db.user_sessions.find_one(
+            {"session_token": token},
+            {"_id": 0}
+        )
+        if session_doc:
+            expires_at = session_doc["expires_at"]
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at >= datetime.now(timezone.utc):
+                user_doc = await db.users.find_one(
+                    {"user_id": session_doc["user_id"]},
+                    {"_id": 0}
+                )
+                if user_doc:
+                    return User(**user_doc)
+    
+    # Check cookie
     session_token = request.cookies.get("session_token")
+    if session_token:
+        session_doc = await db.user_sessions.find_one(
+            {"session_token": session_token},
+            {"_id": 0}
+        )
+        
+        if session_doc:
+            expires_at = session_doc["expires_at"]
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at >= datetime.now(timezone.utc):
+                user_doc = await db.users.find_one(
+                    {"user_id": session_doc["user_id"]},
+                    {"_id": 0}
+                )
+                if user_doc:
+                    return User(**user_doc)
     
-    # Fallback to Authorization header
-    if not session_token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            session_token = auth_header.split(" ")[1]
-    
-    if not session_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    # Find session
-    session_doc = await db.user_sessions.find_one(
-        {"session_token": session_token},
-        {"_id": 0}
-    )
-    
-    if not session_doc:
-        raise HTTPException(status_code=401, detail="Invalid session")
-    
-    # Check expiry
-    expires_at = session_doc["expires_at"]
-    if isinstance(expires_at, str):
-        expires_at = datetime.fromisoformat(expires_at)
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=401, detail="Session expired")
-    
-    # Get user
-    user_doc = await db.users.find_one(
-        {"user_id": session_doc["user_id"]},
-        {"_id": 0}
-    )
-    
-    if not user_doc:
-        raise HTTPException(status_code=401, detail="User not found")
-    
-    return User(**user_doc)
+    raise HTTPException(status_code=401, detail="Not authenticated")
 
 # ============== AUTH ENDPOINTS ==============
 

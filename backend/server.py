@@ -279,6 +279,71 @@ async def get_current_user(request: Request) -> User:
 
 # ============== AUTH ENDPOINTS ==============
 
+class SyncUserRequest(BaseModel):
+    supabase_id: str
+    email: str
+    name: Optional[str] = None
+    picture: Optional[str] = None
+
+@api_router.post("/auth/sync-user")
+async def sync_user(data: SyncUserRequest, response: Response):
+    """Sync Supabase user to MongoDB after authentication."""
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    
+    # Check if user exists by supabase_id or email
+    existing_user = await db.users.find_one(
+        {"$or": [{"supabase_id": data.supabase_id}, {"email": data.email}]},
+        {"_id": 0}
+    )
+    
+    if existing_user:
+        user_id = existing_user["user_id"]
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "supabase_id": data.supabase_id,
+                "name": data.name or existing_user.get("name"),
+                "picture": data.picture or existing_user.get("picture")
+            }}
+        )
+    else:
+        new_user = {
+            "user_id": user_id,
+            "supabase_id": data.supabase_id,
+            "email": data.email,
+            "name": data.name or data.email.split('@')[0],
+            "picture": data.picture,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.users.insert_one(new_user)
+    
+    # Create a session for cookie-based auth as backup
+    session_token = str(uuid.uuid4())
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    
+    session_doc = {
+        "session_id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.user_sessions.insert_one(session_doc)
+    
+    # Set cookie
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=7 * 24 * 60 * 60
+    )
+    
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    return user_doc
+
 @api_router.post("/auth/session")
 async def create_session(request: SessionRequest, response: Response):
     """Exchange session_id for session_token after OAuth."""

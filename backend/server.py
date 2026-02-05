@@ -492,6 +492,14 @@ async def create_group(data: GroupCreate, user: User = Depends(get_current_user)
     
     return {"group_id": group.group_id, "name": group.name}
 
+@api_router.get("/groups/buy-in-options")
+async def get_buy_in_options():
+    """Get available buy-in denomination options."""
+    return {
+        "denominations": [5, 10, 20, 50, 100],
+        "chip_options": [10, 20, 50, 100]
+    }
+
 @api_router.get("/groups")
 async def get_groups(user: User = Depends(get_current_user)):
     """Get all groups user is a member of."""

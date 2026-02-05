@@ -15,31 +15,32 @@ code {
     font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, monospace;
 }
 
-/* Dark theme (default) */
+/* Light theme */
 @layer base {
     :root {
         --background: 0 0% 100%;
-        --foreground: 0 0% 4%;
-        --card: 0 0% 98%;
-        --card-foreground: 0 0% 4%;
-        --popover: 0 0% 98%;
-        --popover-foreground: 0 0% 4%;
-        --primary: 160 84% 39%;
+        --foreground: 0 0% 9%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 9%;
+        --primary: 160 84% 35%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 0 0% 94%;
+        --secondary: 0 0% 96%;
         --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 94%;
-        --muted-foreground: 0 0% 45%;
-        --accent: 0 0% 94%;
+        --muted: 0 0% 96%;
+        --muted-foreground: 0 0% 40%;
+        --accent: 0 0% 96%;
         --accent-foreground: 0 0% 9%;
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 0 0% 98%;
+        --destructive: 0 84% 55%;
+        --destructive-foreground: 0 0% 100%;
         --border: 0 0% 88%;
         --input: 0 0% 88%;
-        --ring: 160 84% 39%;
+        --ring: 160 84% 35%;
         --radius: 0.75rem;
     }
 
+    /* Dark theme (default) */
     .dark {
         --background: 0 0% 4%;
         --foreground: 0 0% 98%;

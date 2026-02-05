@@ -15,8 +15,32 @@ code {
     font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, monospace;
 }
 
+/* Dark theme (default) */
 @layer base {
     :root {
+        --background: 0 0% 100%;
+        --foreground: 0 0% 4%;
+        --card: 0 0% 98%;
+        --card-foreground: 0 0% 4%;
+        --popover: 0 0% 98%;
+        --popover-foreground: 0 0% 4%;
+        --primary: 160 84% 39%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 0 0% 94%;
+        --secondary-foreground: 0 0% 9%;
+        --muted: 0 0% 94%;
+        --muted-foreground: 0 0% 45%;
+        --accent: 0 0% 94%;
+        --accent-foreground: 0 0% 9%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 0 0% 88%;
+        --input: 0 0% 88%;
+        --ring: 160 84% 39%;
+        --radius: 0.75rem;
+    }
+
+    .dark {
         --background: 0 0% 4%;
         --foreground: 0 0% 98%;
         --card: 0 0% 7%;
@@ -36,12 +60,6 @@ code {
         --border: 0 0% 15%;
         --input: 0 0% 15%;
         --ring: 160 84% 39%;
-        --radius: 0.75rem;
-        
-        /* Semantic colors */
-        --win: 160 84% 39%;
-        --loss: 0 84% 60%;
-        --neutral: 0 0% 63%;
     }
 }
 
@@ -51,6 +69,9 @@ code {
     }
     body {
         @apply bg-background text-foreground;
+    }
+    html {
+        @apply dark;
     }
 }
 
@@ -95,11 +116,11 @@ code {
 
 /* Text win/loss colors */
 .text-win {
-    color: hsl(var(--win));
+    color: hsl(var(--primary));
 }
 
 .text-loss {
-    color: hsl(var(--loss));
+    color: hsl(var(--destructive));
 }
 
 /* Font families */
@@ -109,16 +130,6 @@ code {
 
 .font-mono {
     font-family: 'JetBrains Mono', monospace;
-}
-
-/* Noise texture overlay */
-.noise-overlay::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    opacity: 0.03;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
 
 /* Animate pulse for live games */

@@ -11,8 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { Play, Home, Users, Bell, User, LogOut, Menu, X } from "lucide-react";
+import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
+import { Home, Users, Bell, User, LogOut, Menu, X } from "lucide-react";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -65,13 +66,10 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div 
-            className="flex items-center gap-2 cursor-pointer"
+            className="cursor-pointer"
             onClick={() => navigate('/dashboard')}
           >
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Play className="w-4 h-4 text-black fill-black" />
-            </div>
-            <span className="font-heading text-xl font-bold tracking-tight hidden sm:block">POKERNIGHT</span>
+            <Logo size="small" />
           </div>
 
           {/* Desktop Nav */}
@@ -83,8 +81,8 @@ export default function Navbar() {
                 onClick={() => navigate(link.path)}
                 className={`${
                   isActive(link.path) 
-                    ? 'bg-secondary text-white' 
-                    : 'text-muted-foreground hover:text-white'
+                    ? 'bg-secondary text-foreground' 
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 data-testid={`nav-${link.label.toLowerCase()}`}
               >
@@ -95,14 +93,17 @@ export default function Navbar() {
           </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
             {/* Notifications */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative" data-testid="notifications-btn">
                   <Bell className="w-5 h-5" />
                   {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-black text-xs rounded-full flex items-center justify-center font-bold">
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-bold">
                       {notifications.length}
                     </span>
                   )}
@@ -193,7 +194,7 @@ export default function Navbar() {
                 }}
                 className={`w-full justify-start ${
                   isActive(link.path) 
-                    ? 'bg-secondary text-white' 
+                    ? 'bg-secondary text-foreground' 
                     : 'text-muted-foreground'
                 }`}
               >

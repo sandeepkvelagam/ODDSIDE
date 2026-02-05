@@ -11,6 +11,7 @@ import {
   Wallet, Target, Clock
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import Logo from "@/components/Logo";
 
 export default function Dashboard() {
   const { user } = useAuth();

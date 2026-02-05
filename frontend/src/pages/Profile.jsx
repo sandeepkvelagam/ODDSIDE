@@ -11,6 +11,7 @@ import {
   DollarSign, Target, LogOut, ArrowLeft
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import Logo from "@/components/Logo";
 
 export default function Profile() {
   const navigate = useNavigate();

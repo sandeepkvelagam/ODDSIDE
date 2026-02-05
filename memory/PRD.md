@@ -1,8 +1,8 @@
-# PokerNight PRD - Implementation Status
+# ODDSIDE PRD - Implementation Status
 
 ## Original Problem Statement
-Build PokerNight - a behavioral ledger app for home poker games following PRD v2.1.
-"Your Home Game. Your Ledger. Your Edge."
+Build ODDSIDE (formerly PokerNight) - a behavioral ledger app for home poker games.
+**Tagline: "Track. Settle. Dominate."**
 
 ## User Personas
 1. **Solo Player** - Logs personal sessions, tracks individual stats

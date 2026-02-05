@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, X, Lock } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
+const API = process.env.REACT_APP_BACKEND_URL + "/api";
+
 export default function Settlement() {
   const { gameId } = useParams();
   const navigate = useNavigate();

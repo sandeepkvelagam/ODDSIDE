@@ -1256,45 +1256,57 @@ async def cash_out(game_id: str, data: CashOutRequest, user: User = Depends(get_
         "cash_out_amount": cash_out_amount,
         "net_result": net_result
     }
-    
-    await db.players.update_one(
-        {"game_id": game_id, "user_id": user.user_id},
-        {"$set": {
-            "cash_out": data.amount,
-            "net_result": net_result
-        }}
-    )
-    
-    return {"message": "Cash-out recorded", "net_result": net_result}
 
 # ============== SETTLEMENT ENDPOINTS ==============
 
 @api_router.post("/games/{game_id}/settle")
 async def generate_settlement(game_id: str, user: User = Depends(get_current_user)):
-    """Generate settlement (host only)."""
+    """Generate settlement (host/admin only). Validates all players cashed out."""
     game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
-    if game["host_id"] != user.user_id:
-        raise HTTPException(status_code=403, detail="Only host can generate settlement")
+    # Check host or admin
+    is_host = game["host_id"] == user.user_id
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not is_host and (not membership or membership["role"] != "admin"):
+        raise HTTPException(status_code=403, detail="Only host or admin can generate settlement")
     
     if game["status"] not in ["ended", "settled"]:
         raise HTTPException(status_code=400, detail="Game must be ended first")
     
-    # Get players with results
-    players = await db.players.find(
-        {"game_id": game_id, "cash_out": {"$ne": None}},
+    # Get all players with buy-ins
+    all_players = await db.players.find(
+        {"game_id": game_id, "total_buy_in": {"$gt": 0}},
         {"_id": 0}
     ).to_list(100)
     
-    if not players:
-        raise HTTPException(status_code=400, detail="No players have cashed out")
+    if not all_players:
+        raise HTTPException(status_code=400, detail="No players with buy-ins found")
+    
+    # Check that ALL players with buy-ins have cashed out
+    not_cashed_out = [p for p in all_players if p.get("cash_out") is None]
+    if not_cashed_out:
+        player_names = []
+        for p in not_cashed_out:
+            u = await db.users.find_one({"user_id": p["user_id"]}, {"_id": 0, "name": 1})
+            player_names.append(u["name"] if u else "Unknown")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"All players must cash out before settlement. Waiting for: {', '.join(player_names)}"
+        )
+    
+    # Validate chip count (optional warning)
+    total_distributed = game.get("total_chips_distributed", 0)
+    total_returned = sum(p.get("chips_returned", 0) for p in all_players)
+    chip_discrepancy = total_distributed - total_returned
     
     # Simple settlement algorithm (debt minimization)
-    # Separate winners and losers
-    winners = [(p["user_id"], p["net_result"]) for p in players if p.get("net_result", 0) > 0]
-    losers = [(p["user_id"], -p["net_result"]) for p in players if p.get("net_result", 0) < 0]
+    winners = [(p["user_id"], p["net_result"]) for p in all_players if p.get("net_result", 0) > 0]
+    losers = [(p["user_id"], -p["net_result"]) for p in all_players if p.get("net_result", 0) < 0]
     
     settlements = []
     

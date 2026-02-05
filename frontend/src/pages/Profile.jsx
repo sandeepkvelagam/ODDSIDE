@@ -16,7 +16,7 @@ const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [stats, setStats] = useState(null);
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,8 +28,8 @@ export default function Profile() {
   const fetchData = async () => {
     try {
       const [statsRes, balancesRes] = await Promise.all([
-        axios.get(`${API}/stats/me`),
-        axios.get(`${API}/ledger/balances`)
+        axios.get(`${API}/stats/me`, { withCredentials: true }),
+        axios.get(`${API}/ledger/balances`, { withCredentials: true })
       ]);
       setStats(statsRes.data);
       setBalances(balancesRes.data);
@@ -42,11 +42,10 @@ export default function Profile() {
 
   const handleLogout = async () => {
     try {
-      await axios.post(`${API}/auth/logout`);
+      await signOut();
       toast.success("Logged out");
       navigate("/");
     } catch (error) {
-      // Still navigate even if API fails
       navigate("/");
     }
   };

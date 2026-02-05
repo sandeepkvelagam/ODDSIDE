@@ -1118,13 +1118,21 @@ async def join_game(game_id: str, user: User = Depends(get_current_user)):
 
 @api_router.post("/games/{game_id}/buy-in")
 async def add_buy_in(game_id: str, data: BuyInRequest, user: User = Depends(get_current_user)):
-    """Add a buy-in for current user."""
+    """Add a buy-in for current user. Tracks chips received."""
     game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
     if game["status"] != "active":
         raise HTTPException(status_code=400, detail="Game not active")
+    
+    # Calculate chips based on game settings
+    chip_value = game.get("chip_value", 1.0)
+    chips_per_buy_in = game.get("chips_per_buy_in", 20)
+    buy_in_amount = game.get("buy_in_amount", 20.0)
+    
+    # Calculate chips to give (based on amount paid vs standard buy-in)
+    chips = data.chips if data.chips else int((data.amount / buy_in_amount) * chips_per_buy_in)
     
     # Check if player exists
     player = await db.players.find_one(
@@ -1138,34 +1146,56 @@ async def add_buy_in(game_id: str, data: BuyInRequest, user: User = Depends(get_
             game_id=game_id,
             user_id=user.user_id,
             rsvp_status="yes",
-            total_buy_in=0
+            total_buy_in=0,
+            total_chips=0
         )
-        await db.players.insert_one(player_doc.model_dump())
-        player = player_doc.model_dump()
+        player_dict = player_doc.model_dump()
+        player_dict["joined_at"] = player_dict["joined_at"].isoformat()
+        await db.players.insert_one(player_dict)
+        player = player_dict
     
-    # Create transaction
+    # Create transaction with chip info
     txn = Transaction(
         game_id=game_id,
         user_id=user.user_id,
         type="buy_in",
-        amount=data.amount
+        amount=data.amount,
+        chips=chips,
+        chip_value=chip_value
     )
     txn_dict = txn.model_dump()
     txn_dict["timestamp"] = txn_dict["timestamp"].isoformat()
     await db.transactions.insert_one(txn_dict)
     
-    # Update player total
-    new_total = player.get("total_buy_in", 0) + data.amount
+    # Update player totals
+    new_total_buy_in = player.get("total_buy_in", 0) + data.amount
+    new_total_chips = player.get("total_chips", 0) + chips
+    
     await db.players.update_one(
         {"game_id": game_id, "user_id": user.user_id},
-        {"$set": {"total_buy_in": new_total}}
+        {"$set": {
+            "total_buy_in": new_total_buy_in,
+            "total_chips": new_total_chips
+        }}
     )
     
-    return {"message": "Buy-in added", "total_buy_in": new_total}
+    # Update game's total chips distributed
+    await db.game_nights.update_one(
+        {"game_id": game_id},
+        {"$inc": {"total_chips_distributed": chips}}
+    )
+    
+    return {
+        "message": "Buy-in added",
+        "total_buy_in": new_total_buy_in,
+        "total_chips": new_total_chips,
+        "chips_received": chips,
+        "chip_value": chip_value
+    }
 
 @api_router.post("/games/{game_id}/cash-out")
 async def cash_out(game_id: str, data: CashOutRequest, user: User = Depends(get_current_user)):
-    """Record cash-out for current user."""
+    """Record cash-out for current user. Calculates winnings based on chips returned."""
     game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -1181,19 +1211,51 @@ async def cash_out(game_id: str, data: CashOutRequest, user: User = Depends(get_
     if not player:
         raise HTTPException(status_code=400, detail="Not a player in this game")
     
+    if player.get("cash_out") is not None:
+        raise HTTPException(status_code=400, detail="Already cashed out")
+    
+    # Calculate cash value of chips returned
+    chip_value = game.get("chip_value", 1.0)
+    cash_out_amount = data.chips_returned * chip_value
+    
+    # Calculate net result
+    net_result = cash_out_amount - player.get("total_buy_in", 0)
+    
     # Create transaction
     txn = Transaction(
         game_id=game_id,
         user_id=user.user_id,
         type="cash_out",
-        amount=data.amount
+        amount=cash_out_amount,
+        chips=data.chips_returned,
+        chip_value=chip_value
     )
     txn_dict = txn.model_dump()
     txn_dict["timestamp"] = txn_dict["timestamp"].isoformat()
     await db.transactions.insert_one(txn_dict)
     
-    # Calculate net result
-    net_result = data.amount - player.get("total_buy_in", 0)
+    await db.players.update_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"$set": {
+            "chips_returned": data.chips_returned,
+            "cash_out": cash_out_amount,
+            "net_result": net_result,
+            "cashed_out_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Update game's total chips returned
+    await db.game_nights.update_one(
+        {"game_id": game_id},
+        {"$inc": {"total_chips_returned": data.chips_returned}}
+    )
+    
+    return {
+        "message": "Cash-out recorded",
+        "chips_returned": data.chips_returned,
+        "cash_out_amount": cash_out_amount,
+        "net_result": net_result
+    }
     
     await db.players.update_one(
         {"game_id": game_id, "user_id": user.user_id},

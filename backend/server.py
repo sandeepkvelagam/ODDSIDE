@@ -653,17 +653,27 @@ async def create_game(data: GameNightCreate, user: User = Depends(get_current_us
     if not membership:
         raise HTTPException(status_code=403, detail="Not a member of this group")
     
+    # Get group settings
+    group = await db.groups.find_one({"group_id": data.group_id}, {"_id": 0})
+    
+    # Calculate chip value
+    chip_value = data.buy_in_amount / data.chips_per_buy_in
+    
     game = GameNight(
         group_id=data.group_id,
         host_id=user.user_id,
         title=data.title,
+        location=data.location,
         scheduled_at=data.scheduled_at,
         status="scheduled" if data.scheduled_at else "active",
-        started_at=None if data.scheduled_at else datetime.now(timezone.utc)
+        started_at=None if data.scheduled_at else datetime.now(timezone.utc),
+        buy_in_amount=data.buy_in_amount,
+        chips_per_buy_in=data.chips_per_buy_in,
+        chip_value=chip_value
     )
     
     game_dict = game.model_dump()
-    for key in ["scheduled_at", "started_at", "ended_at", "created_at"]:
+    for key in ["scheduled_at", "started_at", "ended_at", "created_at", "updated_at"]:
         if game_dict.get(key):
             game_dict[key] = game_dict[key].isoformat()
     
@@ -676,6 +686,7 @@ async def create_game(data: GameNightCreate, user: User = Depends(get_current_us
         rsvp_status="yes"
     )
     player_dict = player.model_dump()
+    player_dict["joined_at"] = player_dict["joined_at"].isoformat()
     await db.players.insert_one(player_dict)
     
     # Notify group members
@@ -683,8 +694,6 @@ async def create_game(data: GameNightCreate, user: User = Depends(get_current_us
         {"group_id": data.group_id, "user_id": {"$ne": user.user_id}},
         {"_id": 0}
     ).to_list(100)
-    
-    group = await db.groups.find_one({"group_id": data.group_id}, {"_id": 0, "name": 1})
     
     for member in members:
         notification = Notification(

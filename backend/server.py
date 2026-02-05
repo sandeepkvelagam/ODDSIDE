@@ -803,22 +803,37 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
 
 @api_router.post("/games/{game_id}/start")
 async def start_game(game_id: str, user: User = Depends(get_current_user)):
-    """Start a scheduled game (host only)."""
+    """Start a scheduled game (host only). Requires minimum 2 players."""
     game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
     if game["host_id"] != user.user_id:
-        raise HTTPException(status_code=403, detail="Only host can start game")
+        # Check if user is admin
+        membership = await db.group_members.find_one(
+            {"group_id": game["group_id"], "user_id": user.user_id, "role": "admin"},
+            {"_id": 0}
+        )
+        if not membership:
+            raise HTTPException(status_code=403, detail="Only host or admin can start game")
     
     if game["status"] != "scheduled":
         raise HTTPException(status_code=400, detail="Game already started or ended")
+    
+    # Check minimum players (at least 2 with RSVP yes)
+    player_count = await db.players.count_documents({
+        "game_id": game_id,
+        "rsvp_status": "yes"
+    })
+    if player_count < 2:
+        raise HTTPException(status_code=400, detail="Minimum 2 players required to start game")
     
     await db.game_nights.update_one(
         {"game_id": game_id},
         {"$set": {
             "status": "active",
-            "started_at": datetime.now(timezone.utc).isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
     
@@ -833,26 +848,51 @@ async def start_game(game_id: str, user: User = Depends(get_current_user)):
     msg_dict["created_at"] = msg_dict["created_at"].isoformat()
     await db.game_threads.insert_one(msg_dict)
     
-    return {"message": "Game started"}
+    return {"message": "Game started", "player_count": player_count}
 
 @api_router.post("/games/{game_id}/end")
 async def end_game(game_id: str, user: User = Depends(get_current_user)):
-    """End an active game (host only)."""
+    """End an active game (host/admin only). Validates all players cashed out."""
     game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
-    if game["host_id"] != user.user_id:
-        raise HTTPException(status_code=403, detail="Only host can end game")
+    # Check host or admin
+    is_host = game["host_id"] == user.user_id
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not is_host and (not membership or membership["role"] != "admin"):
+        raise HTTPException(status_code=403, detail="Only host or admin can end game")
     
     if game["status"] != "active":
         raise HTTPException(status_code=400, detail="Game not active")
+    
+    # Check if all players with buy-ins have cashed out
+    players_with_buyin = await db.players.find({
+        "game_id": game_id,
+        "total_buy_in": {"$gt": 0}
+    }, {"_id": 0}).to_list(100)
+    
+    not_cashed_out = [p for p in players_with_buyin if p.get("cash_out") is None]
+    
+    if not_cashed_out:
+        player_names = []
+        for p in not_cashed_out:
+            u = await db.users.find_one({"user_id": p["user_id"]}, {"_id": 0, "name": 1})
+            player_names.append(u["name"] if u else "Unknown")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"All players must cash out before ending. Waiting for: {', '.join(player_names)}"
+        )
     
     await db.game_nights.update_one(
         {"game_id": game_id},
         {"$set": {
             "status": "ended",
-            "ended_at": datetime.now(timezone.utc).isoformat()
+            "ended_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
     
@@ -868,6 +908,139 @@ async def end_game(game_id: str, user: User = Depends(get_current_user)):
     await db.game_threads.insert_one(msg_dict)
     
     return {"message": "Game ended"}
+
+@api_router.put("/games/{game_id}")
+async def update_game(game_id: str, data: GameNightUpdate, user: User = Depends(get_current_user)):
+    """Update game details (host/admin only)."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Check host or admin
+    is_host = game["host_id"] == user.user_id
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not is_host and (not membership or membership["role"] != "admin"):
+        raise HTTPException(status_code=403, detail="Only host or admin can update game")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if "scheduled_at" in update_data and update_data["scheduled_at"]:
+        update_data["scheduled_at"] = update_data["scheduled_at"].isoformat()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    if update_data:
+        await db.game_nights.update_one({"game_id": game_id}, {"$set": update_data})
+    
+    return {"message": "Game updated"}
+
+@api_router.post("/games/{game_id}/cancel")
+async def cancel_game(game_id: str, data: CancelGameRequest, user: User = Depends(get_current_user)):
+    """Cancel a game (host/admin only)."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Check host or admin
+    is_host = game["host_id"] == user.user_id
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not is_host and (not membership or membership["role"] != "admin"):
+        raise HTTPException(status_code=403, detail="Only host or admin can cancel game")
+    
+    if game["status"] in ["settled", "cancelled"]:
+        raise HTTPException(status_code=400, detail="Game already settled or cancelled")
+    
+    await db.game_nights.update_one(
+        {"game_id": game_id},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_by": user.user_id,
+            "cancel_reason": data.reason,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Add system message
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"Game cancelled. Reason: {data.reason or 'No reason provided'}",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {"message": "Game cancelled"}
+
+@api_router.post("/games/{game_id}/add-player")
+async def add_player_to_game(game_id: str, data: AddPlayerRequest, user: User = Depends(get_current_user)):
+    """Add a player to an active game (host/admin only)."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Check host or admin
+    is_host = game["host_id"] == user.user_id
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not is_host and (not membership or membership["role"] != "admin"):
+        raise HTTPException(status_code=403, detail="Only host or admin can add players")
+    
+    if game["status"] not in ["active", "scheduled"]:
+        raise HTTPException(status_code=400, detail="Can only add players to active or scheduled games")
+    
+    # Check max players (20)
+    current_players = await db.players.count_documents({"game_id": game_id})
+    if current_players >= 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 players per game")
+    
+    # Check if player is a group member
+    is_group_member = await db.group_members.find_one({
+        "group_id": game["group_id"],
+        "user_id": data.user_id
+    }, {"_id": 0})
+    if not is_group_member:
+        raise HTTPException(status_code=400, detail="User must be a group member")
+    
+    # Check if already a player
+    existing = await db.players.find_one({
+        "game_id": game_id,
+        "user_id": data.user_id
+    }, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="User already in game")
+    
+    player = Player(
+        game_id=game_id,
+        user_id=data.user_id,
+        rsvp_status="yes"
+    )
+    player_dict = player.model_dump()
+    player_dict["joined_at"] = player_dict["joined_at"].isoformat()
+    await db.players.insert_one(player_dict)
+    
+    # Get user name for message
+    added_user = await db.users.find_one({"user_id": data.user_id}, {"_id": 0, "name": 1})
+    
+    # Add system message
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"{added_user['name'] if added_user else 'Player'} joined the game",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {"message": "Player added"}
 
 @api_router.post("/games/{game_id}/rsvp")
 async def rsvp_game(game_id: str, data: RSVPRequest, user: User = Depends(get_current_user)):

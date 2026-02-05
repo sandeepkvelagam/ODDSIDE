@@ -1,17 +1,12 @@
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { 
   Users, TrendingUp, Shield, Zap, Clock, Lock,
-  ChevronRight, Star, Check, ArrowRight
+  ChevronRight, Star, Check, ArrowRight, Play
 } from "lucide-react";
-
-// REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-const handleLogin = () => {
-  const redirectUrl = window.location.origin + "/dashboard";
-  window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-};
 
 const features = [
   {
@@ -77,6 +72,13 @@ const comparisons = [
   { feature: "Free to use", oddside: true, others: true }
 ];
 
+const howItWorks = [
+  { step: "1", title: "Create Group", description: "Invite your poker buddies" },
+  { step: "2", title: "Start Game", description: "One tap to begin tracking" },
+  { step: "3", title: "Log Results", description: "Buy-ins & cash-outs in seconds" },
+  { step: "4", title: "Auto-Settle", description: "Smart debt minimization" }
+];
+
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background">
@@ -87,14 +89,23 @@ export default function Landing() {
             <Logo />
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              <Button 
-                data-testid="login-btn"
-                onClick={handleLogin}
-                variant="outline"
-                className="border-border hover:bg-secondary"
-              >
-                Sign In
-              </Button>
+              <Link to="/login">
+                <Button 
+                  data-testid="login-btn"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Sign In
+                </Button>
+              </Link>
+              <Link to="/signup">
+                <Button 
+                  data-testid="signup-btn"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  Get Started
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -103,16 +114,16 @@ export default function Landing() {
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         {/* Gradient background - adapts to theme */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent dark:from-primary/5 dark:via-background dark:to-background" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 dark:bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-6 border border-primary/20">
               <Zap className="w-4 h-4" />
               The smarter way to track home games
             </div>
-            <h1 className="font-heading text-5xl md:text-7xl font-black tracking-tighter uppercase mb-6">
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
               Track. Settle.
               <span className="text-primary block">Dominate.</span>
             </h1>
@@ -121,15 +132,16 @@ export default function Landing() {
               No spreadsheets. No arguments. Just poker.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button 
-                data-testid="get-started-btn"
-                onClick={handleLogin}
-                size="lg"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 h-14 px-10 rounded-full font-bold tracking-wide shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all hover:scale-105 text-lg"
-              >
-                Get Started Free
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
+              <Link to="/signup">
+                <Button 
+                  data-testid="get-started-btn"
+                  size="lg"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 h-14 px-10 rounded-lg font-bold tracking-wide shadow-[0_0_30px_rgba(255,112,67,0.3)] transition-all hover:scale-105 text-lg"
+                >
+                  Get Started Free
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
               <p className="text-sm text-muted-foreground">
                 No credit card required
               </p>
@@ -138,11 +150,40 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-24 bg-secondary/30">
+      {/* How It Works Section */}
+      <section className="py-20 border-t border-border/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="font-heading text-3xl md:text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
+              HOW IT WORKS
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              From group creation to settlement in just 4 simple steps.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {howItWorks.map((item, idx) => (
+              <div key={idx} className="text-center relative">
+                <div className="w-14 h-14 bg-primary text-primary-foreground rounded-xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                  {item.step}
+                </div>
+                <h3 className="font-bold text-lg mb-2">{item.title}</h3>
+                <p className="text-muted-foreground text-sm">{item.description}</p>
+                {idx < howItWorks.length - 1 && (
+                  <ChevronRight className="hidden md:block absolute top-6 -right-4 w-8 h-8 text-muted-foreground/30" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-24 bg-secondary/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
               EVERYTHING YOU NEED
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
@@ -160,7 +201,7 @@ export default function Landing() {
                   <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
                     <feature.icon className="w-6 h-6 text-primary" />
                   </div>
-                  <h3 className="font-heading text-xl font-bold mb-2">{feature.title}</h3>
+                  <h3 className="font-bold text-xl mb-2">{feature.title}</h3>
                   <p className="text-muted-foreground">{feature.description}</p>
                 </CardContent>
               </Card>
@@ -173,7 +214,7 @@ export default function Landing() {
       <section className="py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="font-heading text-3xl md:text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
               WHY ODDSIDE?
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
@@ -185,9 +226,9 @@ export default function Landing() {
             <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
               {/* Header */}
               <div className="grid grid-cols-3 bg-secondary/50 p-4">
-                <div className="font-heading font-bold">Feature</div>
-                <div className="font-heading font-bold text-center text-primary">ODDSIDE</div>
-                <div className="font-heading font-bold text-center text-muted-foreground">Spreadsheets</div>
+                <div className="font-bold">Feature</div>
+                <div className="font-bold text-center text-primary">ODDSIDE</div>
+                <div className="font-bold text-center text-muted-foreground">Spreadsheets</div>
               </div>
               {/* Rows */}
               {comparisons.map((row, idx) => (
@@ -226,10 +267,10 @@ export default function Landing() {
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-24 bg-secondary/30">
+      <section className="py-24 bg-secondary/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="font-heading text-3xl md:text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
               TRUSTED BY PLAYERS
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
@@ -267,20 +308,21 @@ export default function Landing() {
       <section className="py-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <Logo size="large" className="justify-center mb-8" />
-          <h2 className="font-heading text-3xl md:text-5xl font-bold tracking-tight mb-6">
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
             Ready to up your game?
           </h2>
           <p className="text-xl text-muted-foreground mb-10">
             Join the platform that takes the hassle out of home games.
           </p>
-          <Button 
-            onClick={handleLogin}
-            size="lg"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 h-14 px-10 rounded-full font-bold tracking-wide shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all hover:scale-105 text-lg"
-          >
-            Start Tracking Free
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
+          <Link to="/signup">
+            <Button 
+              size="lg"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 h-14 px-10 rounded-lg font-bold tracking-wide shadow-[0_0_30px_rgba(255,112,67,0.3)] transition-all hover:scale-105 text-lg"
+            >
+              Start Tracking Free
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </Link>
         </div>
       </section>
 
@@ -299,7 +341,7 @@ export default function Landing() {
             
             {/* Links */}
             <div>
-              <h4 className="font-heading font-bold mb-4">Legal</h4>
+              <h4 className="font-bold mb-4">Legal</h4>
               <ul className="space-y-2 text-sm">
                 <li>
                   <a href="#privacy" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -320,7 +362,7 @@ export default function Landing() {
             </div>
             
             <div>
-              <h4 className="font-heading font-bold mb-4">Support</h4>
+              <h4 className="font-bold mb-4">Support</h4>
               <ul className="space-y-2 text-sm">
                 <li>
                   <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors">

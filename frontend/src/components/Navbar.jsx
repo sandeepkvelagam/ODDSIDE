@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
-import { API, useAuth } from "@/App";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -15,10 +15,12 @@ import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Home, Users, Bell, User, LogOut, Menu, X } from "lucide-react";
 
+const API = process.env.REACT_APP_BACKEND_URL + "/api";
+
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -28,7 +30,7 @@ export default function Navbar() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await axios.get(`${API}/notifications`);
+      const response = await axios.get(`${API}/notifications`, { withCredentials: true });
       setNotifications(response.data.filter(n => !n.read));
     } catch (error) {
       // Silently fail
@@ -37,7 +39,7 @@ export default function Navbar() {
 
   const handleMarkAllRead = async () => {
     try {
-      await axios.put(`${API}/notifications/read-all`);
+      await axios.put(`${API}/notifications/read-all`, {}, { withCredentials: true });
       setNotifications([]);
     } catch (error) {
       // Silently fail
@@ -46,7 +48,7 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
-      await axios.post(`${API}/auth/logout`);
+      await signOut();
       navigate("/");
     } catch (error) {
       navigate("/");
@@ -81,7 +83,7 @@ export default function Navbar() {
                 onClick={() => navigate(link.path)}
                 className={`${
                   isActive(link.path) 
-                    ? 'bg-secondary text-foreground' 
+                    ? 'bg-primary/10 text-primary' 
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
                 data-testid={`nav-${link.label.toLowerCase()}`}
@@ -111,7 +113,7 @@ export default function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-80 bg-card border-border">
                 <div className="flex items-center justify-between px-4 py-2">
-                  <span className="font-heading font-bold">Notifications</span>
+                  <span className="font-bold">Notifications</span>
                   {notifications.length > 0 && (
                     <Button 
                       variant="ghost" 
@@ -147,7 +149,7 @@ export default function Navbar() {
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full" data-testid="user-menu-btn">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={user?.picture} />
-                    <AvatarFallback>{user?.name?.[0] || '?'}</AvatarFallback>
+                    <AvatarFallback className="bg-primary/20 text-primary">{user?.name?.[0] || '?'}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
@@ -194,7 +196,7 @@ export default function Navbar() {
                 }}
                 className={`w-full justify-start ${
                   isActive(link.path) 
-                    ? 'bg-secondary text-foreground' 
+                    ? 'bg-primary/10 text-primary' 
                     : 'text-muted-foreground'
                 }`}
               >

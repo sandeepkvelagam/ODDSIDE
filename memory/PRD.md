@@ -29,6 +29,18 @@ Build ODDSIDE (formerly PokerNight) - a behavioral ledger app for home poker gam
 
 ### Date: Feb 5, 2026
 
+### Rebranding Complete
+- [x] Name: ODDSIDE with tagline "Track. Settle. Dominate."
+- [x] Sharp geometric diamond logo (SVG)
+- [x] Light/Dark theme toggle
+- [x] Full landing page redesign:
+  - Hero section with gradient (no background image)
+  - 6 feature cards
+  - "Why ODDSIDE?" comparison table
+  - Testimonials section with 5-star ratings
+  - CTA section
+  - Footer with Legal & Support links
+
 ### Phase 1 - Foundation (COMPLETE)
 - [x] Auth + Profile (Google OAuth via Emergent)
 - [x] Groups + Roles (admin/member)

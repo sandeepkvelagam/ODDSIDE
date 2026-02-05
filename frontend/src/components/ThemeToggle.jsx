@@ -6,12 +6,9 @@ export const ThemeToggle = () => {
   const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
-    // Check for saved preference or system preference
     const saved = localStorage.getItem("oddside-theme");
     if (saved) {
       setIsDark(saved === "dark");
-    } else {
-      setIsDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
     }
   }, []);
 

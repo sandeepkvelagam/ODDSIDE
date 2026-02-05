@@ -11,13 +11,13 @@ export const Logo = ({ className, size = "default", showText = true }) => {
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      {/* Sharp geometric logo - two overlapping diamonds */}
+      {/* Sharp geometric logo - two overlapping diamonds with orange */}
       <div className={cn("relative", icon)}>
         <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           {/* Background diamond */}
           <path 
             d="M20 2L38 20L20 38L2 20L20 2Z" 
-            className="fill-primary"
+            fill="#FF7043"
           />
           {/* Inner cut - creating depth */}
           <path 
@@ -27,12 +27,12 @@ export const Logo = ({ className, size = "default", showText = true }) => {
           {/* Center accent */}
           <path 
             d="M20 14L26 20L20 26L14 20L20 14Z" 
-            className="fill-primary"
+            fill="#FF7043"
           />
         </svg>
       </div>
       {showText && (
-        <span className={cn("font-heading font-black tracking-tighter", text)}>
+        <span className={cn("font-heading font-bold tracking-tight", text)}>
           ODDSIDE
         </span>
       )}

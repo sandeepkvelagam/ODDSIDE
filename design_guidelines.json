@@ -1,0 +1,156 @@
+{
+  "identity": {
+    "name": "PokerNight",
+    "persona": "The High-Stakes Lounge",
+    "vibe": "Cinematic, Moody, Tactile, Precision",
+    "description": "A behavioral ledger for home games. Not a casino app, but a pro-tool for friends."
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Barlow Condensed, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "weights": {
+      "headings": "700 (Bold) or 900 (Black)",
+      "body": "400 (Regular) or 500 (Medium)"
+    },
+    "sizes": {
+      "h1": "text-5xl md:text-7xl tracking-tighter uppercase",
+      "h2": "text-3xl md:text-4xl tracking-tight",
+      "h3": "text-xl md:text-2xl font-bold",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-muted-foreground",
+      "tiny": "text-xs uppercase tracking-widest"
+    },
+    "installation": "Import fonts via Google Fonts in index.css: @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400&display=swap');"
+  },
+  "colors": {
+    "theme": "dark",
+    "palette": {
+      "background": "#09090B",
+      "foreground": "#FAFAFA",
+      "card": "#121212",
+      "card_foreground": "#FFFFFF",
+      "popover": "#121212",
+      "popover_foreground": "#FFFFFF",
+      "primary": "#10B981",
+      "primary_foreground": "#000000",
+      "secondary": "#27272A",
+      "secondary_foreground": "#FAFAFA",
+      "muted": "#27272A",
+      "muted_foreground": "#A1A1AA",
+      "accent": "#27272A",
+      "accent_foreground": "#FAFAFA",
+      "destructive": "#EF4444",
+      "destructive_foreground": "#FAFAFA",
+      "border": "#27272A",
+      "input": "#27272A",
+      "ring": "#10B981"
+    },
+    "semantic": {
+      "win": "#10B981",
+      "loss": "#EF4444",
+      "neutral": "#A1A1AA",
+      "chip_red": "#EF4444",
+      "chip_blue": "#3B82F6",
+      "chip_white": "#F3F4F6",
+      "chip_black": "#1F2937"
+    },
+    "gradients": {
+      "hero_glow": "radial-gradient(circle at center, rgba(16, 185, 129, 0.15) 0%, rgba(9, 9, 11, 0) 70%)",
+      "card_shimmer": "linear-gradient(110deg, #121212 8%, #1e1e1e 18%, #121212 33%)"
+    }
+  },
+  "visual_enhancers": {
+    "texture": "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E\")",
+    "glassmorphism": "backdrop-blur-xl bg-black/60 border border-white/10 shadow-2xl",
+    "borders": "1px solid rgba(255,255,255,0.08)",
+    "shadows": {
+      "card": "0 8px 32px rgba(0, 0, 0, 0.4)",
+      "glow": "0 0 20px rgba(16, 185, 129, 0.3)"
+    },
+    "radius": "rounded-xl"
+  },
+  "layout_strategy": {
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "spacing": {
+      "section": "py-24 md:py-32",
+      "component": "p-6 md:p-8",
+      "gap": "gap-6 md:gap-8"
+    },
+    "grids": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-12 gap-6",
+      "ledger": "grid grid-cols-1 gap-4"
+    },
+    "bento_slots": {
+      "hero": "col-span-1 md:col-span-8 row-span-2",
+      "sidebar": "col-span-1 md:col-span-4 row-span-2",
+      "stat_card": "col-span-1 md:col-span-4"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-8 rounded-full font-bold tracking-wide shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all hover:scale-105",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/80 h-12 px-6 rounded-lg font-medium border border-white/5",
+      "ghost": "hover:bg-white/5 text-muted-foreground hover:text-white"
+    },
+    "cards": {
+      "base": "bg-card text-card-foreground border border-border/50 shadow-lg relative overflow-hidden group",
+      "hover_effect": "hover:border-primary/50 transition-colors duration-300"
+    },
+    "inputs": {
+      "base": "bg-input/50 border-transparent focus:border-primary focus:ring-1 focus:ring-primary h-12 text-lg"
+    },
+    "modals": {
+      "overlay": "bg-black/80 backdrop-blur-sm",
+      "content": "bg-[#0A0A0A] border border-white/10 shadow-2xl sm:rounded-2xl"
+    }
+  },
+  "motion": {
+    "libraries": ["framer-motion"],
+    "transitions": {
+      "default": "transition-all duration-300 ease-out",
+      "page_load": "initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}"
+    },
+    "micro_interactions": {
+      "hover_lift": "hover:-translate-y-1",
+      "button_press": "active:scale-95"
+    }
+  },
+  "image_urls": {
+    "hero_bg": {
+      "url": "https://images.unsplash.com/photo-1674645164141-00b6ef3047b2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODh8MHwxfHNlYXJjaHwxfHxmcmllbmRzJTIwcGxheWluZyUyMHBva2VyJTIwaG9tZSUyMGdhbWUlMjBtb29keXxlbnwwfHx8fDE3NzAzMzA3ODJ8MA&ixlib=rb-4.1.0&q=85",
+      "desc": "Friends playing poker, moody lighting. Use with heavy overlay for Hero background."
+    },
+    "chips_texture": {
+      "url": "https://images.unsplash.com/photo-1626200492328-cb7f48fe6adc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzV8MHwxfHNlYXJjaHwxfHxwb2tlciUyMGNoaXBzJTIwZGFyayUyMGJhY2tncm91bmQlMjBjaW5lbWF0aWN8ZW58MHx8fHwxNzcwMzMwNzc3fDA&ixlib=rb-4.1.0&q=85",
+      "desc": "Close up of chips/cards. Use for 'Buy In' modal or decorative elements."
+    },
+    "cards_scatter": {
+      "url": "https://images.unsplash.com/photo-1760814531987-4dade60826eb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzV8MHwxfHNlYXJjaHwzfHxwb2tlciUyMGNoaXBzJTIwZGFyayUyMGJhY2tncm91bmQlMjBjaW5lbWF0aWN8ZW58MHx8fHwxNzcwMzMwNzc3fDA&ixlib=rb-4.1.0&q=85",
+      "desc": "Cards in air. Use for 'Game Night' active state or success screens."
+    }
+  },
+  "accessibility": {
+    "contrast": "Ensure all text meets WCAG AA (4.5:1). Use 'text-white' on dark backgrounds, 'text-black' on primary buttons.",
+    "focus_states": "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    "reduced_motion": "Respect prefers-reduced-motion media query."
+  },
+  "testing": {
+    "attribute": "data-testid",
+    "format": "kebab-case",
+    "examples": ["login-submit-btn", "ledger-row-user-123", "buy-in-modal-trigger"]
+  },
+  "universal_guidelines": [
+    "DO NOT use gradients for text.",
+    "DO NOT use 'Inter' for headings. Use 'Barlow Condensed'.",
+    "DO NOT use transparent backgrounds for dropdowns/modals. Use solid dark colors with borders.",
+    "ALWAYS add 'data-testid' to interactive elements.",
+    "Use 'sonner' for toasts.",
+    "Use 'lucide-react' for icons.",
+    "Components must be .js or .jsx (not .ts/.tsx).",
+    "Use 'export const ComponentName' for components, 'export default function PageName' for pages."
+  ],
+  "instructions_to_main_agent": "You are building the frontend for PokerNight. Start by setting up the global CSS variables in index.css to match the 'colors' section. Then, customize the tailwind.config.js. When building pages, strictly follow the 'layout_strategy' (Bento Grids). Use the provided image URLs for the Landing Page and Dashboard. For the 'Game Night' mode, prioritize the '30-second rule' - make buttons large, inputs auto-focus, and minimize clicks. Implement the 'Groups Hub' and 'Settlement Engine' views using the 'High Density' grid mode."
+}

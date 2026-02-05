@@ -63,7 +63,10 @@ class Group(BaseModel):
     created_by: str  # user_id
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     default_buy_in: float = 20.0
+    default_chip_value: float = 1.0  # Value per chip (e.g., $1 per chip)
+    chips_per_buy_in: int = 20  # Number of chips per buy-in
     currency: str = "USD"
+    max_players: int = 20
 
 class GroupMember(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -80,12 +83,21 @@ class GameNight(BaseModel):
     group_id: str
     host_id: str  # user_id
     title: Optional[str] = None
+    location: Optional[str] = None  # e.g., "Host's place"
     scheduled_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
-    status: str = "scheduled"  # scheduled, active, ended, settled
+    status: str = "scheduled"  # scheduled, active, ended, settled, cancelled
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: Optional[datetime] = None
     is_finalized: bool = False
+    chip_value: float = 1.0  # Value per chip for this game
+    chips_per_buy_in: int = 20  # Chips given per buy-in
+    buy_in_amount: float = 20.0  # Dollar amount per buy-in
+    total_chips_distributed: int = 0  # Track total chips in play
+    total_chips_returned: int = 0  # Track chips returned
+    cancelled_by: Optional[str] = None
+    cancel_reason: Optional[str] = None
 
 class Player(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -93,18 +105,25 @@ class Player(BaseModel):
     game_id: str
     user_id: str
     total_buy_in: float = 0.0
+    total_chips: int = 0  # Total chips received
+    chips_returned: Optional[int] = None  # Chips returned at end
     cash_out: Optional[float] = None
     net_result: Optional[float] = None
     rsvp_status: str = "pending"  # pending, yes, maybe, no
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    cashed_out_at: Optional[datetime] = None
 
 class Transaction(BaseModel):
     model_config = ConfigDict(extra="ignore")
     transaction_id: str = Field(default_factory=lambda: f"txn_{uuid.uuid4().hex[:12]}")
     game_id: str
     user_id: str
-    type: str  # buy_in, cash_out
+    type: str  # buy_in, cash_out, rebuy
     amount: float
+    chips: int = 0  # Number of chips involved
+    chip_value: float = 1.0  # Value per chip at time of transaction
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    notes: Optional[str] = None
 
 class LedgerEntry(BaseModel):
     model_config = ConfigDict(extra="ignore")

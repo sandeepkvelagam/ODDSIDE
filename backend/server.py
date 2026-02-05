@@ -178,24 +178,35 @@ class SessionRequest(BaseModel):
 class GroupCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    default_buy_in: float = 20.0
+    default_buy_in: float = 20.0  # Must be one of: 5, 10, 20, 50, 100
+    chips_per_buy_in: int = 20
     currency: str = "USD"
 
 class GroupUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     default_buy_in: Optional[float] = None
+    chips_per_buy_in: Optional[int] = None
 
 class GameNightCreate(BaseModel):
     group_id: str
     title: Optional[str] = None
+    location: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+    buy_in_amount: float = 20.0
+    chips_per_buy_in: int = 20
+
+class GameNightUpdate(BaseModel):
+    title: Optional[str] = None
+    location: Optional[str] = None
     scheduled_at: Optional[datetime] = None
 
 class BuyInRequest(BaseModel):
     amount: float
+    chips: Optional[int] = None  # If not provided, calculated from game settings
 
 class CashOutRequest(BaseModel):
-    amount: float
+    chips_returned: int  # Number of chips being returned
 
 class RSVPRequest(BaseModel):
     status: str  # yes, maybe, no
@@ -212,6 +223,12 @@ class LedgerEditRequest(BaseModel):
 
 class InviteMemberRequest(BaseModel):
     email: str
+
+class AddPlayerRequest(BaseModel):
+    user_id: str
+
+class CancelGameRequest(BaseModel):
+    reason: Optional[str] = None
 
 # ============== AUTH HELPERS ==============
 

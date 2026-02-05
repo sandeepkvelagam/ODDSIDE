@@ -1,8 +1,21 @@
 # ODDSIDE PRD - Implementation Status
 
 ## Original Problem Statement
-Build ODDSIDE (formerly PokerNight) - a behavioral ledger app for home poker games.
+Build ODDSIDE - a behavioral ledger app for home poker games.
 **Tagline: "Track. Settle. Dominate."**
+
+## Latest Update: Feb 5, 2026
+
+### Auth System
+- **Supabase Auth** (email/password) - ready for configuration
+- Login and Signup pages with form validation
+- JWT token verification on backend
+- Fallback cookie-based auth for backward compatibility
+
+### Design System
+- **Color Scheme**: Dark theme with orange accent (#FF7043)
+- **Font**: Inter (clean, modern sans-serif)
+- **Logo**: Sharp geometric diamond in orange
 
 ## User Personas
 1. **Solo Player** - Logs personal sessions, tracks individual stats

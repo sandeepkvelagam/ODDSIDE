@@ -11,7 +11,6 @@ import { Plus, Users, ChevronRight, DollarSign } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
-import Navbar from "@/components/Navbar";
 
 export default function Groups() {
   const navigate = useNavigate();

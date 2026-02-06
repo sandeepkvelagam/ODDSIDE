@@ -114,7 +114,7 @@ export default function Signup() {
         <Card className="w-full max-w-md bg-card border-border" data-testid="signup-card">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-            <CardDescription>Join ODDSIDE and start tracking your games</CardDescription>
+            <CardDescription>Join Kvitt and start tracking your games</CardDescription>
           </CardHeader>
           <CardContent>
             {error && (

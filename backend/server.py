@@ -270,6 +270,12 @@ class AddPlayerRequest(BaseModel):
 class CancelGameRequest(BaseModel):
     reason: Optional[str] = None
 
+class SearchUsersRequest(BaseModel):
+    query: str  # Search by name or email
+
+class RespondToInviteRequest(BaseModel):
+    accept: bool
+
 # ============== AUTH HELPERS ==============
 
 async def verify_supabase_jwt(token: str) -> dict:

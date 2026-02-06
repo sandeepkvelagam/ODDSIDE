@@ -16,14 +16,17 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - **Color Scheme**: Dark theme with orange accent (#FF7043)
 - **Font**: Inter (clean, modern sans-serif)
 - **Logo**: Sharp geometric diamond in orange
+- **Mobile-first responsive design**
 
 ### Game Features
-- **Buy-in denominations**: $5, $10, $20, $50, $100 (dropdown)
+- **Buy-in denominations**: Fixed $5, $10, $20, $50, $100 options
 - **Chip tracking**: Track chip value and count per player
 - **Player limits**: Min 2 to start, max 20 per game
 - **Add players mid-game**: Host/admin can add players after start
 - **Settlement validation**: All players must cash out before settlement
-- **Admin controls**: Cancel game, edit game name/location/date
+- **Admin-only buy-ins**: Host controls all buy-ins for players
+- **Transaction history**: View all buy-ins per player with expandable details
+- **Poker hand rankings reference**: Built-in sheet for quick reference
 - **Timestamps**: All actions logged with timestamps
 
 ### Database Collections (MongoDB)
@@ -37,7 +40,7 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 ## User Personas
 1. **Solo Player** - Logs personal sessions, tracks individual stats
 2. **Group Member** - Participates in shared ledger, RSVPs to games
-3. **Host (Contextual)** - User who starts a Game Night, controls game flow
+3. **Host (Contextual)** - User who starts a Game Night, controls buy-ins and game flow
 4. **Admin (Structural)** - Group owner with elevated permissions
 
 ## Core Requirements
@@ -46,6 +49,7 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - No Forced Socialization: Full participation without messaging
 - AI Never Auto-Saves Money: All financial data requires confirmation
 - Immutable Ledger: Locked records after settlement with audit trail
+- Host-Controlled Buy-ins: Only host/admin can add buy-ins for players
 
 ## Tech Stack
 - **Frontend**: React 19 + Tailwind CSS + shadcn/ui
@@ -70,92 +74,117 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - [x] Notifications system
 - [x] Game Thread (event-scoped messaging)
 
-### Social & Gamification Features (COMPLETE - December 2025)
-- [x] **User Search**: Search users by name or email (`/api/users/search`)
-- [x] **Invite System**: 
-  - InviteMembers component with search + email invite modes
-  - Works for registered users (sends notification)
-  - Works for non-registered users (invite waits for signup) - **Email sending MOCKED**
-  - PendingInvites component shows incoming invitations
-  - Accept/Reject invite functionality
-- [x] **Badge & Level System**:
-  - 5 Levels: Rookie → Regular → Pro → VIP → Legend
-  - 12 Badges: First Blood, Hot Streak, On Fire, Big Winner, Jackpot, etc.
-  - UserBadges component (full and compact views)
-  - Progress tracking toward next level
-  - Stats display (games, wins, profit, win rate)
+### Social & Gamification Features (COMPLETE)
+- [x] **User Search**: Search users by name or email
+- [x] **Invite System**: InviteMembers with search + email invite
+- [x] **Badge & Level System**: 5 Levels, 12 Badges
+- [x] **PendingInvites**: Dashboard component for incoming invites
+
+### Game Night UI Enhancements (COMPLETE - December 2025)
+- [x] **Mobile-optimized design**: Responsive layout for all screen sizes
+- [x] **Fixed buy-in denominations**: $5, $10, $20, $50, $100 buttons
+- [x] **Host-only buy-ins**: Admin controls all player buy-ins
+- [x] **Chip count display**: Show chips in play at game start
+- [x] **Transaction details**: Expandable history per player showing buy-in count
+- [x] **Cash-out with chips**: Enter chip count, auto-calculates value
+- [x] **Poker hand rankings**: Built-in reference sheet accessible during game
+- [x] **Player notifications**: Notify players when buy-in is added for them
 
 ### Rebranding (COMPLETE)
 - [x] Name: ODDSIDE with tagline "Track. Settle. Dominate."
 - [x] Sharp geometric diamond logo (SVG)
 - [x] Light/Dark theme toggle
-- [x] Full landing page redesign:
-  - Hero section with gradient
-  - 6 feature cards
-  - "Why ODDSIDE?" comparison table
-  - Testimonials section with 5-star ratings
-  - CTA section
-  - Footer with Legal & Support links
+- [x] Full landing page with hero, features, testimonials
 
 ### Pages Implemented
 1. **Landing Page** - Dark poker aesthetic with hero, features, testimonials
-2. **Dashboard** - Net profit, win rate, balance, active games, groups, **pending invites**
+2. **Dashboard** - Net profit, win rate, balance, active games, pending invites
 3. **Groups Management** - Create, view groups
-4. **Group Hub** - Members list, games list, leaderboard, **invite members with search**
-5. **Game Night Mode** - Buy-in/Cash-out buttons, timer, players list, chip bank
+4. **Group Hub** - Members, games, leaderboard, invite with search
+5. **Game Night Mode** - Enhanced mobile-friendly with chip tracking
 6. **Settlement View** - Results, who-owes-whom, mark as paid
-7. **Profile Page** - Stats, financial summary, pending balances, **badges & levels**
+7. **Profile Page** - Stats, badges, levels, financial summary
 8. **Login/Signup** - Supabase email/password auth
 
 ### API Endpoints
 - Auth: `/api/auth/sync-user`, `/api/auth/me`, `/api/auth/logout`
 - Groups: CRUD + invite/remove members
 - Games: CRUD + start/end/join/rsvp/add-player/cancel
-- Transactions: buy-in, cash-out
+- **NEW**: `/api/games/{id}/admin-buy-in` - Host adds buy-in for specific player
+- Transactions: buy-in, cash-out (with chip count)
 - Settlement: generate, mark paid, edit (admin)
 - Stats: personal, group leaderboard
-- Notifications: list, mark read
-- **Social (NEW)**:
-  - `/api/users/search` - Search users by name/email
-  - `/api/users/invites` - Get pending invites for current user
-  - `/api/users/invites/{id}/respond` - Accept/reject invite
-  - `/api/users/me/badges` - Get badges and level progress
-  - `/api/groups/{id}/invite` - Invite by email
-  - `/api/groups/{id}/invites` - List group invites (admin)
+- Social: user search, invites, badges
 
 ---
 
 ## Prioritized Backlog
 
 ### P0 - Critical (Next Sprint)
-- [ ] Privacy Policy and Terms of Use pages (currently anchor links)
-- [ ] Email notification service for invites (SendGrid or Resend)
-- [ ] Verify Supabase auth keys with actual login test
+- [ ] Privacy Policy and Terms of Use pages
+- [ ] Email notification service for invites (SendGrid/Resend)
+- [ ] Verify Supabase auth with actual login test
+- [ ] Add "Request Buy-in" feature for players (notifies host)
 
 ### P1 - High Priority
-- [ ] Enhanced dashboard with player stats visualization
+- [ ] Enhanced dashboard with stats visualization (charts)
 - [ ] RSVP calendar integration for scheduled games
 - [ ] Push notifications (browser)
+- [ ] Player borrowing/lending tracking within game
+- [ ] Game history page with filtering
 
 ### P2 - Medium Priority
 - [ ] Phase 3: Natural language session logging (AI draft)
 - [ ] Phase 3: OCR for chip stacks
 - [ ] Guest/anonymous players support
 - [ ] Shareable game result cards for social media
+- [ ] Light theme improvements
 
 ### P3 - Nice to Have
 - [ ] Apple Sign-In (iOS)
 - [ ] Animated "How It Works" section
 - [ ] Advanced analytics dashboard
 - [ ] Export data to CSV
+- [ ] Integration with Venmo/PayPal for settlements
+
+---
+
+## Future Enhancement Ideas 💡
+
+### Revenue & Growth
+1. **Shareable Game Summary Cards** - Post results to social media for viral growth
+2. **Premium Features** - Advanced analytics, custom chip designs, AI insights
+3. **Referral System** - Invite friends, earn rewards
+4. **Group Sponsorships** - Local poker clubs can sponsor groups
+
+### User Experience
+1. **Voice Commands** - "Hey ODDSIDE, add $20 buy-in for John"
+2. **Apple Watch/Wear OS** - Quick buy-in from wrist
+3. **Split Pot Calculator** - For side pots and all-in scenarios
+4. **Blind Timer** - Tournament blind increase timer
+5. **Sound Effects** - Chip sounds, notifications
+
+### Social Features
+1. **Global Leaderboards** - Compete with players worldwide
+2. **Achievements Gallery** - Showcase earned badges
+3. **Player Profiles** - Public profiles with stats
+4. **Group Chat** - Persistent messaging for groups
+5. **Game Replays** - Timeline view of game events
+
+### AI Features (Phase 3+)
+1. **Natural Language Logging** - "I put in 50 and cashed out 120"
+2. **OCR Chip Counting** - Point camera at chips to count
+3. **Tilt Detection** - Warn when player is on a losing streak
+4. **Optimal Settlement** - Suggest who should pay whom to minimize transactions
+5. **Game Predictions** - Who's likely to win based on patterns
 
 ---
 
 ## Known Issues / Technical Debt
-1. **Email Invites MOCKED**: Invites for non-registered users are stored but no email is sent
-2. **Supabase Key Format**: User provided key may need verification
-3. **server.py Size**: 1300+ lines - should be refactored into modular routers
-4. **N+1 Query Patterns**: Several endpoints have database query optimization opportunities
+1. **Email Invites MOCKED**: Invites stored but no email sent
+2. **Supabase Key Format**: May need verification
+3. **server.py Size**: 1500+ lines - should be refactored into modular routers
+4. **N+1 Query Patterns**: Several endpoints have optimization opportunities
 
 ---
 
@@ -165,3 +194,4 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - Settlement uses debt minimization algorithm
 - Ledger entries locked after first status change
 - Frontend uses Supabase client for auth, session token cookie as fallback
+- Buy-ins controlled by host only via `/api/games/{id}/admin-buy-in`

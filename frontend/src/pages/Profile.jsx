@@ -11,6 +11,7 @@ import {
   DollarSign, Target, LogOut, ArrowLeft
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import UserBadges from "@/components/UserBadges";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -89,6 +90,10 @@ export default function Profile() {
                   <Mail className="w-4 h-4" />
                   {user?.email}
                 </p>
+                {/* Compact badge display */}
+                <div className="mt-3">
+                  <UserBadges compact={true} />
+                </div>
               </div>
               <Button 
                 variant="destructive" 
@@ -101,6 +106,11 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Level & Badges Section */}
+        <div className="mb-6">
+          <UserBadges />
+        </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

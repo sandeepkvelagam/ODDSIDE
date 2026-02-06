@@ -57,19 +57,19 @@ const testimonials = [
   {
     name: "James R.",
     role: "Tournament Organizer",
-    quote: "We run 20+ player tournaments now. ODDSIDE handles it all flawlessly.",
+    quote: "We run 20+ player tournaments now. Kvitt handles it all flawlessly.",
     avatar: "J"
   }
 ];
 
 const comparisons = [
-  { feature: "Instant debt settlement", oddside: true, others: false },
-  { feature: "Immutable ledger with audit", oddside: true, others: false },
-  { feature: "30-second session logging", oddside: true, others: false },
-  { feature: "Live game mode with timer", oddside: true, others: false },
-  { feature: "Event-scoped messaging", oddside: true, others: false },
-  { feature: "No spreadsheet required", oddside: true, others: false },
-  { feature: "Free to use", oddside: true, others: true }
+  { feature: "Instant debt settlement", kvitt: true, others: false },
+  { feature: "Immutable ledger with audit", kvitt: true, others: false },
+  { feature: "30-second session logging", kvitt: true, others: false },
+  { feature: "Live game mode with timer", kvitt: true, others: false },
+  { feature: "Event-scoped messaging", kvitt: true, others: false },
+  { feature: "No spreadsheet required", kvitt: true, others: false },
+  { feature: "Free to use", kvitt: true, others: true }
 ];
 
 const howItWorks = [
@@ -83,7 +83,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur-lg sticky top-0 z-50">
+      <header className="border-b border-border/30 bg-background/80 backdrop-blur-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Logo />
@@ -101,7 +101,7 @@ export default function Landing() {
               <Link to="/signup">
                 <Button 
                   data-testid="signup-btn"
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="bg-[#262626] text-white hover:bg-[#363636] rounded-full px-6"
                 >
                   Get Started
                 </Button>
@@ -113,22 +113,17 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        {/* Gradient background - adapts to theme */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
-        
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-6 border border-primary/20">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-8 border border-primary/20">
               <Zap className="w-4 h-4" />
               The smarter way to track home games
             </div>
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-              Track. Settle.
-              <span className="text-primary block">Dominate.</span>
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight mb-4 text-foreground">
+              Your side, <span className="text-primary">settled.</span>
             </h1>
-            <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-              The behavioral ledger for serious home game players. 
+            <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+              The modern ledger for home poker games. 
               No spreadsheets. No arguments. Just poker.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -136,9 +131,9 @@ export default function Landing() {
                 <Button 
                   data-testid="get-started-btn"
                   size="lg"
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 h-14 px-10 rounded-lg font-bold tracking-wide shadow-[0_0_30px_rgba(255,112,67,0.3)] transition-all hover:scale-105 text-lg"
+                  className="bg-[#262626] text-white hover:bg-[#363636] h-14 px-10 rounded-full font-semibold tracking-wide transition-all hover:scale-105 text-base"
                 >
-                  Get Started Free
+                  Try Kvitt free
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </Link>
@@ -151,11 +146,11 @@ export default function Landing() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-20 border-t border-border/30">
+      <section className="py-20 border-t border-border/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-              HOW IT WORKS
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
+              How It Works
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               From group creation to settlement in just 4 simple steps.
@@ -165,13 +160,13 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {howItWorks.map((item, idx) => (
               <div key={idx} className="text-center relative">
-                <div className="w-14 h-14 bg-primary text-primary-foreground rounded-xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                <div className="w-14 h-14 bg-primary text-white rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-soft">
                   {item.step}
                 </div>
-                <h3 className="font-bold text-lg mb-2">{item.title}</h3>
+                <h3 className="font-bold text-lg mb-2 text-foreground">{item.title}</h3>
                 <p className="text-muted-foreground text-sm">{item.description}</p>
                 {idx < howItWorks.length - 1 && (
-                  <ChevronRight className="hidden md:block absolute top-6 -right-4 w-8 h-8 text-muted-foreground/30" />
+                  <ChevronRight className="hidden md:block absolute top-6 -right-4 w-8 h-8 text-border" />
                 )}
               </div>
             ))}
@@ -180,11 +175,11 @@ export default function Landing() {
       </section>
 
       {/* Features Section */}
-      <section className="py-24 bg-secondary/20">
+      <section className="py-24 bg-secondary/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-              EVERYTHING YOU NEED
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
+              Everything You Need
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Built by poker players, for poker players. Every feature designed to eliminate friction.
@@ -195,14 +190,14 @@ export default function Landing() {
             {features.map((feature, idx) => (
               <Card 
                 key={idx} 
-                className="bg-card border-border/50 card-hover group"
+                className="bg-card border-border/30 card-hover group shadow-card"
               >
                 <CardContent className="p-8">
                   <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
                     <feature.icon className="w-6 h-6 text-primary" />
                   </div>
-                  <h3 className="font-bold text-xl mb-2">{feature.title}</h3>
-                  <p className="text-muted-foreground">{feature.description}</p>
+                  <h3 className="font-bold text-lg mb-2 text-foreground">{feature.title}</h3>
+                  <p className="text-muted-foreground text-sm">{feature.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -210,12 +205,12 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Why ODDSIDE Section */}
+      {/* Why Kvitt Section */}
       <section className="py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-              WHY ODDSIDE?
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
+              Why <span className="text-primary">Kvitt</span>?
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               See how we stack up against spreadsheets, group chats, and other tracking methods.
@@ -223,22 +218,22 @@ export default function Landing() {
           </div>
           
           <div className="max-w-3xl mx-auto">
-            <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+            <div className="bg-card border border-border/30 rounded-2xl overflow-hidden shadow-card">
               {/* Header */}
               <div className="grid grid-cols-3 bg-secondary/50 p-4">
-                <div className="font-bold">Feature</div>
-                <div className="font-bold text-center text-primary">ODDSIDE</div>
+                <div className="font-bold text-foreground">Feature</div>
+                <div className="font-bold text-center text-primary">Kvitt</div>
                 <div className="font-bold text-center text-muted-foreground">Spreadsheets</div>
               </div>
               {/* Rows */}
               {comparisons.map((row, idx) => (
                 <div 
                   key={idx} 
-                  className={`grid grid-cols-3 p-4 items-center ${idx !== comparisons.length - 1 ? 'border-b border-border/30' : ''}`}
+                  className={`grid grid-cols-3 p-4 items-center ${idx !== comparisons.length - 1 ? 'border-b border-border/20' : ''}`}
                 >
-                  <div className="text-sm">{row.feature}</div>
+                  <div className="text-sm text-foreground">{row.feature}</div>
                   <div className="flex justify-center">
-                    {row.oddside ? (
+                    {row.kvitt ? (
                       <div className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center">
                         <Check className="w-4 h-4 text-primary" />
                       </div>
@@ -254,7 +249,7 @@ export default function Landing() {
                         <Check className="w-4 h-4 text-primary" />
                       </div>
                     ) : (
-                      <div className="w-6 h-6 bg-destructive/20 rounded-full flex items-center justify-center">
+                      <div className="w-6 h-6 bg-destructive/10 rounded-full flex items-center justify-center">
                         <span className="text-destructive text-lg">×</span>
                       </div>
                     )}
@@ -267,11 +262,11 @@ export default function Landing() {
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-24 bg-secondary/20">
+      <section className="py-24 bg-secondary/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-              TRUSTED BY PLAYERS
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
+              Trusted by Players
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Join thousands of poker enthusiasts who've simplified their home games.
@@ -280,7 +275,7 @@ export default function Landing() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((testimonial, idx) => (
-              <Card key={idx} className="bg-card border-border/50">
+              <Card key={idx} className="bg-card border-border/30 shadow-card">
                 <CardContent className="p-8">
                   <div className="flex items-center gap-1 mb-4">
                     {[...Array(5)].map((_, i) => (
@@ -293,7 +288,7 @@ export default function Landing() {
                       {testimonial.avatar}
                     </div>
                     <div>
-                      <p className="font-medium">{testimonial.name}</p>
+                      <p className="font-medium text-foreground">{testimonial.name}</p>
                       <p className="text-sm text-muted-foreground">{testimonial.role}</p>
                     </div>
                   </div>
@@ -308,16 +303,16 @@ export default function Landing() {
       <section className="py-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <Logo size="large" className="justify-center mb-8" />
-          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+          <h2 className="text-2xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
             Ready to up your game?
           </h2>
-          <p className="text-xl text-muted-foreground mb-10">
+          <p className="text-lg text-muted-foreground mb-10">
             Join the platform that takes the hassle out of home games.
           </p>
           <Link to="/signup">
             <Button 
               size="lg"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 h-14 px-10 rounded-lg font-bold tracking-wide shadow-[0_0_30px_rgba(255,112,67,0.3)] transition-all hover:scale-105 text-lg"
+              className="bg-[#262626] text-white hover:bg-[#363636] h-14 px-10 rounded-full font-semibold tracking-wide transition-all hover:scale-105 text-base"
             >
               Start Tracking Free
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -327,34 +322,34 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/50 bg-card">
+      <footer className="border-t border-border/30 bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Brand */}
             <div className="md:col-span-2">
               <Logo className="mb-4" />
               <p className="text-muted-foreground text-sm max-w-sm">
-                The behavioral ledger for home poker games. Track buy-ins, settle debts, 
-                and gain insights across your poker nights.
+                The modern ledger for home poker games. Track buy-ins, settle debts, 
+                and keep the peace at your poker nights.
               </p>
             </div>
             
             {/* Links */}
             <div>
-              <h4 className="font-bold mb-4">Legal</h4>
+              <h4 className="font-bold mb-4 text-foreground">Legal</h4>
               <ul className="space-y-2 text-sm">
                 <li>
-                  <a href="#privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <a href="#privacy" className="text-muted-foreground hover:text-primary transition-colors">
                     Privacy Policy
                   </a>
                 </li>
                 <li>
-                  <a href="#terms" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <a href="#terms" className="text-muted-foreground hover:text-primary transition-colors">
                     Terms of Use
                   </a>
                 </li>
                 <li>
-                  <a href="#cookies" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <a href="#cookies" className="text-muted-foreground hover:text-primary transition-colors">
                     Cookie Policy
                   </a>
                 </li>
@@ -362,20 +357,20 @@ export default function Landing() {
             </div>
             
             <div>
-              <h4 className="font-bold mb-4">Support</h4>
+              <h4 className="font-bold mb-4 text-foreground">Support</h4>
               <ul className="space-y-2 text-sm">
                 <li>
-                  <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <a href="#contact" className="text-muted-foreground hover:text-primary transition-colors">
                     Contact Us
                   </a>
                 </li>
                 <li>
-                  <a href="#faq" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <a href="#faq" className="text-muted-foreground hover:text-primary transition-colors">
                     FAQ
                   </a>
                 </li>
                 <li>
-                  <a href="#help" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <a href="#help" className="text-muted-foreground hover:text-primary transition-colors">
                     Help Center
                   </a>
                 </li>
@@ -384,9 +379,9 @@ export default function Landing() {
           </div>
           
           {/* Bottom */}
-          <div className="border-t border-border/50 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="border-t border-border/30 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} ODDSIDE. All rights reserved.
+              © {new Date().getFullYear()} Kvitt. All rights reserved.
             </p>
             <p className="text-sm text-muted-foreground">
               Built for poker nights, not casinos.

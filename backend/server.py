@@ -1485,6 +1485,109 @@ async def add_buy_in(game_id: str, data: BuyInRequest, user: User = Depends(get_
         "chip_value": chip_value
     }
 
+@api_router.post("/games/{game_id}/admin-buy-in")
+async def admin_buy_in(game_id: str, data: AdminBuyInRequest, user: User = Depends(get_current_user)):
+    """Admin/Host adds buy-in for a specific player. Only host or admin can do this."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Check host or admin permission
+    is_host = game["host_id"] == user.user_id
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not is_host and (not membership or membership["role"] != "admin"):
+        raise HTTPException(status_code=403, detail="Only host or admin can add buy-ins for players")
+    
+    if game["status"] != "active":
+        raise HTTPException(status_code=400, detail="Game not active")
+    
+    # Calculate chips based on game settings
+    chip_value = game.get("chip_value", 1.0)
+    chips_per_buy_in = game.get("chips_per_buy_in", 20)
+    buy_in_amount = game.get("buy_in_amount", 20.0)
+    
+    # Calculate chips to give
+    chips = int((data.amount / buy_in_amount) * chips_per_buy_in)
+    
+    # Check if target player exists in game
+    player = await db.players.find_one(
+        {"game_id": game_id, "user_id": data.user_id},
+        {"_id": 0}
+    )
+    
+    if not player:
+        raise HTTPException(status_code=400, detail="Player not in this game")
+    
+    if player.get("cash_out") is not None:
+        raise HTTPException(status_code=400, detail="Player has already cashed out")
+    
+    # Create transaction
+    txn = Transaction(
+        game_id=game_id,
+        user_id=data.user_id,
+        type="buy_in",
+        amount=data.amount,
+        chips=chips,
+        chip_value=chip_value,
+        notes=f"Added by {user.name}"
+    )
+    txn_dict = txn.model_dump()
+    txn_dict["timestamp"] = txn_dict["timestamp"].isoformat()
+    await db.transactions.insert_one(txn_dict)
+    
+    # Update player totals
+    new_total_buy_in = player.get("total_buy_in", 0) + data.amount
+    new_total_chips = player.get("total_chips", 0) + chips
+    
+    await db.players.update_one(
+        {"game_id": game_id, "user_id": data.user_id},
+        {"$set": {
+            "total_buy_in": new_total_buy_in,
+            "total_chips": new_total_chips
+        }}
+    )
+    
+    # Update game's total chips distributed
+    await db.game_nights.update_one(
+        {"game_id": game_id},
+        {"$inc": {"total_chips_distributed": chips}}
+    )
+    
+    # Create notification for the player
+    target_user = await db.users.find_one({"user_id": data.user_id}, {"_id": 0, "name": 1})
+    notification = Notification(
+        user_id=data.user_id,
+        type="buy_in_added",
+        title="Buy-In Added",
+        message=f"{user.name} added ${data.amount} buy-in ({chips} chips) for you",
+        data={"game_id": game_id, "amount": data.amount, "chips": chips}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    # Add system message to thread
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"💰 {target_user['name'] if target_user else 'Player'} bought in for ${data.amount} ({chips} chips)",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {
+        "message": "Buy-in added for player",
+        "player_user_id": data.user_id,
+        "total_buy_in": new_total_buy_in,
+        "total_chips": new_total_chips,
+        "chips_added": chips
+    }
+
 @api_router.post("/games/{game_id}/cash-out")
 async def cash_out(game_id: str, data: CashOutRequest, user: User = Depends(get_current_user)):
     """Record cash-out for current user. Calculates winnings based on chips returned."""

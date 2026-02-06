@@ -276,6 +276,10 @@ class SearchUsersRequest(BaseModel):
 class RespondToInviteRequest(BaseModel):
     accept: bool
 
+class AdminBuyInRequest(BaseModel):
+    user_id: str
+    amount: float
+
 # ============== AUTH HELPERS ==============
 
 async def verify_supabase_jwt(token: str) -> dict:

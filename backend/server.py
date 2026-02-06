@@ -1598,6 +1598,208 @@ async def admin_buy_in(game_id: str, data: AdminBuyInRequest, user: User = Depen
         "chips_added": chips
     }
 
+@api_router.post("/games/{game_id}/request-buy-in")
+async def request_buy_in(game_id: str, data: RequestBuyInRequest, user: User = Depends(get_current_user)):
+    """Player requests a buy-in. Sends notification to host for approval."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if game["status"] != "active":
+        raise HTTPException(status_code=400, detail="Game not active")
+    
+    player = await db.players.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not player:
+        raise HTTPException(status_code=400, detail="Not a player in this game")
+    
+    if player.get("cashed_out"):
+        raise HTTPException(status_code=400, detail="Already cashed out")
+    
+    # Calculate chips that would be given
+    chip_value = game.get("chip_value", 1.0)
+    chips_per_buy_in = game.get("chips_per_buy_in", 20)
+    buy_in_amount = game.get("buy_in_amount", 20.0)
+    chips = int((data.amount / buy_in_amount) * chips_per_buy_in)
+    
+    # Send notification to host
+    notification = Notification(
+        user_id=game["host_id"],
+        type="buy_in_request",
+        title="Buy-In Request",
+        message=f"{user.name} is requesting ${data.amount} buy-in ({chips} chips)",
+        data={"game_id": game_id, "user_id": user.user_id, "amount": data.amount, "chips": chips}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    # Add system message to thread
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"🙋 {user.name} requested ${data.amount} buy-in",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {"message": "Buy-in request sent to host", "amount": data.amount, "chips": chips}
+
+@api_router.post("/games/{game_id}/request-cash-out")
+async def request_cash_out(game_id: str, data: RequestCashOutRequest, user: User = Depends(get_current_user)):
+    """Player requests to cash out with their chip count. Host must approve."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if game["status"] != "active":
+        raise HTTPException(status_code=400, detail="Game not active")
+    
+    player = await db.players.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not player:
+        raise HTTPException(status_code=400, detail="Not a player in this game")
+    
+    if player.get("cashed_out"):
+        raise HTTPException(status_code=400, detail="Already cashed out")
+    
+    chip_value = game.get("chip_value", 1.0)
+    cash_value = data.chips_count * chip_value
+    net_result = cash_value - player.get("total_buy_in", 0)
+    
+    # Send notification to host for approval
+    notification = Notification(
+        user_id=game["host_id"],
+        type="cash_out_request",
+        title="Cash-Out Request",
+        message=f"{user.name} wants to cash out {data.chips_count} chips (${cash_value:.2f})",
+        data={"game_id": game_id, "user_id": user.user_id, "chips": data.chips_count, "cash_value": cash_value}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    # Add system message to thread
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"🎯 {user.name} requested cash-out: {data.chips_count} chips (${cash_value:.2f})",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {"message": "Cash-out request sent to host", "chips": data.chips_count, "cash_value": cash_value}
+
+@api_router.post("/games/{game_id}/admin-cash-out")
+async def admin_cash_out(game_id: str, data: AdminCashOutRequest, user: User = Depends(get_current_user)):
+    """Admin/Host cashes out a player with specified chip count."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Check host or admin permission
+    is_host = game["host_id"] == user.user_id
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not is_host and (not membership or membership["role"] != "admin"):
+        raise HTTPException(status_code=403, detail="Only host or admin can cash out players")
+    
+    if game["status"] != "active":
+        raise HTTPException(status_code=400, detail="Game not active")
+    
+    player = await db.players.find_one(
+        {"game_id": game_id, "user_id": data.user_id},
+        {"_id": 0}
+    )
+    
+    if not player:
+        raise HTTPException(status_code=400, detail="Player not in this game")
+    
+    if player.get("cashed_out"):
+        raise HTTPException(status_code=400, detail="Player already cashed out")
+    
+    chip_value = game.get("chip_value", 1.0)
+    cash_value = data.chips_count * chip_value
+    net_result = cash_value - player.get("total_buy_in", 0)
+    
+    # Create cash-out transaction
+    txn = Transaction(
+        game_id=game_id,
+        user_id=data.user_id,
+        type="cash_out",
+        amount=cash_value,
+        chips=data.chips_count,
+        chip_value=chip_value,
+        notes=f"Cashed out by {user.name}"
+    )
+    txn_dict = txn.model_dump()
+    txn_dict["timestamp"] = txn_dict["timestamp"].isoformat()
+    await db.transactions.insert_one(txn_dict)
+    
+    # Update player record
+    await db.players.update_one(
+        {"game_id": game_id, "user_id": data.user_id},
+        {"$set": {
+            "cashed_out": True,
+            "chips_returned": data.chips_count,
+            "cash_out": cash_value,
+            "net_result": net_result,
+            "cashed_out_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Update game's chips returned
+    await db.game_nights.update_one(
+        {"game_id": game_id},
+        {"$inc": {"total_chips_returned": data.chips_count}}
+    )
+    
+    # Get target user for notification
+    target_user = await db.users.find_one({"user_id": data.user_id}, {"_id": 0, "name": 1})
+    
+    # Send notification to player
+    notification = Notification(
+        user_id=data.user_id,
+        type="cashed_out",
+        title="Cashed Out",
+        message=f"You've been cashed out: {data.chips_count} chips = ${cash_value:.2f} (Net: {'+'if net_result >= 0 else ''}${net_result:.2f})",
+        data={"game_id": game_id, "chips": data.chips_count, "cash_value": cash_value, "net_result": net_result}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    # Add system message to thread
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"💵 {target_user['name'] if target_user else 'Player'} cashed out: {data.chips_count} chips = ${cash_value:.2f} ({'+'if net_result >= 0 else ''}{net_result:.2f})",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {
+        "message": "Player cashed out",
+        "user_id": data.user_id,
+        "chips_returned": data.chips_count,
+        "cash_value": cash_value,
+        "net_result": net_result
+    }
+
 @api_router.post("/games/{game_id}/cash-out")
 async def cash_out(game_id: str, data: CashOutRequest, user: User = Depends(get_current_user)):
     """Record cash-out for current user. Calculates winnings based on chips returned."""

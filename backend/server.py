@@ -922,6 +922,72 @@ async def get_levels():
     """Get all level definitions."""
     return {"levels": LEVELS, "badges": BADGES}
 
+@api_router.get("/users/game-history")
+async def get_game_history(user: User = Depends(get_current_user)):
+    """Get user's complete game history with stats."""
+    # Get all games where user was a player
+    player_records = await db.players.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    game_ids = [p["game_id"] for p in player_records]
+    
+    # Get game details
+    games = []
+    total_winnings = 0
+    total_losses = 0
+    wins = 0
+    
+    for player in player_records:
+        game = await db.game_nights.find_one(
+            {"game_id": player["game_id"]},
+            {"_id": 0}
+        )
+        if game:
+            # Get group info
+            group = await db.groups.find_one(
+                {"group_id": game["group_id"]},
+                {"_id": 0, "name": 1}
+            )
+            
+            net_result = player.get("net_result", 0)
+            
+            games.append({
+                "game_id": game["game_id"],
+                "title": game.get("title", "Game Night"),
+                "status": game["status"],
+                "created_at": game.get("created_at", game.get("started_at")),
+                "group": {"name": group.get("name") if group else "Unknown"},
+                "net_result": net_result if player.get("cashed_out") else None,
+                "total_buy_in": player.get("total_buy_in", 0),
+                "cashed_out": player.get("cashed_out", False)
+            })
+            
+            if player.get("cashed_out") and net_result is not None:
+                if net_result > 0:
+                    total_winnings += net_result
+                    wins += 1
+                else:
+                    total_losses += net_result
+    
+    # Sort by date (newest first)
+    games.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    
+    # Calculate stats
+    completed_games = [g for g in games if g.get("cashed_out")]
+    win_rate = (wins / len(completed_games) * 100) if completed_games else 0
+    
+    return {
+        "games": games,
+        "stats": {
+            "totalGames": len(games),
+            "totalWinnings": total_winnings,
+            "totalLosses": total_losses,
+            "winRate": win_rate
+        }
+    }
+
 @api_router.delete("/groups/{group_id}/members/{member_user_id}")
 async def remove_member(group_id: str, member_user_id: str, user: User = Depends(get_current_user)):
     """Remove a member from group (admin only, or self-leave)."""

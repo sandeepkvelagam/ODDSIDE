@@ -1,13 +1,13 @@
 import { cn } from "@/lib/utils";
 
-export const Logo = ({ className, size = "default", showText = true }) => {
+export const Logo = ({ className, size = "default", showText = true, showTagline = false }) => {
   const sizes = {
-    small: { icon: "w-7 h-7", text: "text-lg" },
-    default: { icon: "w-8 h-8", text: "text-xl" },
-    large: { icon: "w-12 h-12", text: "text-3xl" }
+    small: { icon: "w-7 h-7", text: "text-lg", tagline: "text-xs" },
+    default: { icon: "w-8 h-8", text: "text-xl", tagline: "text-sm" },
+    large: { icon: "w-12 h-12", text: "text-3xl", tagline: "text-base" }
   };
 
-  const { icon, text } = sizes[size] || sizes.default;
+  const { icon, text, tagline } = sizes[size] || sizes.default;
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -32,9 +32,16 @@ export const Logo = ({ className, size = "default", showText = true }) => {
         </svg>
       </div>
       {showText && (
-        <span className={cn("font-heading font-extrabold tracking-tight", text)}>
-          Kvitt
-        </span>
+        <div className="flex flex-col">
+          <span className={cn("font-heading font-extrabold tracking-tight leading-none", text)}>
+            Kvitt
+          </span>
+          {showTagline && (
+            <span className={cn("text-muted-foreground leading-tight", tagline)}>
+              Your side, <span className="text-primary font-medium">settled.</span>
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

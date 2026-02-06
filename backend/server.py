@@ -1587,10 +1587,11 @@ async def generate_settlement(game_id: str, user: User = Depends(get_current_use
             detail=f"All players must cash out before settlement. Waiting for: {', '.join(player_names)}"
         )
     
-    # Validate chip count (optional warning)
+    # Validate chip count (optional warning - can be logged)
     total_distributed = game.get("total_chips_distributed", 0)
     total_returned = sum(p.get("chips_returned", 0) for p in all_players)
-    chip_discrepancy = total_distributed - total_returned
+    if total_distributed != total_returned:
+        logger.warning(f"Chip discrepancy in game {game_id}: distributed={total_distributed}, returned={total_returned}")
     
     # Simple settlement algorithm (debt minimization)
     winners = [(p["user_id"], p["net_result"]) for p in all_players if p.get("net_result", 0) > 0]

@@ -53,10 +53,10 @@ export default function Groups() {
     
     setCreating(true);
     try {
-      const response = await axios.post(`${API}/groups`, formData);
+      const response = await axios.post(`${API}/groups`, formData, { withCredentials: true });
       toast.success("Group created!");
       setDialogOpen(false);
-      setFormData({ name: "", description: "", default_buy_in: 20 });
+      setFormData({ name: "", description: "", default_buy_in: 20, chips_per_buy_in: 20 });
       fetchGroups();
       navigate(`/groups/${response.data.group_id}`);
     } catch (error) {

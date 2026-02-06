@@ -173,7 +173,7 @@ export default function InviteMembers({ groupId, onInviteSent }) {
                     }}
                   >
                     <Mail className="w-4 h-4 mr-1" />
-                    Invite "{searchQuery}" by email
+                    Invite &quot;{searchQuery}&quot; by email
                   </Button>
                 </div>
               )}
@@ -229,7 +229,7 @@ export default function InviteMembers({ groupId, onInviteSent }) {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                If they're not registered, the invite will be waiting when they sign up!
+                If they&apos;re not registered, the invite will be waiting when they sign up!
               </p>
             </div>
             <Button

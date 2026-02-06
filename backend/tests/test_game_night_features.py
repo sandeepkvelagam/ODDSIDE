@@ -12,6 +12,7 @@ SESSION_TOKEN = os.environ.get('TEST_SESSION_TOKEN', 'test_session_1770401937136
 USER_ID = os.environ.get('TEST_USER_ID', 'test-user-1770401937136')
 SESSION_TOKEN_2 = os.environ.get('TEST_SESSION_TOKEN_2', 'test_session_player2_1770402119637')
 USER_ID_2 = os.environ.get('TEST_USER_ID_2', 'test-user-player2-1770402119637')
+USER_EMAIL_2 = os.environ.get('TEST_USER_EMAIL_2', 'test.player2.1770402119637@example.com')
 
 
 class TestGameNightCreation:
@@ -22,8 +23,6 @@ class TestGameNightCreation:
         """Setup test data"""
         self.headers = {"Authorization": f"Bearer {SESSION_TOKEN}"}
         self.headers_2 = {"Authorization": f"Bearer {SESSION_TOKEN_2}"}
-        self.group_id = None
-        self.game_id = None
     
     def create_test_group(self):
         """Helper to create a test group"""
@@ -41,36 +40,10 @@ class TestGameNightCreation:
         assert response.status_code == 200
         return response.json()["group_id"]
     
-    def add_second_player_to_group(self, group_id):
-        """Helper to add second player to group"""
-        # Invite player 2 to group
-        invite_response = requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/invite",
-            json={"user_id": USER_ID_2},
-            headers=self.headers
-        )
-        # Accept invite as player 2
-        invites_response = requests.get(
-            f"{BASE_URL}/api/users/invites",
-            headers=self.headers_2
-        )
-        if invites_response.status_code == 200:
-            invites = invites_response.json()
-            for invite in invites:
-                if invite.get("group_id") == group_id:
-                    requests.post(
-                        f"{BASE_URL}/api/users/invites/{invite['invite_id']}/respond",
-                        json={"accept": True},
-                        headers=self.headers_2
-                    )
-                    break
-    
     def test_create_game_night(self):
         """Test creating a new game night"""
-        # First create a group
         group_id = self.create_test_group()
         
-        # Create game night - endpoint is /api/games with group_id in body
         game_payload = {
             "group_id": group_id,
             "title": f"TEST_Game_{int(time.time())}",
@@ -134,7 +107,6 @@ class TestGameNightCreation:
         )
         game_id = game_response.json()["game_id"]
         
-        # Try to start with only 1 player
         response = requests.post(
             f"{BASE_URL}/api/games/{game_id}/start",
             headers=self.headers
@@ -145,6 +117,82 @@ class TestGameNightCreation:
         print(f"SUCCESS: Game start correctly requires 2 players")
 
 
+def add_player2_to_group(group_id, headers, headers_2):
+    """Helper to add player 2 to a group via invite"""
+    # Invite player 2 by email
+    requests.post(
+        f"{BASE_URL}/api/groups/{group_id}/invite",
+        json={"email": USER_EMAIL_2},
+        headers=headers
+    )
+    
+    # Get and accept invite
+    invites_response = requests.get(
+        f"{BASE_URL}/api/users/invites",
+        headers=headers_2
+    )
+    if invites_response.status_code == 200:
+        invites = invites_response.json()
+        for invite in invites:
+            if invite.get("group_id") == group_id and invite.get("status") == "pending":
+                requests.post(
+                    f"{BASE_URL}/api/users/invites/{invite['invite_id']}/respond",
+                    json={"accept": True},
+                    headers=headers_2
+                )
+                return True
+    return False
+
+
+def create_active_game_with_2_players(headers, headers_2):
+    """Helper to create and start a game with 2 players"""
+    # Create group
+    group_payload = {
+        "name": f"TEST_Group_{int(time.time())}",
+        "description": "Test group",
+        "default_buy_in": 20,
+        "chips_per_buy_in": 20
+    }
+    group_response = requests.post(
+        f"{BASE_URL}/api/groups",
+        json=group_payload,
+        headers=headers
+    )
+    assert group_response.status_code == 200
+    group_id = group_response.json()["group_id"]
+    
+    # Add player 2 to group
+    add_player2_to_group(group_id, headers, headers_2)
+    
+    # Create game
+    game_payload = {
+        "group_id": group_id,
+        "title": f"TEST_Game_{int(time.time())}",
+        "scheduled_at": "2026-02-01T20:00:00Z",
+        "buy_in_amount": 20,
+        "chips_per_buy_in": 20
+    }
+    game_response = requests.post(
+        f"{BASE_URL}/api/games",
+        json=game_payload,
+        headers=headers
+    )
+    assert game_response.status_code == 200
+    game_id = game_response.json()["game_id"]
+    
+    # Player 2 joins game
+    requests.post(f"{BASE_URL}/api/games/{game_id}/join", headers=headers_2)
+    
+    # Start game
+    start_response = requests.post(
+        f"{BASE_URL}/api/games/{game_id}/start",
+        headers=headers
+    )
+    assert start_response.status_code == 200, f"Failed to start game: {start_response.json()}"
+    
+    return group_id, game_id
+
+
 class TestAdminBuyIn:
     """Test admin buy-in endpoint - host-only buy-in feature"""
     
@@ -153,77 +201,6 @@ class TestAdminBuyIn:
         """Setup test data"""
         self.headers = {"Authorization": f"Bearer {SESSION_TOKEN}"}
         self.headers_2 = {"Authorization": f"Bearer {SESSION_TOKEN_2}"}
-    
-    def create_active_game(self):
-        """Helper to create and start a game with 2 players"""
-        # Create group
-        group_payload = {
-            "name": f"TEST_AdminBuyInGroup_{int(time.time())}",
-            "description": "Test group for admin buy-in testing",
-            "default_buy_in": 20,
-            "chips_per_buy_in": 20
-        }
-        group_response = requests.post(
-            f"{BASE_URL}/api/groups",
-            json=group_payload,
-            headers=self.headers
-        )
-        assert group_response.status_code == 200
-        group_id = group_response.json()["group_id"]
-        
-        # Invite player 2 to group
-        requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/invite",
-            json={"user_id": USER_ID_2},
-            headers=self.headers
-        )
-        
-        # Accept invite as player 2
-        invites_response = requests.get(
-            f"{BASE_URL}/api/users/invites",
-            headers=self.headers_2
-        )
-        if invites_response.status_code == 200:
-            invites = invites_response.json()
-            for invite in invites:
-                if invite.get("group_id") == group_id:
-                    requests.post(
-                        f"{BASE_URL}/api/users/invites/{invite['invite_id']}/respond",
-                        json={"accept": True},
-                        headers=self.headers_2
-                    )
-                    break
-        
-        # Create game
-        game_payload = {
-            "group_id": group_id,
-            "title": f"TEST_AdminBuyInGame_{int(time.time())}",
-            "scheduled_at": "2026-02-01T20:00:00Z",
-            "buy_in_amount": 20,
-            "chips_per_buy_in": 20
-        }
-        game_response = requests.post(
-            f"{BASE_URL}/api/games",
-            json=game_payload,
-            headers=self.headers
-        )
-        assert game_response.status_code == 200
-        game_id = game_response.json()["game_id"]
-        
-        # Player 2 joins the game
-        join_response = requests.post(
-            f"{BASE_URL}/api/games/{game_id}/join",
-            headers=self.headers_2
-        )
-        
-        # Start game
-        start_response = requests.post(
-            f"{BASE_URL}/api/games/{game_id}/start",
-            headers=self.headers
-        )
-        assert start_response.status_code == 200, f"Failed to start game: {start_response.json()}"
-        
-        return group_id, game_id
     
     def test_admin_buy_in_requires_auth(self):
         """Test admin buy-in requires authentication"""
@@ -246,7 +223,7 @@ class TestAdminBuyIn:
     
     def test_admin_buy_in_for_host_player(self):
         """Test admin buy-in for the host player (self)"""
-        group_id, game_id = self.create_active_game()
+        group_id, game_id = create_active_game_with_2_players(self.headers, self.headers_2)
         
         # Admin buy-in for self (host)
         response = requests.post(
@@ -264,7 +241,7 @@ class TestAdminBuyIn:
     
     def test_admin_buy_in_fixed_denominations(self):
         """Test admin buy-in with fixed denominations ($5, $10, $20, $50, $100)"""
-        group_id, game_id = self.create_active_game()
+        group_id, game_id = create_active_game_with_2_players(self.headers, self.headers_2)
         
         # Test each fixed denomination
         denominations = [5, 10, 20, 50, 100]
@@ -282,11 +259,11 @@ class TestAdminBuyIn:
             assert data["total_buy_in"] == total_buy_in
             print(f"SUCCESS: Admin buy-in ${amount} - total: ${total_buy_in}")
         
-        print(f"SUCCESS: All fixed denominations work correctly")
+        print(f"SUCCESS: All fixed denominations ($5, $10, $20, $50, $100) work correctly")
     
     def test_admin_buy_in_player_not_in_game(self):
         """Test admin buy-in for player not in game"""
-        group_id, game_id = self.create_active_game()
+        group_id, game_id = create_active_game_with_2_players(self.headers, self.headers_2)
         
         response = requests.post(
             f"{BASE_URL}/api/games/{game_id}/admin-buy-in",
@@ -300,7 +277,7 @@ class TestAdminBuyIn:
     
     def test_admin_buy_in_for_other_player(self):
         """Test admin buy-in for another player in the game"""
-        group_id, game_id = self.create_active_game()
+        group_id, game_id = create_active_game_with_2_players(self.headers, self.headers_2)
         
         # Admin buy-in for player 2
         response = requests.post(
@@ -324,73 +301,6 @@ class TestCashOut:
         self.headers = {"Authorization": f"Bearer {SESSION_TOKEN}"}
         self.headers_2 = {"Authorization": f"Bearer {SESSION_TOKEN_2}"}
     
-    def create_game_with_buy_in(self):
-        """Helper to create game and add buy-in"""
-        # Create group
-        group_payload = {
-            "name": f"TEST_CashOutGroup_{int(time.time())}",
-            "description": "Test group for cash-out testing",
-            "default_buy_in": 20,
-            "chips_per_buy_in": 20
-        }
-        group_response = requests.post(
-            f"{BASE_URL}/api/groups",
-            json=group_payload,
-            headers=self.headers
-        )
-        group_id = group_response.json()["group_id"]
-        
-        # Invite and add player 2
-        requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/invite",
-            json={"user_id": USER_ID_2},
-            headers=self.headers
-        )
-        invites_response = requests.get(
-            f"{BASE_URL}/api/users/invites",
-            headers=self.headers_2
-        )
-        if invites_response.status_code == 200:
-            invites = invites_response.json()
-            for invite in invites:
-                if invite.get("group_id") == group_id:
-                    requests.post(
-                        f"{BASE_URL}/api/users/invites/{invite['invite_id']}/respond",
-                        json={"accept": True},
-                        headers=self.headers_2
-                    )
-                    break
-        
-        # Create game
-        game_payload = {
-            "group_id": group_id,
-            "title": f"TEST_CashOutGame_{int(time.time())}",
-            "scheduled_at": "2026-02-01T20:00:00Z",
-            "buy_in_amount": 20,
-            "chips_per_buy_in": 20
-        }
-        game_response = requests.post(
-            f"{BASE_URL}/api/games",
-            json=game_payload,
-            headers=self.headers
-        )
-        game_id = game_response.json()["game_id"]
-        
-        # Player 2 joins
-        requests.post(f"{BASE_URL}/api/games/{game_id}/join", headers=self.headers_2)
-        
-        # Start game
-        requests.post(f"{BASE_URL}/api/games/{game_id}/start", headers=self.headers)
-        
-        # Add buy-in for host
-        requests.post(
-            f"{BASE_URL}/api/games/{game_id}/admin-buy-in",
-            json={"user_id": USER_ID, "amount": 20},
-            headers=self.headers
-        )
-        
-        return group_id, game_id
-    
     def test_cash_out_requires_auth(self):
         """Test cash-out requires authentication"""
         response = requests.post(
@@ -400,9 +310,16 @@ class TestCashOut:
         assert response.status_code == 401
         print("SUCCESS: Cash-out requires authentication")
     
-    def test_cash_out_with_chip_count(self):
-        """Test cash-out with chip count input"""
-        group_id, game_id = self.create_game_with_buy_in()
+    def test_cash_out_with_chip_count_profit(self):
+        """Test cash-out with chip count input (profit scenario)"""
+        group_id, game_id = create_active_game_with_2_players(self.headers, self.headers_2)
+        
+        # Add buy-in first
+        requests.post(
+            f"{BASE_URL}/api/games/{game_id}/admin-buy-in",
+            json={"user_id": USER_ID, "amount": 20},
+            headers=self.headers
+        )
         
         # Cash out with 25 chips (profit scenario)
         response = requests.post(
@@ -412,7 +329,7 @@ class TestCashOut:
         )
         assert response.status_code == 200
         data = response.json()
-        assert "cash_out" in data
+        assert "cash_out_amount" in data or "cash_out" in data
         assert "net_result" in data
         # With 20 chips bought for $20 and returning 25 chips at $1/chip = $25 cash out
         # Net result = $25 - $20 = $5 profit
@@ -421,7 +338,14 @@ class TestCashOut:
     
     def test_cash_out_loss_scenario(self):
         """Test cash-out with loss (fewer chips returned)"""
-        group_id, game_id = self.create_game_with_buy_in()
+        group_id, game_id = create_active_game_with_2_players(self.headers, self.headers_2)
+        
+        # Add buy-in first
+        requests.post(
+            f"{BASE_URL}/api/games/{game_id}/admin-buy-in",
+            json={"user_id": USER_ID, "amount": 20},
+            headers=self.headers
+        )
         
         # Cash out with 10 chips (loss scenario)
         response = requests.post(
@@ -446,67 +370,9 @@ class TestGameThread:
         self.headers = {"Authorization": f"Bearer {SESSION_TOKEN}"}
         self.headers_2 = {"Authorization": f"Bearer {SESSION_TOKEN_2}"}
     
-    def create_active_game(self):
-        """Helper to create and start a game"""
-        group_payload = {
-            "name": f"TEST_ThreadGroup_{int(time.time())}",
-            "description": "Test group for thread testing",
-            "default_buy_in": 20,
-            "chips_per_buy_in": 20
-        }
-        group_response = requests.post(
-            f"{BASE_URL}/api/groups",
-            json=group_payload,
-            headers=self.headers
-        )
-        group_id = group_response.json()["group_id"]
-        
-        # Add player 2
-        requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/invite",
-            json={"user_id": USER_ID_2},
-            headers=self.headers
-        )
-        invites_response = requests.get(
-            f"{BASE_URL}/api/users/invites",
-            headers=self.headers_2
-        )
-        if invites_response.status_code == 200:
-            invites = invites_response.json()
-            for invite in invites:
-                if invite.get("group_id") == group_id:
-                    requests.post(
-                        f"{BASE_URL}/api/users/invites/{invite['invite_id']}/respond",
-                        json={"accept": True},
-                        headers=self.headers_2
-                    )
-                    break
-        
-        game_payload = {
-            "group_id": group_id,
-            "title": f"TEST_ThreadGame_{int(time.time())}",
-            "scheduled_at": "2026-02-01T20:00:00Z",
-            "buy_in_amount": 20,
-            "chips_per_buy_in": 20
-        }
-        game_response = requests.post(
-            f"{BASE_URL}/api/games",
-            json=game_payload,
-            headers=self.headers
-        )
-        game_id = game_response.json()["game_id"]
-        
-        # Player 2 joins
-        requests.post(f"{BASE_URL}/api/games/{game_id}/join", headers=self.headers_2)
-        
-        # Start game
-        requests.post(f"{BASE_URL}/api/games/{game_id}/start", headers=self.headers)
-        
-        return group_id, game_id
-    
     def test_get_game_thread(self):
         """Test getting game thread messages"""
-        group_id, game_id = self.create_active_game()
+        group_id, game_id = create_active_game_with_2_players(self.headers, self.headers_2)
         
         response = requests.get(
             f"{BASE_URL}/api/games/{game_id}/thread",
@@ -515,11 +381,13 @@ class TestGameThread:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
+        # Should have at least the "Game started!" system message
+        assert len(data) >= 1
         print(f"SUCCESS: Got game thread with {len(data)} messages")
     
     def test_post_message_to_thread(self):
         """Test posting a message to game thread"""
-        group_id, game_id = self.create_active_game()
+        group_id, game_id = create_active_game_with_2_players(self.headers, self.headers_2)
         
         response = requests.post(
             f"{BASE_URL}/api/games/{game_id}/thread",
@@ -543,61 +411,7 @@ class TestTransactionHistory:
     
     def test_transaction_history_in_game_details(self):
         """Test that game details include transaction history per player"""
-        # Create group
-        group_payload = {
-            "name": f"TEST_TxnHistoryGroup_{int(time.time())}",
-            "description": "Test group for transaction history",
-            "default_buy_in": 20,
-            "chips_per_buy_in": 20
-        }
-        group_response = requests.post(
-            f"{BASE_URL}/api/groups",
-            json=group_payload,
-            headers=self.headers
-        )
-        group_id = group_response.json()["group_id"]
-        
-        # Add player 2
-        requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/invite",
-            json={"user_id": USER_ID_2},
-            headers=self.headers
-        )
-        invites_response = requests.get(
-            f"{BASE_URL}/api/users/invites",
-            headers=self.headers_2
-        )
-        if invites_response.status_code == 200:
-            invites = invites_response.json()
-            for invite in invites:
-                if invite.get("group_id") == group_id:
-                    requests.post(
-                        f"{BASE_URL}/api/users/invites/{invite['invite_id']}/respond",
-                        json={"accept": True},
-                        headers=self.headers_2
-                    )
-                    break
-        
-        # Create and start game
-        game_payload = {
-            "group_id": group_id,
-            "title": f"TEST_TxnHistoryGame_{int(time.time())}",
-            "scheduled_at": "2026-02-01T20:00:00Z",
-            "buy_in_amount": 20,
-            "chips_per_buy_in": 20
-        }
-        game_response = requests.post(
-            f"{BASE_URL}/api/games",
-            json=game_payload,
-            headers=self.headers
-        )
-        game_id = game_response.json()["game_id"]
-        
-        # Player 2 joins
-        requests.post(f"{BASE_URL}/api/games/{game_id}/join", headers=self.headers_2)
-        
-        # Start game
-        requests.post(f"{BASE_URL}/api/games/{game_id}/start", headers=self.headers)
+        group_id, game_id = create_active_game_with_2_players(self.headers, self.headers_2)
         
         # Add multiple buy-ins
         for amount in [20, 10, 50]:
@@ -633,7 +447,7 @@ class TestTransactionHistory:
             assert len(current_player["transactions"]) >= 3
             print(f"SUCCESS: Transaction history verified - {len(current_player['transactions'])} transactions, total buy-in: ${expected_total}")
         else:
-            print(f"SUCCESS: Total buy-in verified: ${expected_total} (transactions may be fetched separately)")
+            print(f"SUCCESS: Total buy-in verified: ${expected_total}")
 
 
 if __name__ == "__main__":

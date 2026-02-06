@@ -280,6 +280,16 @@ class AdminBuyInRequest(BaseModel):
     user_id: str
     amount: float
 
+class RequestBuyInRequest(BaseModel):
+    amount: float
+
+class RequestCashOutRequest(BaseModel):
+    chips_count: int
+
+class AdminCashOutRequest(BaseModel):
+    user_id: str
+    chips_count: int
+
 # ============== AUTH HELPERS ==============
 
 async def verify_supabase_jwt(token: str) -> dict:

@@ -39,12 +39,41 @@ logger = logging.getLogger(__name__)
 
 # ============== MODELS ==============
 
+# Badge/Level definitions
+LEVELS = [
+    {"name": "Rookie", "min_games": 0, "min_profit": -999999, "icon": "🎯"},
+    {"name": "Regular", "min_games": 5, "min_profit": -999999, "icon": "🃏"},
+    {"name": "Pro", "min_games": 20, "min_profit": 0, "icon": "⭐"},
+    {"name": "VIP", "min_games": 50, "min_profit": 100, "icon": "💎"},
+    {"name": "Legend", "min_games": 100, "min_profit": 500, "icon": "👑"}
+]
+
+BADGES = [
+    {"id": "first_win", "name": "First Blood", "description": "Win your first game", "icon": "🏆"},
+    {"id": "winning_streak_3", "name": "Hot Streak", "description": "Win 3 games in a row", "icon": "🔥"},
+    {"id": "winning_streak_5", "name": "On Fire", "description": "Win 5 games in a row", "icon": "💥"},
+    {"id": "big_win", "name": "Big Winner", "description": "Win $100+ in a single game", "icon": "💰"},
+    {"id": "huge_win", "name": "Jackpot", "description": "Win $500+ in a single game", "icon": "🎰"},
+    {"id": "games_10", "name": "Dedicated", "description": "Play 10 games", "icon": "🎲"},
+    {"id": "games_50", "name": "Veteran", "description": "Play 50 games", "icon": "🎖️"},
+    {"id": "games_100", "name": "Centurion", "description": "Play 100 games", "icon": "🏅"},
+    {"id": "host_5", "name": "Host Master", "description": "Host 5 games", "icon": "🏠"},
+    {"id": "comeback", "name": "Comeback Kid", "description": "Win after being down 50%+", "icon": "💪"},
+    {"id": "consistent", "name": "Consistent", "description": "Profit in 5 consecutive games", "icon": "📈"},
+    {"id": "social", "name": "Social Butterfly", "description": "Play with 10+ different players", "icon": "🦋"},
+]
+
 class User(BaseModel):
     model_config = ConfigDict(extra="ignore")
     user_id: str
     email: str
     name: str
     picture: Optional[str] = None
+    supabase_id: Optional[str] = None
+    level: str = "Rookie"
+    total_games: int = 0
+    total_profit: float = 0.0
+    badges: List[str] = []  # List of badge IDs earned
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserSession(BaseModel):
@@ -54,6 +83,17 @@ class UserSession(BaseModel):
     session_token: str
     expires_at: datetime
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class GroupInvite(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    invite_id: str = Field(default_factory=lambda: f"inv_{uuid.uuid4().hex[:12]}")
+    group_id: str
+    invited_by: str  # user_id who sent invite
+    invited_email: str  # email of person being invited
+    invited_user_id: Optional[str] = None  # if user exists
+    status: str = "pending"  # pending, accepted, rejected, expired
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    responded_at: Optional[datetime] = None
 
 class Group(BaseModel):
     model_config = ConfigDict(extra="ignore")

@@ -1100,19 +1100,40 @@ async def get_games(group_id: Optional[str] = None, user: User = Depends(get_cur
     
     games = await db.game_nights.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     
-    # Add group name and player count
+    if not games:
+        return games
+    
+    # Batch fetch all related data
+    game_ids = [g["game_id"] for g in games]
+    unique_group_ids = list(set(g["group_id"] for g in games))
+    
+    # Get all groups at once
+    groups = await db.groups.find(
+        {"group_id": {"$in": unique_group_ids}},
+        {"_id": 0, "group_id": 1, "name": 1}
+    ).to_list(100)
+    group_map = {g["group_id"]: g for g in groups}
+    
+    # Get player counts using aggregation
+    player_counts = await db.players.aggregate([
+        {"$match": {"game_id": {"$in": game_ids}}},
+        {"$group": {"_id": "$game_id", "count": {"$sum": 1}}}
+    ]).to_list(100)
+    count_map = {pc["_id"]: pc["count"] for pc in player_counts}
+    
+    # Get user's player records for all games
+    user_players = await db.players.find(
+        {"game_id": {"$in": game_ids}, "user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(100)
+    player_map = {p["game_id"]: p for p in user_players}
+    
+    # Apply to games
     for game in games:
-        group = await db.groups.find_one({"group_id": game["group_id"]}, {"_id": 0, "name": 1})
+        group = group_map.get(game["group_id"])
         game["group_name"] = group["name"] if group else "Unknown"
-        
-        player_count = await db.players.count_documents({"game_id": game["game_id"]})
-        game["player_count"] = player_count
-        
-        # Check if user is player
-        player = await db.players.find_one(
-            {"game_id": game["game_id"], "user_id": user.user_id},
-            {"_id": 0}
-        )
+        game["player_count"] = count_map.get(game["game_id"], 0)
+        player = player_map.get(game["game_id"])
         game["is_player"] = player is not None
         game["rsvp_status"] = player["rsvp_status"] if player else None
     

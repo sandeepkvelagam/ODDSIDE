@@ -474,9 +474,10 @@ async def sync_user(data: SyncUserRequest, response: Response):
 async def create_session(request: SessionRequest, response: Response):
     """Exchange session_id for session_token after OAuth."""
     try:
+        auth_service_url = os.environ.get('AUTH_SERVICE_URL', 'https://demobackend.emergentagent.com')
         async with httpx.AsyncClient() as client_http:
             resp = await client_http.get(
-                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                f"{auth_service_url}/auth/v1/env/oauth/session-data",
                 headers={"X-Session-ID": request.session_id}
             )
             

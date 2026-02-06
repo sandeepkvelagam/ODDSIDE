@@ -1,10 +1,21 @@
-# ODDSIDE PRD - Implementation Status
+# Kvitt PRD - Implementation Status
 
 ## Original Problem Statement
-Build ODDSIDE - a behavioral ledger app for home poker games.
-**Tagline: "Track. Settle. Dominate."**
+Build **Kvitt** - a behavioral ledger app for home poker games.
+**Tagline: "Your side, settled."**
 
 ## Latest Update: December 2025
+
+### Rebrand Complete
+- **Name**: Kvitt (from ODDSIDE)
+- **Tagline**: "Your side, settled." with "settled." in accent color
+- **Logo**: Stylized K mark in charcoal with orange accent
+- **Default Theme**: Light (cream/off-white background)
+- **Color Palette**:
+  - Background: Off-white/cream (#F8F7F3)
+  - Text: Dark muted gray (#4A4A4A)
+  - Accent: Warm peachy orange (#EF6E59)
+  - Buttons: Charcoal (#262626)
 
 ### Auth System
 - **Supabase Auth** (email/password) - CONFIGURED
@@ -13,9 +24,9 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - JWT token verification on backend
 
 ### Design System
-- **Color Scheme**: Dark theme with orange accent (#FF7043)
+- **Color Scheme**: Light theme default with dark mode toggle
 - **Font**: Inter (clean, modern sans-serif)
-- **Logo**: Sharp geometric diamond in orange
+- **Logo**: Stylized K in rounded square
 - **Mobile-first responsive design**
 
 ### Game Features
@@ -40,7 +51,7 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 ## User Personas
 1. **Solo Player** - Logs personal sessions, tracks individual stats
 2. **Group Member** - Participates in shared ledger, RSVPs to games
-3. **Host (Contextual)** - User who starts a Game Night, controls buy-ins and game flow
+3. **Host (Contextual)** - User who starts a Game Night, controls buy-ins
 4. **Admin (Structural)** - Group owner with elevated permissions
 
 ## Core Requirements
@@ -80,24 +91,25 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - [x] **Badge & Level System**: 5 Levels, 12 Badges
 - [x] **PendingInvites**: Dashboard component for incoming invites
 
-### Game Night UI Enhancements (COMPLETE - December 2025)
+### Game Night UI Enhancements (COMPLETE)
 - [x] **Mobile-optimized design**: Responsive layout for all screen sizes
 - [x] **Fixed buy-in denominations**: $5, $10, $20, $50, $100 buttons
 - [x] **Host-only buy-ins**: Admin controls all player buy-ins
 - [x] **Chip count display**: Show chips in play at game start
-- [x] **Transaction details**: Expandable history per player showing buy-in count
+- [x] **Transaction details**: Expandable history per player
 - [x] **Cash-out with chips**: Enter chip count, auto-calculates value
-- [x] **Poker hand rankings**: Built-in reference sheet accessible during game
-- [x] **Player notifications**: Notify players when buy-in is added for them
+- [x] **Poker hand rankings**: Built-in reference sheet
 
-### Rebranding (COMPLETE)
-- [x] Name: ODDSIDE with tagline "Track. Settle. Dominate."
-- [x] Sharp geometric diamond logo (SVG)
-- [x] Light/Dark theme toggle
-- [x] Full landing page with hero, features, testimonials
+### Rebranding to Kvitt (COMPLETE - December 2025)
+- [x] Name: Kvitt with tagline "Your side, settled."
+- [x] Stylized K logo in charcoal/orange
+- [x] Light theme default (cream background)
+- [x] Charcoal CTA buttons
+- [x] Updated all pages and footers
+- [x] Theme toggle (light/dark)
 
 ### Pages Implemented
-1. **Landing Page** - Dark poker aesthetic with hero, features, testimonials
+1. **Landing Page** - Clean modern design with hero, features, testimonials
 2. **Dashboard** - Net profit, win rate, balance, active games, pending invites
 3. **Groups Management** - Create, view groups
 4. **Group Hub** - Members, games, leaderboard, invite with search
@@ -110,7 +122,7 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - Auth: `/api/auth/sync-user`, `/api/auth/me`, `/api/auth/logout`
 - Groups: CRUD + invite/remove members
 - Games: CRUD + start/end/join/rsvp/add-player/cancel
-- **NEW**: `/api/games/{id}/admin-buy-in` - Host adds buy-in for specific player
+- `/api/games/{id}/admin-buy-in` - Host adds buy-in for specific player
 - Transactions: buy-in, cash-out (with chip count)
 - Settlement: generate, mark paid, edit (admin)
 - Stats: personal, group leaderboard
@@ -124,7 +136,7 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - [ ] Privacy Policy and Terms of Use pages
 - [ ] Email notification service for invites (SendGrid/Resend)
 - [ ] Verify Supabase auth with actual login test
-- [ ] Add "Request Buy-in" feature for players (notifies host)
+- [ ] Add "Request Buy-in" feature for players
 
 ### P1 - High Priority
 - [ ] Enhanced dashboard with stats visualization (charts)
@@ -138,7 +150,7 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - [ ] Phase 3: OCR for chip stacks
 - [ ] Guest/anonymous players support
 - [ ] Shareable game result cards for social media
-- [ ] Light theme improvements
+- [ ] Dark theme refinements
 
 ### P3 - Nice to Have
 - [ ] Apple Sign-In (iOS)
@@ -152,38 +164,38 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 ## Future Enhancement Ideas 💡
 
 ### Revenue & Growth
-1. **Shareable Game Summary Cards** - Post results to social media for viral growth
-2. **Premium Features** - Advanced analytics, custom chip designs, AI insights
+1. **Shareable Game Summary Cards** - Post results to social media
+2. **Premium Features** - Advanced analytics, custom chip designs
 3. **Referral System** - Invite friends, earn rewards
-4. **Group Sponsorships** - Local poker clubs can sponsor groups
+4. **Group Sponsorships** - Local poker clubs can sponsor
 
 ### User Experience
-1. **Voice Commands** - "Hey ODDSIDE, add $20 buy-in for John"
+1. **Voice Commands** - "Hey Kvitt, add $20 buy-in for John"
 2. **Apple Watch/Wear OS** - Quick buy-in from wrist
-3. **Split Pot Calculator** - For side pots and all-in scenarios
+3. **Split Pot Calculator** - For side pots and all-ins
 4. **Blind Timer** - Tournament blind increase timer
 5. **Sound Effects** - Chip sounds, notifications
 
 ### Social Features
-1. **Global Leaderboards** - Compete with players worldwide
+1. **Global Leaderboards** - Compete worldwide
 2. **Achievements Gallery** - Showcase earned badges
 3. **Player Profiles** - Public profiles with stats
-4. **Group Chat** - Persistent messaging for groups
+4. **Group Chat** - Persistent messaging
 5. **Game Replays** - Timeline view of game events
 
 ### AI Features (Phase 3+)
 1. **Natural Language Logging** - "I put in 50 and cashed out 120"
 2. **OCR Chip Counting** - Point camera at chips to count
-3. **Tilt Detection** - Warn when player is on a losing streak
-4. **Optimal Settlement** - Suggest who should pay whom to minimize transactions
-5. **Game Predictions** - Who's likely to win based on patterns
+3. **Tilt Detection** - Warn when on losing streak
+4. **Optimal Settlement** - Minimize transactions
+5. **Game Predictions** - Who's likely to win
 
 ---
 
 ## Known Issues / Technical Debt
 1. **Email Invites MOCKED**: Invites stored but no email sent
 2. **Supabase Key Format**: May need verification
-3. **server.py Size**: 1500+ lines - should be refactored into modular routers
+3. **server.py Size**: 1500+ lines - should be refactored
 4. **N+1 Query Patterns**: Several endpoints have optimization opportunities
 
 ---
@@ -193,5 +205,4 @@ Build ODDSIDE - a behavioral ledger app for home poker games.
 - MongoDB collections: users, user_sessions, groups, group_members, group_invites, game_nights, players, transactions, ledger, audit_logs, notifications, game_threads
 - Settlement uses debt minimization algorithm
 - Ledger entries locked after first status change
-- Frontend uses Supabase client for auth, session token cookie as fallback
 - Buy-ins controlled by host only via `/api/games/{id}/admin-buy-in`

@@ -14,6 +14,7 @@ import {
   ChevronRight, Calendar, Crown, ArrowLeft
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import InviteMembers from "@/components/InviteMembers";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -25,9 +26,7 @@ export default function GroupHub() {
   const [games, setGames] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [gameDialogOpen, setGameDialogOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
   const [gameTitle, setGameTitle] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -50,24 +49,6 @@ export default function GroupHub() {
       navigate("/groups");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleInvite = async (e) => {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    
-    setSubmitting(true);
-    try {
-      await axios.post(`${API}/groups/${groupId}/invite`, { email: inviteEmail });
-      toast.success("Member invited!");
-      setInviteDialogOpen(false);
-      setInviteEmail("");
-      fetchData();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to invite member");
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -134,45 +115,7 @@ export default function GroupHub() {
           </div>
           
           <div className="flex gap-3">
-            <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" data-testid="invite-member-btn">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Invite
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-card border-border">
-                <DialogHeader>
-                  <DialogTitle className="font-heading text-2xl font-bold">INVITE MEMBER</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleInvite} className="space-y-4 mt-4">
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      data-testid="invite-email-input"
-                      placeholder="friend@example.com"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      className="bg-secondary/50 border-border"
-                      autoFocus
-                    />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    They must have a PokerNight account with this email.
-                  </p>
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-primary text-black hover:bg-primary/90"
-                    disabled={submitting}
-                    data-testid="submit-invite-btn"
-                  >
-                    {submitting ? "Inviting..." : "Send Invite"}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <InviteMembers groupId={groupId} onInviteSent={fetchData} />
 
             <Dialog open={gameDialogOpen} onOpenChange={setGameDialogOpen}>
               <DialogTrigger asChild>

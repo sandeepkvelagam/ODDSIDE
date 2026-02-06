@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="11" skipped="0" tests="14" time="1.206" timestamp="2026-02-06T18:20:14.137462+00:00" hostname="agent-env-cf46cd12-bfe9-4490-b475-67b91b1412e2"><testcase classname="backend.tests.test_game_night_features.TestGameNightCreation" name="test_create_game_night" time="0.114"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">backend/tests/test_game_night_features.py:59: in test_create_game_night
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestGameNightCreation" name="test_get_game_details" time="0.074"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">backend/tests/test_game_night_features.py:68: in test_get_game_details
+    group_id, game_id = self.test_create_game_night()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_game_night_features.py:59: in test_create_game_night
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestGameNightCreation" name="test_start_game" time="0.076"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">backend/tests/test_game_night_features.py:83: in test_start_game
+    group_id, game_id = self.test_create_game_night()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_game_night_features.py:59: in test_create_game_night
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestAdminBuyIn" name="test_admin_buy_in_requires_auth" time="0.038" /><testcase classname="backend.tests.test_game_night_features.TestAdminBuyIn" name="test_admin_buy_in_game_not_found" time="0.042" /><testcase classname="backend.tests.test_game_night_features.TestAdminBuyIn" name="test_admin_buy_in_for_host_player" time="0.064"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">backend/tests/test_game_night_features.py:167: in test_admin_buy_in_for_host_player
+    group_id, game_id = self.create_active_game()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_game_night_features.py:134: in create_active_game
+    assert game_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestAdminBuyIn" name="test_admin_buy_in_fixed_denominations" time="0.064"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">backend/tests/test_game_night_features.py:185: in test_admin_buy_in_fixed_denominations
+    group_id, game_id = self.create_active_game()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_game_night_features.py:134: in create_active_game
+    assert game_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestAdminBuyIn" name="test_admin_buy_in_player_not_in_game" time="0.067"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">backend/tests/test_game_night_features.py:207: in test_admin_buy_in_player_not_in_game
+    group_id, game_id = self.create_active_game()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_game_night_features.py:134: in create_active_game
+    assert game_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestCashOut" name="test_cash_out_requires_auth" time="0.032" /><testcase classname="backend.tests.test_game_night_features.TestCashOut" name="test_cash_out_with_chip_count" time="0.109"><failure message="KeyError: 'game_id'">backend/tests/test_game_night_features.py:282: in test_cash_out_with_chip_count
+    group_id, game_id = self.create_game_with_buy_in()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_game_night_features.py:257: in create_game_with_buy_in
+    game_id = game_response.json()["game_id"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'game_id'</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestCashOut" name="test_cash_out_loss_scenario" time="0.073"><failure message="KeyError: 'game_id'">backend/tests/test_game_night_features.py:301: in test_cash_out_loss_scenario
+    group_id, game_id = self.create_game_with_buy_in()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_game_night_features.py:257: in create_game_with_buy_in
+    game_id = game_response.json()["game_id"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'game_id'</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestGameThread" name="test_get_game_thread" time="0.114"><failure message="KeyError: 'game_id'">backend/tests/test_game_night_features.py:360: in test_get_game_thread
+    group_id, game_id = self.create_active_game()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_game_night_features.py:352: in create_active_game
+    game_id = game_response.json()["game_id"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'game_id'</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestGameThread" name="test_post_message_to_thread" time="0.068"><failure message="KeyError: 'game_id'">backend/tests/test_game_night_features.py:373: in test_post_message_to_thread
+    group_id, game_id = self.create_active_game()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_game_night_features.py:352: in create_active_game
+    game_id = game_response.json()["game_id"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'game_id'</failure></testcase><testcase classname="backend.tests.test_game_night_features.TestTransactionHistory" name="test_transaction_history_in_game_details" time="0.069"><failure message="KeyError: 'game_id'">backend/tests/test_game_night_features.py:424: in test_transaction_history_in_game_details
+    game_id = game_response.json()["game_id"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'game_id'</failure></testcase></testsuite></testsuites>

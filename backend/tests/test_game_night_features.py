@@ -43,16 +43,16 @@ class TestGameNightCreation:
         # First create a group
         group_id = self.create_test_group()
         
-        # Create game night
+        # Create game night - endpoint is /api/games with group_id in body
         game_payload = {
+            "group_id": group_id,
             "title": f"TEST_Game_{int(time.time())}",
-            "scheduled_date": "2026-02-01T20:00:00Z",
+            "scheduled_at": "2026-02-01T20:00:00Z",
             "buy_in_amount": 20,
-            "chips_per_buy_in": 20,
-            "chip_value": 1.0
+            "chips_per_buy_in": 20
         }
         response = requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/games",
+            f"{BASE_URL}/api/games",
             json=game_payload,
             headers=self.headers
         )
@@ -118,16 +118,16 @@ class TestAdminBuyIn:
         assert group_response.status_code == 200
         group_id = group_response.json()["group_id"]
         
-        # Create game
+        # Create game - endpoint is /api/games with group_id in body
         game_payload = {
+            "group_id": group_id,
             "title": f"TEST_AdminBuyInGame_{int(time.time())}",
-            "scheduled_date": "2026-02-01T20:00:00Z",
+            "scheduled_at": "2026-02-01T20:00:00Z",
             "buy_in_amount": 20,
-            "chips_per_buy_in": 20,
-            "chip_value": 1.0
+            "chips_per_buy_in": 20
         }
         game_response = requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/games",
+            f"{BASE_URL}/api/games",
             json=game_payload,
             headers=self.headers
         )
@@ -241,16 +241,16 @@ class TestCashOut:
         )
         group_id = group_response.json()["group_id"]
         
-        # Create game
+        # Create game - endpoint is /api/games with group_id in body
         game_payload = {
+            "group_id": group_id,
             "title": f"TEST_CashOutGame_{int(time.time())}",
-            "scheduled_date": "2026-02-01T20:00:00Z",
+            "scheduled_at": "2026-02-01T20:00:00Z",
             "buy_in_amount": 20,
-            "chips_per_buy_in": 20,
-            "chip_value": 1.0
+            "chips_per_buy_in": 20
         }
         game_response = requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/games",
+            f"{BASE_URL}/api/games",
             json=game_payload,
             headers=self.headers
         )
@@ -338,14 +338,14 @@ class TestGameThread:
         group_id = group_response.json()["group_id"]
         
         game_payload = {
+            "group_id": group_id,
             "title": f"TEST_ThreadGame_{int(time.time())}",
-            "scheduled_date": "2026-02-01T20:00:00Z",
+            "scheduled_at": "2026-02-01T20:00:00Z",
             "buy_in_amount": 20,
-            "chips_per_buy_in": 20,
-            "chip_value": 1.0
+            "chips_per_buy_in": 20
         }
         game_response = requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/games",
+            f"{BASE_URL}/api/games",
             json=game_payload,
             headers=self.headers
         )
@@ -410,14 +410,14 @@ class TestTransactionHistory:
         
         # Create and start game
         game_payload = {
+            "group_id": group_id,
             "title": f"TEST_TxnHistoryGame_{int(time.time())}",
-            "scheduled_date": "2026-02-01T20:00:00Z",
+            "scheduled_at": "2026-02-01T20:00:00Z",
             "buy_in_amount": 20,
-            "chips_per_buy_in": 20,
-            "chip_value": 1.0
+            "chips_per_buy_in": 20
         }
         game_response = requests.post(
-            f"{BASE_URL}/api/groups/{group_id}/games",
+            f"{BASE_URL}/api/games",
             json=game_payload,
             headers=self.headers
         )

@@ -15,6 +15,9 @@ import GroupHub from "@/pages/GroupHub";
 import GameNight from "@/pages/GameNight";
 import Settlement from "@/pages/Settlement";
 import Profile from "@/pages/Profile";
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
+import GameHistory from "@/pages/GameHistory";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -69,6 +72,8 @@ function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Landing />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             <Route path="/login" element={
               <PublicRoute>
                 <Login />
@@ -109,6 +114,11 @@ function App() {
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/history" element={
+              <ProtectedRoute>
+                <GameHistory />
               </ProtectedRoute>
             } />
             

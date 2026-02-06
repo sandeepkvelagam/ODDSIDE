@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 class PokerNightAPITester:
-    def __init__(self, base_url: str = "https://req-tracker-20.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://chip-master-6.preview.emergentagent.com"):
         self.base_url = base_url
         self.session_token = "test_session_1770331407571"  # From auth setup
         self.user_id = "test-user-1770331407571"

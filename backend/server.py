@@ -412,6 +412,30 @@ async def sync_user(data: SyncUserRequest, response: Response):
     }
     await db.user_sessions.insert_one(session_doc)
     
+    # Check for pending group invites for this email
+    pending_invites = await db.group_invites.find(
+        {"invited_email": data.email, "status": "pending", "invited_user_id": None}
+    ).to_list(100)
+    
+    for invite in pending_invites:
+        await db.group_invites.update_one(
+            {"invite_id": invite["invite_id"]},
+            {"$set": {"invited_user_id": user_id}}
+        )
+        # Create notification
+        group = await db.groups.find_one({"group_id": invite["group_id"]}, {"_id": 0, "name": 1})
+        inviter = await db.users.find_one({"user_id": invite["invited_by"]}, {"_id": 0, "name": 1})
+        notification = Notification(
+            user_id=user_id,
+            type="group_invite_request",
+            title="Group Invitation",
+            message=f"{inviter['name'] if inviter else 'Someone'} invited you to join {group['name'] if group else 'a group'}",
+            data={"group_id": invite["group_id"], "invite_id": invite["invite_id"]}
+        )
+        notif_dict = notification.model_dump()
+        notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+        await db.notifications.insert_one(notif_dict)
+    
     # Set cookie
     response.set_cookie(
         key="session_token",
@@ -424,6 +448,12 @@ async def sync_user(data: SyncUserRequest, response: Response):
     )
     
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    
+    # Add pending invite count
+    invite_count = len(pending_invites)
+    if invite_count > 0:
+        user_doc["pending_invites"] = invite_count
+    
     return user_doc
 
 @api_router.post("/auth/session")

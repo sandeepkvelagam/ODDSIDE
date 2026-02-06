@@ -1154,21 +1154,34 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
     if not membership:
         raise HTTPException(status_code=403, detail="Not a member of this group")
     
-    # Get players with user info
+    # Get players
     players = await db.players.find({"game_id": game_id}, {"_id": 0}).to_list(100)
-    for player in players:
-        user_info = await db.users.find_one(
-            {"user_id": player["user_id"]},
+    
+    if players:
+        # Batch fetch user info for all players
+        user_ids = [p["user_id"] for p in players]
+        users = await db.users.find(
+            {"user_id": {"$in": user_ids}},
             {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
-        )
-        player["user"] = user_info
-        
-        # Get transactions
-        txns = await db.transactions.find(
-            {"game_id": game_id, "user_id": player["user_id"]},
-            {"_id": 0}
         ).to_list(100)
-        player["transactions"] = txns
+        user_map = {u["user_id"]: u for u in users}
+        
+        # Batch fetch all transactions for this game
+        txns = await db.transactions.find(
+            {"game_id": game_id},
+            {"_id": 0}
+        ).to_list(1000)
+        txn_map = {}
+        for txn in txns:
+            if txn["user_id"] not in txn_map:
+                txn_map[txn["user_id"]] = []
+            txn_map[txn["user_id"]].append(txn)
+        
+        # Apply to players
+        for player in players:
+            player["user"] = user_map.get(player["user_id"])
+            player["transactions"] = txn_map.get(player["user_id"], [])
+            player["buy_in_count"] = len([t for t in player["transactions"] if t.get("type") == "buy_in"])
     
     game["players"] = players
     
@@ -1186,11 +1199,8 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
     # Check if current user is host
     game["is_host"] = game["host_id"] == user.user_id
     
-    # Get current user's player record
-    current_player = await db.players.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
-        {"_id": 0}
-    )
+    # Get current user's player record (already in players list)
+    current_player = next((p for p in players if p["user_id"] == user.user_id), None)
     game["current_player"] = current_player
     
     return game

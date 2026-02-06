@@ -65,7 +65,7 @@ export default function Login() {
         <Card className="w-full max-w-md bg-card border-border" data-testid="login-card">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-            <CardDescription>Sign in to your ODDSIDE account</CardDescription>
+            <CardDescription>Sign in to your Kvitt account</CardDescription>
           </CardHeader>
           <CardContent>
             {error && (

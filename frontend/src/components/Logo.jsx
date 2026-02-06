@@ -2,38 +2,38 @@ import { cn } from "@/lib/utils";
 
 export const Logo = ({ className, size = "default", showText = true }) => {
   const sizes = {
-    small: { icon: "w-8 h-8", text: "text-xl" },
-    default: { icon: "w-10 h-10", text: "text-2xl" },
-    large: { icon: "w-14 h-14", text: "text-4xl" }
+    small: { icon: "w-7 h-7", text: "text-lg" },
+    default: { icon: "w-8 h-8", text: "text-xl" },
+    large: { icon: "w-12 h-12", text: "text-3xl" }
   };
 
   const { icon, text } = sizes[size] || sizes.default;
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      {/* Sharp geometric logo - two overlapping diamonds with orange */}
+      {/* Kvitt Logo - Modern K mark */}
       <div className={cn("relative", icon)}>
         <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          {/* Background diamond */}
-          <path 
-            d="M20 2L38 20L20 38L2 20L20 2Z" 
-            fill="#FF7043"
+          {/* Rounded square background */}
+          <rect 
+            x="2" y="2" 
+            width="36" height="36" 
+            rx="8" 
+            fill="#262626"
           />
-          {/* Inner cut - creating depth */}
+          {/* K letter stylized */}
           <path 
-            d="M20 8L32 20L20 32L8 20L20 8Z" 
-            className="fill-background"
-          />
-          {/* Center accent */}
-          <path 
-            d="M20 14L26 20L20 26L14 20L20 14Z" 
-            fill="#FF7043"
+            d="M12 10V30M12 20L24 10M12 20L24 30" 
+            stroke="#EF6E59"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
         </svg>
       </div>
       {showText && (
-        <span className={cn("font-heading font-bold tracking-tight", text)}>
-          ODDSIDE
+        <span className={cn("font-heading font-extrabold tracking-tight", text)}>
+          Kvitt
         </span>
       )}
     </div>

@@ -10,14 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { 
   Play, Square, DollarSign, Plus, Send, Clock,
-  TrendingUp, TrendingDown, Users, MessageSquare,
-  ArrowLeft, AlertTriangle, Coins, ChevronDown,
-  HelpCircle, User, Crown, History, X
+  Users, MessageSquare, ArrowLeft, Coins,
+  HelpCircle, Crown, History, Hand, LogOut, CheckCircle
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
@@ -39,11 +37,13 @@ export default function GameNight() {
   const [selectedBuyIn, setSelectedBuyIn] = useState(null);
   const [cashOutChips, setCashOutChips] = useState("");
   const [message, setMessage] = useState("");
-  const [buyInDialogOpen, setBuyInDialogOpen] = useState(false);
+  const [requestBuyInDialogOpen, setRequestBuyInDialogOpen] = useState(false);
   const [cashOutDialogOpen, setCashOutDialogOpen] = useState(false);
   const [endDialogOpen, setEndDialogOpen] = useState(false);
   const [adminBuyInDialogOpen, setAdminBuyInDialogOpen] = useState(false);
+  const [adminCashOutDialogOpen, setAdminCashOutDialogOpen] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [adminCashOutChips, setAdminCashOutChips] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [elapsedTime, setElapsedTime] = useState("0:00:00");
   const [showHandRankings, setShowHandRankings] = useState(false);
@@ -121,6 +121,26 @@ export default function GameNight() {
     }
   };
 
+  // Player requests buy-in (notifies host)
+  const handleRequestBuyIn = async () => {
+    if (!selectedBuyIn || selectedBuyIn <= 0) {
+      toast.error("Select a buy-in amount");
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/games/${gameId}/request-buy-in`, { amount: selectedBuyIn });
+      toast.success(`Buy-in request sent to host!`);
+      setRequestBuyInDialogOpen(false);
+      fetchGame();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to request buy-in");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Admin buy-in for a specific player
   const handleAdminBuyIn = async (playerId, amount) => {
     if (!amount || amount <= 0) {
@@ -145,29 +165,8 @@ export default function GameNight() {
     }
   };
 
-  // Regular user buy-in (if allowed or for self-request)
-  const handleBuyIn = async (e) => {
-    e.preventDefault();
-    if (!selectedBuyIn || selectedBuyIn <= 0) {
-      toast.error("Select a buy-in amount");
-      return;
-    }
-    
-    setSubmitting(true);
-    try {
-      await axios.post(`${API}/games/${gameId}/buy-in`, { amount: selectedBuyIn });
-      toast.success(`Bought in for $${selectedBuyIn}`);
-      setBuyInDialogOpen(false);
-      fetchGame();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to buy in");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Cash out with chip count
-  const handleCashOut = async (e) => {
+  // Player cash out (sends notification to admin for approval)
+  const handlePlayerCashOut = async (e) => {
     e.preventDefault();
     const chips = parseInt(cashOutChips);
     if (isNaN(chips) || chips < 0) {
@@ -177,13 +176,43 @@ export default function GameNight() {
     
     setSubmitting(true);
     try {
-      await axios.post(`${API}/games/${gameId}/cash-out`, { chips_returned: chips });
-      toast.success(`Cashed out ${chips} chips`);
+      await axios.post(`${API}/games/${gameId}/request-cash-out`, { chips_count: chips });
+      toast.success(`Cash-out request sent to host for approval!`);
       setCashOutDialogOpen(false);
       setCashOutChips("");
       fetchGame();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to cash out");
+      toast.error(error.response?.data?.detail || "Failed to request cash-out");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Admin cash out for any player
+  const handleAdminCashOut = async () => {
+    if (!selectedPlayer) {
+      toast.error("Select a player");
+      return;
+    }
+    const chips = parseInt(adminCashOutChips);
+    if (isNaN(chips) || chips < 0) {
+      toast.error("Enter a valid chip count");
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/games/${gameId}/admin-cash-out`, { 
+        user_id: selectedPlayer.user_id,
+        chips_count: chips
+      });
+      toast.success(`Cash-out recorded for ${selectedPlayer.user?.name}!`);
+      setAdminCashOutDialogOpen(false);
+      setAdminCashOutChips("");
+      setSelectedPlayer(null);
+      fetchGame();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to cash out player");
     } finally {
       setSubmitting(false);
     }
@@ -250,13 +279,15 @@ export default function GameNight() {
 
   // Calculate totals
   const totalChipsDistributed = game?.total_chips_distributed || 0;
-  const totalChipsReturned = game?.total_chips_returned || 0;
   const totalBuyIns = game?.players?.reduce((sum, p) => sum + (p.total_buy_in || 0), 0) || 0;
-  const totalCashedOut = game?.players?.reduce((sum, p) => sum + (p.cash_out || 0), 0) || 0;
+  
+  // Check if all players cashed out
+  const allPlayersCashedOut = game?.players?.every(p => p.cashed_out === true) || false;
+  const playersNotCashedOut = game?.players?.filter(p => !p.cashed_out) || [];
 
   // Count buy-ins for each player
   const getPlayerBuyInCount = (player) => {
-    return player.transactions?.filter(t => t.type === "buy_in").length || 0;
+    return player.buy_in_count || 0;
   };
 
   return (
@@ -268,7 +299,7 @@ export default function GameNight() {
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <button 
             onClick={() => navigate(`/groups/${game?.group_id}`)}
-            className="flex items-center text-muted-foreground hover:text-white transition-colors"
+            className="flex items-center text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">Back to {game?.group?.name}</span>
@@ -351,7 +382,7 @@ export default function GameNight() {
               {isScheduled && (
                 <Button 
                   onClick={handleStartGame}
-                  className="bg-primary text-black hover:bg-primary/90"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
                   disabled={submitting}
                   data-testid="start-game-btn"
                 >
@@ -371,7 +402,13 @@ export default function GameNight() {
                     <DialogHeader>
                       <DialogTitle className="font-heading text-xl md:text-2xl font-bold">END GAME?</DialogTitle>
                       <DialogDescription>
-                        Make sure all players have cashed out before ending.
+                        {!allPlayersCashedOut ? (
+                          <span className="text-destructive">
+                            ⚠️ {playersNotCashedOut.length} player(s) haven't cashed out yet: {playersNotCashedOut.map(p => p.user?.name).join(", ")}
+                          </span>
+                        ) : (
+                          "All players have cashed out. Ready to settle."
+                        )}
                       </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -379,10 +416,10 @@ export default function GameNight() {
                       <Button 
                         variant="destructive" 
                         onClick={handleEndGame}
-                        disabled={submitting}
+                        disabled={submitting || !allPlayersCashedOut}
                         data-testid="confirm-end-game-btn"
                       >
-                        End Game
+                        {allPlayersCashedOut ? "End Game" : "Cash out all players first"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -391,7 +428,7 @@ export default function GameNight() {
               {isEnded && (
                 <Button 
                   onClick={handleSettle}
-                  className="bg-primary text-black hover:bg-primary/90"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
                   disabled={submitting}
                   data-testid="settle-btn"
                 >
@@ -450,7 +487,7 @@ export default function GameNight() {
               </div>
             )}
 
-            {/* Action Buttons - Host Only for Buy-ins */}
+            {/* Host Controls Card */}
             {isActive && isHost && (
               <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/30" data-testid="admin-action-card">
                 <CardHeader className="pb-2">
@@ -459,100 +496,190 @@ export default function GameNight() {
                     HOST CONTROLS
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-2">
-                  <p className="text-xs md:text-sm text-muted-foreground mb-3">
-                    As host, you control all buy-ins. Select a player below to add chips.
+                <CardContent className="pt-2 space-y-3">
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    As host, you control buy-ins and can cash out players.
                   </p>
-                  <Button 
-                    className="w-full h-12 md:h-16 text-base md:text-lg bg-primary text-black hover:bg-primary/90 font-bold"
-                    onClick={() => setAdminBuyInDialogOpen(true)}
-                    data-testid="admin-buy-in-trigger-btn"
-                  >
-                    <Plus className="w-5 h-5 md:w-6 md:h-6 mr-2" />
-                    ADD BUY-IN FOR PLAYER
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      className="h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+                      onClick={() => setAdminBuyInDialogOpen(true)}
+                      data-testid="admin-buy-in-trigger-btn"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Buy-In
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="h-12 font-bold"
+                      onClick={() => setAdminCashOutDialogOpen(true)}
+                      data-testid="admin-cash-out-trigger-btn"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Cash Out Player
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Player Cash Out (for non-hosts) */}
-            {isActive && currentPlayer && !isHost && currentPlayer.cash_out === null && (
+            {/* Player Actions Card (for non-hosts) */}
+            {isActive && currentPlayer && !currentPlayer.cashed_out && (
               <Card className="bg-card border-border/50" data-testid="player-action-card">
-                <CardContent className="p-4 md:p-6">
-                  <div className="text-center mb-4">
-                    <p className="text-sm text-muted-foreground">Your chips</p>
-                    <p className="font-mono text-3xl font-bold text-primary">{currentPlayer.total_chips || 0}</p>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm md:text-base font-bold">YOUR GAME</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+                    <div>
+                      <p className="text-[10px] md:text-xs text-muted-foreground">Your Chips</p>
+                      <p className="font-mono text-xl md:text-2xl font-bold text-primary">{currentPlayer.total_chips || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] md:text-xs text-muted-foreground">Buy-ins</p>
+                      <p className="font-mono text-xl md:text-2xl font-bold">{currentPlayer.buy_in_count || 0}x</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] md:text-xs text-muted-foreground">Total In</p>
+                      <p className="font-mono text-xl md:text-2xl font-bold">${currentPlayer.total_buy_in || 0}</p>
+                    </div>
                   </div>
-                  <Dialog open={cashOutDialogOpen} onOpenChange={setCashOutDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        variant="outline"
-                        className="w-full h-12 md:h-16 text-base md:text-lg font-bold border-2"
-                        data-testid="cash-out-trigger-btn"
-                      >
-                        <DollarSign className="w-5 h-5 md:w-6 md:h-6 mr-2" />
-                        CASH OUT
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-card border-border mx-4">
-                      <DialogHeader>
-                        <DialogTitle className="font-heading text-xl md:text-2xl font-bold">CASH OUT</DialogTitle>
-                      </DialogHeader>
-                      <form onSubmit={handleCashOut} className="space-y-4 mt-4">
-                        <div>
-                          <Label htmlFor="cashOutChips">Chips to Return</Label>
-                          <Input
-                            id="cashOutChips"
-                            type="number"
-                            min="0"
-                            step="1"
-                            placeholder="Enter chip count"
-                            data-testid="cash-out-chips-input"
-                            value={cashOutChips}
-                            onChange={(e) => setCashOutChips(e.target.value)}
-                            className="bg-secondary/50 border-border text-xl md:text-2xl h-12 md:h-14 font-mono"
-                            autoFocus
-                          />
-                        </div>
-                        <div className="p-3 bg-secondary/30 rounded-lg space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Your chips:</span>
-                            <span className="font-mono">{currentPlayer.total_chips || 0}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Total buy-in:</span>
-                            <span className="font-mono">${currentPlayer.total_buy_in || 0}</span>
-                          </div>
-                          {cashOutChips && (
-                            <>
-                              <div className="border-t border-border pt-2 flex justify-between text-sm">
-                                <span className="text-muted-foreground">Cash value:</span>
-                                <span className="font-mono">${(parseInt(cashOutChips) * chipValue).toFixed(2)}</span>
-                              </div>
-                              <div className="flex justify-between font-bold">
-                                <span>Net result:</span>
-                                <span className={`font-mono ${
-                                  (parseInt(cashOutChips) * chipValue) >= (currentPlayer.total_buy_in || 0)
-                                    ? 'text-primary' : 'text-destructive'
-                                }`}>
-                                  {(parseInt(cashOutChips) * chipValue) >= (currentPlayer.total_buy_in || 0) ? '+' : ''}
-                                  ${((parseInt(cashOutChips) * chipValue) - (currentPlayer.total_buy_in || 0)).toFixed(2)}
-                                </span>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Request Buy-In Button */}
+                    <Dialog open={requestBuyInDialogOpen} onOpenChange={setRequestBuyInDialogOpen}>
+                      <DialogTrigger asChild>
                         <Button 
-                          type="submit" 
-                          className="w-full h-10 md:h-12 bg-primary text-black hover:bg-primary/90 font-bold"
-                          disabled={submitting}
-                          data-testid="confirm-cash-out-btn"
+                          variant="outline"
+                          className="h-12 font-bold"
+                          data-testid="request-buy-in-btn"
                         >
-                          {submitting ? "Processing..." : "Confirm Cash Out"}
+                          <Hand className="w-4 h-4 mr-2" />
+                          Request Buy-In
                         </Button>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
+                      </DialogTrigger>
+                      <DialogContent className="bg-card border-border mx-4">
+                        <DialogHeader>
+                          <DialogTitle className="font-heading text-xl font-bold">REQUEST BUY-IN</DialogTitle>
+                          <DialogDescription>
+                            Select amount to request. Host will be notified.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 mt-4">
+                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                            {BUY_IN_DENOMINATIONS.map(amount => (
+                              <Button
+                                key={amount}
+                                type="button"
+                                variant={selectedBuyIn === amount ? "default" : "outline"}
+                                className={`h-12 font-mono font-bold ${
+                                  selectedBuyIn === amount ? 'bg-primary text-primary-foreground' : ''
+                                }`}
+                                onClick={() => setSelectedBuyIn(amount)}
+                              >
+                                ${amount}
+                              </Button>
+                            ))}
+                          </div>
+                          <Button 
+                            className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+                            disabled={!selectedBuyIn || submitting}
+                            onClick={handleRequestBuyIn}
+                            data-testid="confirm-request-buy-in-btn"
+                          >
+                            {submitting ? "Requesting..." : `Request $${selectedBuyIn || 0} Buy-In`}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Cash Out Button */}
+                    <Dialog open={cashOutDialogOpen} onOpenChange={setCashOutDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          className="h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+                          data-testid="cash-out-trigger-btn"
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          Cash Out
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-card border-border mx-4">
+                        <DialogHeader>
+                          <DialogTitle className="font-heading text-xl font-bold">CASH OUT</DialogTitle>
+                          <DialogDescription>
+                            Enter your remaining chip count. Host will verify.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handlePlayerCashOut} className="space-y-4 mt-4">
+                          <div>
+                            <Label htmlFor="cashOutChips">Chips to Return</Label>
+                            <Input
+                              id="cashOutChips"
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="Enter chip count"
+                              data-testid="cash-out-chips-input"
+                              value={cashOutChips}
+                              onChange={(e) => setCashOutChips(e.target.value)}
+                              className="bg-secondary/50 border-border text-xl md:text-2xl h-12 md:h-14 font-mono"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="p-3 bg-secondary/30 rounded-lg space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Your chips:</span>
+                              <span className="font-mono">{currentPlayer.total_chips || 0}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Total buy-in:</span>
+                              <span className="font-mono">${currentPlayer.total_buy_in || 0}</span>
+                            </div>
+                            {cashOutChips && (
+                              <>
+                                <div className="border-t border-border pt-2 flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Cash value:</span>
+                                  <span className="font-mono">${(parseInt(cashOutChips) * chipValue).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between font-bold">
+                                  <span>Net result:</span>
+                                  <span className={`font-mono ${
+                                    (parseInt(cashOutChips) * chipValue) >= (currentPlayer.total_buy_in || 0)
+                                      ? 'text-green-600' : 'text-destructive'
+                                  }`}>
+                                    {(parseInt(cashOutChips) * chipValue) >= (currentPlayer.total_buy_in || 0) ? '+' : ''}
+                                    ${((parseInt(cashOutChips) * chipValue) - (currentPlayer.total_buy_in || 0)).toFixed(2)}
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          <Button 
+                            type="submit" 
+                            className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+                            disabled={submitting || !cashOutChips}
+                            data-testid="confirm-cash-out-btn"
+                          >
+                            {submitting ? "Requesting..." : "Request Cash Out"}
+                          </Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Already cashed out message */}
+            {isActive && currentPlayer?.cashed_out && (
+              <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                <CardContent className="p-4 md:p-6 text-center">
+                  <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-600" />
+                  <p className="font-bold text-green-700 dark:text-green-400">You've cashed out!</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Final chips: {currentPlayer.chips_returned} • Net: {currentPlayer.net_result >= 0 ? '+' : ''}${currentPlayer.net_result?.toFixed(2)}
+                  </p>
                 </CardContent>
               </Card>
             )}
@@ -564,7 +691,7 @@ export default function GameNight() {
                   <p className="mb-4 text-sm md:text-base">You haven't joined this game yet.</p>
                   <Button 
                     onClick={handleJoinGame}
-                    className="bg-primary text-black hover:bg-primary/90"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
                     data-testid="join-game-btn"
                   >
                     Join Game
@@ -573,7 +700,7 @@ export default function GameNight() {
               </Card>
             )}
 
-            {/* Players List - Enhanced */}
+            {/* Players List */}
             <Card className="bg-card border-border/50" data-testid="players-list">
               <CardHeader className="pb-2">
                 <CardTitle className="font-heading text-lg md:text-xl font-bold flex items-center justify-between">
@@ -596,14 +723,17 @@ export default function GameNight() {
                         <div 
                           key={player.player_id}
                           className={`p-3 md:p-4 rounded-lg ${
-                            isCurrentUser ? 'bg-primary/10 border border-primary/30' : 'bg-secondary/30'
+                            player.cashed_out 
+                              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
+                              : isCurrentUser 
+                                ? 'bg-primary/10 border border-primary/30' 
+                                : 'bg-secondary/30'
                           }`}
                           data-testid={`player-${player.user_id}`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 md:gap-3 min-w-0">
                               <Avatar className="w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
-                                <AvatarImage src={player.user?.picture} />
                                 <AvatarFallback className="text-xs md:text-sm">{player.user?.name?.[0] || '?'}</AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
@@ -613,11 +743,14 @@ export default function GameNight() {
                                   {player.user_id === game?.host_id && (
                                     <Crown className="w-3 h-3 text-yellow-500 inline ml-1" />
                                   )}
+                                  {player.cashed_out && (
+                                    <CheckCircle className="w-3 h-3 text-green-500 inline ml-1" />
+                                  )}
                                 </p>
                                 <div className="flex flex-wrap items-center gap-1 md:gap-2 text-[10px] md:text-xs text-muted-foreground">
                                   <span className="flex items-center gap-1">
                                     <Coins className="w-3 h-3" />
-                                    {player.total_chips || 0} chips
+                                    {player.cashed_out ? player.chips_returned : player.total_chips || 0} chips
                                   </span>
                                   <span>•</span>
                                   <span>${player.total_buy_in || 0}</span>
@@ -628,43 +761,56 @@ export default function GameNight() {
                             </div>
                             
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              {player.cash_out !== null ? (
+                              {player.cashed_out ? (
                                 <div className="text-right">
                                   <p className={`font-mono text-sm md:text-base font-bold ${
-                                    player.net_result >= 0 ? 'text-primary' : 'text-destructive'
+                                    player.net_result >= 0 ? 'text-green-600' : 'text-destructive'
                                   }`}>
                                     {player.net_result >= 0 ? '+' : ''}${player.net_result?.toFixed(0)}
                                   </p>
-                                  <p className="text-[10px] md:text-xs text-muted-foreground">Cashed out</p>
+                                  <p className="text-[10px] md:text-xs text-green-600">Cashed out</p>
                                 </div>
                               ) : isHost && isActive ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 text-xs"
-                                  onClick={() => {
-                                    setSelectedPlayer(player);
-                                    setAdminBuyInDialogOpen(true);
-                                  }}
-                                >
-                                  <Plus className="w-3 h-3 mr-1" />
-                                  Add
-                                </Button>
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 text-xs"
+                                    onClick={() => {
+                                      setSelectedPlayer(player);
+                                      setAdminBuyInDialogOpen(true);
+                                    }}
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 text-xs"
+                                    onClick={() => {
+                                      setSelectedPlayer(player);
+                                      setAdminCashOutChips(String(player.total_chips || 0));
+                                      setAdminCashOutDialogOpen(true);
+                                    }}
+                                  >
+                                    <LogOut className="w-3 h-3" />
+                                  </Button>
+                                </div>
                               ) : null}
                             </div>
                           </div>
                           
-                          {/* Transaction History (expandable on click) */}
+                          {/* Transaction History */}
                           {player.transactions && player.transactions.length > 0 && (
                             <details className="mt-2">
-                              <summary className="text-[10px] md:text-xs text-muted-foreground cursor-pointer hover:text-white">
+                              <summary className="text-[10px] md:text-xs text-muted-foreground cursor-pointer hover:text-foreground">
                                 <History className="w-3 h-3 inline mr-1" />
                                 View {player.transactions.length} transaction(s)
                               </summary>
                               <div className="mt-2 pl-2 border-l-2 border-border space-y-1">
                                 {player.transactions.map((txn, idx) => (
                                   <div key={idx} className="text-[10px] md:text-xs flex justify-between">
-                                    <span className={txn.type === 'buy_in' ? 'text-primary' : 'text-muted-foreground'}>
+                                    <span className={txn.type === 'buy_in' ? 'text-primary' : 'text-green-600'}>
                                       {txn.type === 'buy_in' ? '+ Buy-in' : '- Cash out'}
                                     </span>
                                     <span className="font-mono">
@@ -712,7 +858,6 @@ export default function GameNight() {
                         {msg.type === 'user' && (
                           <div className="flex items-center gap-2 mb-1">
                             <Avatar className="w-5 h-5 md:w-6 md:h-6">
-                              <AvatarImage src={msg.user?.picture} />
                               <AvatarFallback className="text-[10px]">{msg.user?.name?.[0] || '?'}</AvatarFallback>
                             </Avatar>
                             <span className="text-xs md:text-sm font-medium truncate">{msg.user?.name}</span>
@@ -738,7 +883,7 @@ export default function GameNight() {
                       className="bg-secondary/50 border-border text-sm"
                       data-testid="thread-message-input"
                     />
-                    <Button type="submit" size="icon" className="bg-primary text-black hover:bg-primary/90 flex-shrink-0">
+                    <Button type="submit" size="icon" className="bg-primary text-primary-foreground hover:bg-primary/90 flex-shrink-0">
                       <Send className="w-4 h-4" />
                     </Button>
                   </form>
@@ -772,11 +917,10 @@ export default function GameNight() {
                     <SelectValue placeholder="Choose a player" />
                   </SelectTrigger>
                   <SelectContent>
-                    {game?.players?.filter(p => p.cash_out === null).map(player => (
+                    {game?.players?.filter(p => !p.cashed_out).map(player => (
                       <SelectItem key={player.user_id} value={player.user_id}>
                         <div className="flex items-center gap-2">
                           <Avatar className="w-6 h-6">
-                            <AvatarImage src={player.user?.picture} />
                             <AvatarFallback>{player.user?.name?.[0]}</AvatarFallback>
                           </Avatar>
                           {player.user?.name}
@@ -787,7 +931,7 @@ export default function GameNight() {
                 </Select>
               </div>
 
-              {/* Buy-in Amount Selection - Fixed Denominations */}
+              {/* Buy-in Amount Selection */}
               <div>
                 <Label>Buy-In Amount</Label>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-2">
@@ -797,7 +941,7 @@ export default function GameNight() {
                       type="button"
                       variant={selectedBuyIn === amount ? "default" : "outline"}
                       className={`h-12 font-mono font-bold ${
-                        selectedBuyIn === amount ? 'bg-primary text-black' : ''
+                        selectedBuyIn === amount ? 'bg-primary text-primary-foreground' : ''
                       }`}
                       onClick={() => setSelectedBuyIn(amount)}
                     >
@@ -805,9 +949,6 @@ export default function GameNight() {
                     </Button>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Default: ${defaultBuyIn} = {chipsPerBuyIn} chips
-                </p>
               </div>
 
               {/* Preview */}
@@ -829,12 +970,102 @@ export default function GameNight() {
               )}
 
               <Button 
-                className="w-full h-12 bg-primary text-black hover:bg-primary/90 font-bold"
+                className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
                 disabled={!selectedPlayer || !selectedBuyIn || submitting}
                 onClick={() => handleAdminBuyIn(selectedPlayer?.user_id, selectedBuyIn)}
                 data-testid="confirm-admin-buy-in-btn"
               >
                 {submitting ? "Processing..." : "Confirm Buy-In"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Admin Cash-Out Dialog */}
+        <Dialog open={adminCashOutDialogOpen} onOpenChange={setAdminCashOutDialogOpen}>
+          <DialogContent className="bg-card border-border mx-4 max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-heading text-xl md:text-2xl font-bold">CASH OUT PLAYER</DialogTitle>
+              <DialogDescription>
+                Enter chip count. Player will be notified.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              {/* Player Selection */}
+              <div>
+                <Label>Select Player</Label>
+                <Select 
+                  value={selectedPlayer?.user_id || ""} 
+                  onValueChange={(val) => {
+                    const player = game?.players?.find(p => p.user_id === val);
+                    setSelectedPlayer(player);
+                    setAdminCashOutChips(String(player?.total_chips || 0));
+                  }}
+                >
+                  <SelectTrigger className="bg-secondary/50 border-border">
+                    <SelectValue placeholder="Choose a player" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {game?.players?.filter(p => !p.cashed_out).map(player => (
+                      <SelectItem key={player.user_id} value={player.user_id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="w-6 h-6">
+                            <AvatarFallback>{player.user?.name?.[0]}</AvatarFallback>
+                          </Avatar>
+                          {player.user?.name} ({player.total_chips} chips)
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Chip Count */}
+              <div>
+                <Label htmlFor="adminCashOutChips">Chips to Return</Label>
+                <Input
+                  id="adminCashOutChips"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Enter chip count"
+                  value={adminCashOutChips}
+                  onChange={(e) => setAdminCashOutChips(e.target.value)}
+                  className="bg-secondary/50 border-border text-xl h-12 font-mono"
+                />
+              </div>
+
+              {/* Preview */}
+              {selectedPlayer && adminCashOutChips && (
+                <div className="p-3 bg-secondary/30 rounded-lg space-y-1">
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">Player:</span>{" "}
+                    <span className="font-medium">{selectedPlayer.user?.name}</span>
+                  </p>
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">Cash value:</span>{" "}
+                    <span className="font-mono">${(parseInt(adminCashOutChips) * chipValue).toFixed(2)}</span>
+                  </p>
+                  <p className="text-sm font-bold">
+                    <span className="text-muted-foreground">Net result:</span>{" "}
+                    <span className={`font-mono ${
+                      (parseInt(adminCashOutChips) * chipValue) >= (selectedPlayer.total_buy_in || 0)
+                        ? 'text-green-600' : 'text-destructive'
+                    }`}>
+                      {(parseInt(adminCashOutChips) * chipValue) >= (selectedPlayer.total_buy_in || 0) ? '+' : ''}
+                      ${((parseInt(adminCashOutChips) * chipValue) - (selectedPlayer.total_buy_in || 0)).toFixed(2)}
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              <Button 
+                className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+                disabled={!selectedPlayer || !adminCashOutChips || submitting}
+                onClick={handleAdminCashOut}
+                data-testid="confirm-admin-cash-out-btn"
+              >
+                {submitting ? "Processing..." : "Confirm Cash Out"}
               </Button>
             </div>
           </DialogContent>

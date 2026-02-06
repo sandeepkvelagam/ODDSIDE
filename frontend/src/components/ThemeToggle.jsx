@@ -3,24 +3,26 @@ import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const ThemeToggle = () => {
-  const [isDark, setIsDark] = useState(true);
+  // Default to light theme
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("oddside-theme");
+    const saved = localStorage.getItem("kvitt-theme");
     if (saved) {
       setIsDark(saved === "dark");
+    } else {
+      // Default light mode - ensure dark class is removed
+      document.documentElement.classList.remove("dark");
     }
   }, []);
 
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add("dark");
-      document.documentElement.classList.remove("light");
     } else {
-      document.documentElement.classList.add("light");
       document.documentElement.classList.remove("dark");
     }
-    localStorage.setItem("oddside-theme", isDark ? "dark" : "light");
+    localStorage.setItem("kvitt-theme", isDark ? "dark" : "light");
   }, [isDark]);
 
   return (
@@ -32,7 +34,7 @@ export const ThemeToggle = () => {
       className="w-9 h-9"
     >
       {isDark ? (
-        <Sun className="w-5 h-5 text-yellow-400" />
+        <Sun className="w-5 h-5 text-primary" />
       ) : (
         <Moon className="w-5 h-5" />
       )}

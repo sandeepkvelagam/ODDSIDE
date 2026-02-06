@@ -4,18 +4,35 @@
 Build ODDSIDE - a behavioral ledger app for home poker games.
 **Tagline: "Track. Settle. Dominate."**
 
-## Latest Update: Feb 5, 2026
+## Latest Update: Feb 6, 2026
 
 ### Auth System
-- **Supabase Auth** (email/password) - ready for configuration
+- **Supabase Auth** (email/password) - CONFIGURED
+- Supabase URL: https://hbqngvptbuvocjrozcgw.supabase.co
 - Login and Signup pages with form validation
 - JWT token verification on backend
-- Fallback cookie-based auth for backward compatibility
 
 ### Design System
 - **Color Scheme**: Dark theme with orange accent (#FF7043)
 - **Font**: Inter (clean, modern sans-serif)
 - **Logo**: Sharp geometric diamond in orange
+
+### Game Features (NEW)
+- **Buy-in denominations**: $5, $10, $20, $50, $100 (dropdown)
+- **Chip tracking**: Track chip value and count per player
+- **Player limits**: Min 2 to start, max 20 per game
+- **Add players mid-game**: Host/admin can add players after start
+- **Settlement validation**: All players must cash out before settlement
+- **Admin controls**: Cancel game, edit game name/location/date
+- **Timestamps**: All actions logged with timestamps
+
+### Database Collections (MongoDB)
+- users, user_sessions
+- groups, group_members
+- game_nights (with chip_value, chips_per_buy_in, location, timestamps)
+- players (with total_chips, chips_returned, joined_at, cashed_out_at)
+- transactions (with chips, chip_value, notes)
+- ledger, audit_logs, notifications, game_threads
 
 ## User Personas
 1. **Solo Player** - Logs personal sessions, tracks individual stats

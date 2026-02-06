@@ -11,6 +11,7 @@ import {
   Wallet, Target, Clock
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import PendingInvites from "@/components/PendingInvites";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -68,6 +69,9 @@ export default function Dashboard() {
           </h1>
           <p className="text-muted-foreground mt-1">Here's your poker overview</p>
         </div>
+
+        {/* Pending Invites */}
+        <PendingInvites />
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-8">

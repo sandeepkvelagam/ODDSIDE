@@ -129,19 +129,46 @@ export default function Groups() {
                 </div>
                 <div>
                   <Label htmlFor="buy_in">Default Buy-In ($)</Label>
-                  <Input
-                    id="buy_in"
-                    data-testid="group-buyin-input"
-                    type="number"
-                    min="1"
-                    value={formData.default_buy_in}
-                    onChange={(e) => setFormData({ ...formData, default_buy_in: parseFloat(e.target.value) || 20 })}
-                    className="bg-secondary/50 border-border"
-                  />
+                  <Select
+                    value={formData.default_buy_in.toString()}
+                    onValueChange={(value) => setFormData({ ...formData, default_buy_in: parseFloat(value) })}
+                  >
+                    <SelectTrigger className="bg-secondary/50 border-border" data-testid="group-buyin-select">
+                      <SelectValue placeholder="Select buy-in" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BUY_IN_OPTIONS.map((amount) => (
+                        <SelectItem key={amount} value={amount.toString()}>
+                          ${amount}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="chips">Chips per Buy-In</Label>
+                  <Select
+                    value={formData.chips_per_buy_in.toString()}
+                    onValueChange={(value) => setFormData({ ...formData, chips_per_buy_in: parseInt(value) })}
+                  >
+                    <SelectTrigger className="bg-secondary/50 border-border" data-testid="group-chips-select">
+                      <SelectValue placeholder="Select chips" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CHIP_OPTIONS.map((chips) => (
+                        <SelectItem key={chips} value={chips.toString()}>
+                          {chips} chips
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Chip value: ${(formData.default_buy_in / formData.chips_per_buy_in).toFixed(2)} per chip
+                  </p>
                 </div>
                 <Button 
                   type="submit" 
-                  className="w-full bg-primary text-black hover:bg-primary/90"
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                   disabled={creating}
                   data-testid="submit-create-group-btn"
                 >

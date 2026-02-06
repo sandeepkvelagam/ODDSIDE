@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
-import { 
+import {
   Users, TrendingUp, Shield, Zap, Clock, Lock,
-  ChevronRight, Star, Check, ArrowRight
+  ChevronRight, Star, Check, ArrowRight,
+  BarChart3, CalendarCheck, BellRing, Sparkles
 } from "lucide-react";
 
 const features = [
@@ -80,6 +81,27 @@ const howItWorks = [
   { step: "4", title: "Auto-Settle", description: "Smart debt minimization" }
 ];
 
+const upcoming = [
+  {
+    icon: BarChart3,
+    title: "Dashboard Charts & Visualization",
+    description: "Visual analytics for your poker performance — win/loss trends, session breakdowns, and group leaderboards at a glance.",
+    status: "In Development"
+  },
+  {
+    icon: CalendarCheck,
+    title: "RSVP Calendar for Games",
+    description: "Schedule game nights, send invites, and track RSVPs so you always know who's showing up.",
+    status: "Planned"
+  },
+  {
+    icon: BellRing,
+    title: "Browser Push Notifications",
+    description: "Get instant alerts for game invites, settlement reminders, and when it's time to play.",
+    status: "Planned"
+  }
+];
+
 // Animation hook for scroll reveal
 const useScrollAnimation = () => {
   const ref = useRef(null);
@@ -96,7 +118,8 @@ const useScrollAnimation = () => {
       { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
     );
     
-    const elements = ref.current?.querySelectorAll('.scroll-animate');
+    const selectors = '.scroll-animate, .scroll-animate-left, .scroll-animate-right, .scroll-animate-scale';
+    const elements = ref.current?.querySelectorAll(selectors);
     elements?.forEach((el) => observer.observe(el));
     
     return () => observer.disconnect();
@@ -114,7 +137,7 @@ export default function Landing() {
       <header className="border-b border-border/30 bg-background/80 backdrop-blur-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Logo />
+            <Logo showTagline={true} />
             <div className="flex items-center gap-3">
               <ThemeToggle />
               <Link to="/login">
@@ -141,6 +164,11 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
+        {/* Decorative floating elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+          <div className="absolute top-20 left-[10%] w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-float" />
+          <div className="absolute bottom-10 right-[15%] w-48 h-48 bg-primary/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '3s' }} />
+        </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
           <div className="text-center max-w-4xl mx-auto">
             <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-8 border border-primary/20">
@@ -162,10 +190,10 @@ export default function Landing() {
             </p>
             <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-400 ease-out flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/signup">
-                <Button 
+                <Button
                   data-testid="get-started-btn"
                   size="lg"
-                  className="bg-[#262626] text-white hover:bg-[#363636] h-14 px-10 rounded-full font-semibold tracking-wide transition-all hover:scale-105 text-base"
+                  className="bg-[#262626] text-white hover:bg-[#363636] h-14 px-10 rounded-full font-semibold tracking-wide transition-all hover:scale-105 text-base animate-pulse-glow"
                 >
                   Try Kvitt free
                   <ArrowRight className="w-5 h-5 ml-2" />
@@ -183,12 +211,13 @@ export default function Landing() {
       <section className="py-20 border-t border-border/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
+            <h2 className="scroll-animate-scale text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
               How It Works
             </h2>
             <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-muted-foreground max-w-2xl mx-auto">
               From group creation to settlement in just 4 simple steps.
             </p>
+            <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-200 ease-out gradient-line w-24 mx-auto mt-6" />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -225,10 +254,16 @@ export default function Landing() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, idx) => (
-              <Card 
-                key={idx} 
-                className={`scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out bg-card border-border/30 card-hover group shadow-card`}
+            {features.map((feature, idx) => {
+              const animClass = idx % 3 === 0
+                ? 'scroll-animate-left'
+                : idx % 3 === 2
+                  ? 'scroll-animate-right'
+                  : 'scroll-animate opacity-0 translate-y-4';
+              return (
+              <Card
+                key={idx}
+                className={`${animClass} transition-all duration-700 ease-out bg-card border-border/30 card-hover group shadow-card`}
                 style={{ transitionDelay: `${idx * 100}ms` }}
               >
                 <CardContent className="p-8">
@@ -239,7 +274,8 @@ export default function Landing() {
                   <p className="text-muted-foreground text-sm">{feature.description}</p>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -314,10 +350,10 @@ export default function Landing() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((testimonial, idx) => (
-              <Card 
-                key={idx} 
-                className={`scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out bg-card border-border/30 shadow-card`}
-                style={{ transitionDelay: `${idx * 100}ms` }}
+              <Card
+                key={idx}
+                className="scroll-animate-scale transition-all duration-700 ease-out bg-card border-border/30 shadow-card"
+                style={{ transitionDelay: `${idx * 150}ms` }}
               >
                 <CardContent className="p-8">
                   <div className="flex items-center gap-1 mb-4">
@@ -342,8 +378,54 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Upcoming / Roadmap Section */}
       <section className="py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-6 border border-primary/20">
+              <Sparkles className="w-4 h-4" />
+              Coming Soon
+            </div>
+            <h2 className="scroll-animate-scale text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
+              What's <span className="text-primary">Next</span>
+            </h2>
+            <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-200 ease-out text-muted-foreground max-w-2xl mx-auto">
+              We're building the features you've been asking for. Here's a peek at what's on the roadmap.
+            </p>
+            <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-300 ease-out gradient-line w-24 mx-auto mt-6" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {upcoming.map((item, idx) => (
+              <Card
+                key={idx}
+                className="scroll-animate-scale transition-all duration-700 ease-out bg-card border-border/30 shadow-card relative overflow-hidden group card-hover"
+                style={{ transitionDelay: `${idx * 150}ms` }}
+              >
+                <div className="absolute top-4 right-4">
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                    item.status === "In Development"
+                      ? "bg-primary/15 text-primary"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {item.status}
+                  </span>
+                </div>
+                <CardContent className="p-8">
+                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                    <item.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="font-bold text-lg mb-2 text-foreground pr-20">{item.title}</h3>
+                  <p className="text-muted-foreground text-sm">{item.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-24 bg-secondary/30">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out">
             <Logo size="large" showTagline={true} className="justify-center mb-8" />
@@ -356,9 +438,9 @@ export default function Landing() {
           </p>
           <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-300 ease-out">
             <Link to="/signup">
-              <Button 
+              <Button
                 size="lg"
-                className="bg-[#262626] text-white hover:bg-[#363636] h-14 px-10 rounded-full font-semibold tracking-wide transition-all hover:scale-105 text-base"
+                className="bg-[#262626] text-white hover:bg-[#363636] h-14 px-10 rounded-full font-semibold tracking-wide transition-all hover:scale-105 text-base animate-pulse-glow"
               >
                 Start Tracking Free
                 <ArrowRight className="w-5 h-5 ml-2" />
@@ -371,9 +453,9 @@ export default function Landing() {
       {/* Footer */}
       <footer className="border-t border-border/30 bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {/* Brand */}
-            <div className="md:col-span-2">
+            <div className="col-span-2">
               <Logo showTagline={true} className="mb-4" />
               <p className="text-muted-foreground text-sm max-w-sm">
                 Track buy-ins, settle debts, and keep the peace at your poker nights. 
@@ -416,24 +498,17 @@ export default function Landing() {
           </div>
           
           {/* Bottom */}
-          <div className="border-t border-border/30 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground">
+          <div className="border-t border-border/30 mt-8 pt-6 md:mt-12 md:pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground">
               © {new Date().getFullYear()} Kvitt. All rights reserved.
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Your side, <span className="text-primary">settled.</span>
             </p>
           </div>
         </div>
       </footer>
 
-      {/* CSS for animations */}
-      <style>{`
-        .scroll-animate.animate-in {
-          opacity: 1 !important;
-          transform: translateY(0) !important;
-        }
-      `}</style>
     </div>
   );
 }

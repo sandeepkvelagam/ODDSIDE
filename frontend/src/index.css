@@ -188,3 +188,63 @@ code {
         display: contents !important;
     }
 }
+
+/* ============================================
+   Landing page scroll-reveal animations
+   ============================================ */
+
+/* Base scroll-animate reveal (moved from inline style in Landing.jsx) */
+.scroll-animate.animate-in {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+}
+
+/* Fade in from left */
+.scroll-animate-left {
+    opacity: 0;
+    transform: translateX(-30px);
+    transition: all 0.7s ease-out;
+}
+
+/* Fade in from right */
+.scroll-animate-right {
+    opacity: 0;
+    transform: translateX(30px);
+    transition: all 0.7s ease-out;
+}
+
+/* Scale up */
+.scroll-animate-scale {
+    opacity: 0;
+    transform: scale(0.92);
+    transition: all 0.7s ease-out;
+}
+
+.scroll-animate-left.animate-in,
+.scroll-animate-right.animate-in,
+.scroll-animate-scale.animate-in {
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+/* Gradient line decoration */
+.gradient-line {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
+}
+
+/* Accessibility: respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-pulse-glow {
+        animation: none !important;
+    }
+    .scroll-animate,
+    .scroll-animate-left,
+    .scroll-animate-right,
+    .scroll-animate-scale {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
+}

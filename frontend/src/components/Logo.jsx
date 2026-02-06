@@ -2,17 +2,17 @@ import { cn } from "@/lib/utils";
 
 export const Logo = ({ className, size = "default", showText = true, showTagline = false }) => {
   const sizes = {
-    small: { icon: "w-7 h-7", text: "text-lg", tagline: "text-xs" },
-    default: { icon: "w-8 h-8", text: "text-xl", tagline: "text-sm" },
-    large: { icon: "w-12 h-12", text: "text-3xl", tagline: "text-base" }
+    small: { icon: "w-7 h-7", iconMargin: "mt-0.5", text: "text-lg", tagline: "text-xs" },
+    default: { icon: "w-8 h-8", iconMargin: "mt-0.5", text: "text-xl", tagline: "text-sm" },
+    large: { icon: "w-12 h-12", iconMargin: "mt-1", text: "text-3xl", tagline: "text-base" }
   };
 
-  const { icon, text, tagline } = sizes[size] || sizes.default;
+  const { icon, iconMargin, text, tagline } = sizes[size] || sizes.default;
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex items-start gap-2", className)}>
       {/* Kvitt Logo - Modern K mark */}
-      <div className={cn("relative", icon)}>
+      <div className={cn("relative", icon, iconMargin)}>
         <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           {/* Rounded square background */}
           <rect 

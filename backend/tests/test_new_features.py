@@ -256,7 +256,7 @@ class TestAdminCashOut:
         assert response.status_code == 200
         data = response.json()
         assert "message" in data
-        assert data["player_user_id"] == USER_ID_2
+        assert data["user_id"] == USER_ID_2
         assert data["chips_returned"] == 25
         assert data["cash_value"] == 25.0  # 25 chips * $1/chip
         assert data["net_result"] == 5.0  # $25 - $20 = $5 profit

@@ -629,18 +629,22 @@ async def get_group(group_id: str, user: User = Depends(get_current_user)):
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    # Get members with user info
+    # Get members with user info (batched query)
     members = await db.group_members.find(
         {"group_id": group_id},
         {"_id": 0}
     ).to_list(100)
     
+    # Batch fetch user info for all members
+    user_ids = [m["user_id"] for m in members]
+    users = await db.users.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1}
+    ).to_list(100)
+    user_map = {u["user_id"]: u for u in users}
+    
     for member in members:
-        user_info = await db.users.find_one(
-            {"user_id": member["user_id"]},
-            {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1}
-        )
-        member["user"] = user_info
+        member["user"] = user_map.get(member["user_id"])
     
     group["members"] = members
     group["user_role"] = membership["role"]

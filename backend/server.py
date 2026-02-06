@@ -620,7 +620,7 @@ async def update_group(group_id: str, data: GroupUpdate, user: User = Depends(ge
 
 @api_router.post("/groups/{group_id}/invite")
 async def invite_member(group_id: str, data: InviteMemberRequest, user: User = Depends(get_current_user)):
-    """Invite a user to group by email."""
+    """Invite a user to group by email. Works for both registered and unregistered users."""
     membership = await db.group_members.find_one(
         {"group_id": group_id, "user_id": user.user_id},
         {"_id": 0}
@@ -628,43 +628,255 @@ async def invite_member(group_id: str, data: InviteMemberRequest, user: User = D
     if not membership:
         raise HTTPException(status_code=403, detail="Not a member of this group")
     
-    # Find user by email
-    invited_user = await db.users.find_one({"email": data.email}, {"_id": 0})
-    if not invited_user:
-        raise HTTPException(status_code=404, detail="User not found")
+    group = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
+    inviter = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "name": 1})
     
-    # Check if already a member
-    existing = await db.group_members.find_one(
-        {"group_id": group_id, "user_id": invited_user["user_id"]},
+    # Check if user exists
+    invited_user = await db.users.find_one({"email": data.email}, {"_id": 0})
+    
+    if invited_user:
+        # Check if already a member
+        existing = await db.group_members.find_one(
+            {"group_id": group_id, "user_id": invited_user["user_id"]},
+            {"_id": 0}
+        )
+        if existing:
+            raise HTTPException(status_code=400, detail="User already a member")
+        
+        # Check for pending invite
+        pending = await db.group_invites.find_one({
+            "group_id": group_id,
+            "invited_email": data.email,
+            "status": "pending"
+        }, {"_id": 0})
+        if pending:
+            raise HTTPException(status_code=400, detail="Invite already sent")
+        
+        # Create invite for existing user
+        invite = GroupInvite(
+            group_id=group_id,
+            invited_by=user.user_id,
+            invited_email=data.email,
+            invited_user_id=invited_user["user_id"]
+        )
+        invite_dict = invite.model_dump()
+        invite_dict["created_at"] = invite_dict["created_at"].isoformat()
+        await db.group_invites.insert_one(invite_dict)
+        
+        # Create notification for the user
+        notification = Notification(
+            user_id=invited_user["user_id"],
+            type="group_invite_request",
+            title="Group Invitation",
+            message=f"{inviter['name']} invited you to join {group['name']}",
+            data={"group_id": group_id, "invite_id": invite.invite_id, "inviter_name": inviter['name']}
+        )
+        notif_dict = notification.model_dump()
+        notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+        await db.notifications.insert_one(notif_dict)
+        
+        return {"message": "Invite sent! They'll see a notification to accept.", "status": "invite_sent"}
+    else:
+        # User not registered - create pending invite
+        pending = await db.group_invites.find_one({
+            "group_id": group_id,
+            "invited_email": data.email,
+            "status": "pending"
+        }, {"_id": 0})
+        if pending:
+            raise HTTPException(status_code=400, detail="Invite already sent to this email")
+        
+        invite = GroupInvite(
+            group_id=group_id,
+            invited_by=user.user_id,
+            invited_email=data.email,
+            invited_user_id=None  # Will be set when they register
+        )
+        invite_dict = invite.model_dump()
+        invite_dict["created_at"] = invite_dict["created_at"].isoformat()
+        await db.group_invites.insert_one(invite_dict)
+        
+        # TODO: Send email notification here (would need email service)
+        # For now, the invite will be waiting when they register
+        
+        return {
+            "message": f"Invite created for {data.email}. They'll see it when they register!",
+            "status": "pending_registration",
+            "note": "User not registered yet. Invite will be waiting when they sign up."
+        }
+
+@api_router.get("/groups/{group_id}/invites")
+async def get_group_invites(group_id: str, user: User = Depends(get_current_user)):
+    """Get pending invites for a group (admin only)."""
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id, "role": "admin"},
         {"_id": 0}
     )
-    if existing:
-        raise HTTPException(status_code=400, detail="User already a member")
+    if not membership:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
-    # Add member
-    member = GroupMember(
-        group_id=group_id,
-        user_id=invited_user["user_id"],
-        role="member"
+    invites = await db.group_invites.find(
+        {"group_id": group_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # Add inviter info
+    for invite in invites:
+        inviter = await db.users.find_one({"user_id": invite["invited_by"]}, {"_id": 0, "name": 1})
+        invite["inviter_name"] = inviter["name"] if inviter else "Unknown"
+    
+    return invites
+
+@api_router.get("/users/search")
+async def search_users(query: str, user: User = Depends(get_current_user)):
+    """Search for users by name or email."""
+    if len(query) < 2:
+        return []
+    
+    # Search by name or email (case-insensitive)
+    users = await db.users.find(
+        {
+            "$or": [
+                {"name": {"$regex": query, "$options": "i"}},
+                {"email": {"$regex": query, "$options": "i"}}
+            ],
+            "user_id": {"$ne": user.user_id}  # Exclude self
+        },
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1, "level": 1}
+    ).to_list(20)
+    
+    return users
+
+@api_router.get("/users/invites")
+async def get_my_invites(user: User = Depends(get_current_user)):
+    """Get pending group invites for current user."""
+    invites = await db.group_invites.find(
+        {"invited_user_id": user.user_id, "status": "pending"},
+        {"_id": 0}
+    ).to_list(50)
+    
+    # Add group and inviter info
+    for invite in invites:
+        group = await db.groups.find_one({"group_id": invite["group_id"]}, {"_id": 0, "name": 1, "description": 1})
+        inviter = await db.users.find_one({"user_id": invite["invited_by"]}, {"_id": 0, "name": 1, "picture": 1})
+        invite["group"] = group
+        invite["inviter"] = inviter
+    
+    return invites
+
+@api_router.post("/users/invites/{invite_id}/respond")
+async def respond_to_invite(invite_id: str, data: RespondToInviteRequest, user: User = Depends(get_current_user)):
+    """Accept or reject a group invite."""
+    invite = await db.group_invites.find_one(
+        {"invite_id": invite_id, "invited_user_id": user.user_id, "status": "pending"},
+        {"_id": 0}
     )
-    member_dict = member.model_dump()
-    member_dict["joined_at"] = member_dict["joined_at"].isoformat()
-    await db.group_members.insert_one(member_dict)
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite not found")
     
-    # Create notification
-    group = await db.groups.find_one({"group_id": group_id}, {"_id": 0, "name": 1})
-    notification = Notification(
-        user_id=invited_user["user_id"],
-        type="group_invite",
-        title="Group Invitation",
-        message=f"You've been added to {group['name']}",
-        data={"group_id": group_id}
-    )
-    notif_dict = notification.model_dump()
-    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
-    await db.notifications.insert_one(notif_dict)
+    if data.accept:
+        # Add user to group
+        member = GroupMember(
+            group_id=invite["group_id"],
+            user_id=user.user_id,
+            role="member"
+        )
+        member_dict = member.model_dump()
+        member_dict["joined_at"] = member_dict["joined_at"].isoformat()
+        await db.group_members.insert_one(member_dict)
+        
+        # Update invite status
+        await db.group_invites.update_one(
+            {"invite_id": invite_id},
+            {"$set": {"status": "accepted", "responded_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        # Notify inviter
+        group = await db.groups.find_one({"group_id": invite["group_id"]}, {"_id": 0, "name": 1})
+        notification = Notification(
+            user_id=invite["invited_by"],
+            type="invite_accepted",
+            title="Invite Accepted",
+            message=f"{user.name} joined {group['name']}!",
+            data={"group_id": invite["group_id"]}
+        )
+        notif_dict = notification.model_dump()
+        notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+        await db.notifications.insert_one(notif_dict)
+        
+        return {"message": "Welcome to the group!", "group_id": invite["group_id"]}
+    else:
+        # Reject invite
+        await db.group_invites.update_one(
+            {"invite_id": invite_id},
+            {"$set": {"status": "rejected", "responded_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"message": "Invite declined"}
+
+@api_router.get("/users/me/badges")
+async def get_my_badges(user: User = Depends(get_current_user)):
+    """Get current user's badges and level progress."""
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
     
-    return {"message": "Member invited successfully"}
+    # Calculate stats
+    players = await db.players.find(
+        {"user_id": user.user_id, "net_result": {"$ne": None}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    total_games = len(players)
+    total_profit = sum(p.get("net_result", 0) for p in players)
+    wins = sum(1 for p in players if p.get("net_result", 0) > 0)
+    win_rate = (wins / total_games * 100) if total_games > 0 else 0
+    
+    # Determine current level
+    current_level = LEVELS[0]
+    next_level = None
+    for i, level in enumerate(LEVELS):
+        if total_games >= level["min_games"] and total_profit >= level["min_profit"]:
+            current_level = level
+            if i < len(LEVELS) - 1:
+                next_level = LEVELS[i + 1]
+    
+    # Calculate progress to next level
+    progress = None
+    if next_level:
+        games_needed = max(0, next_level["min_games"] - total_games)
+        profit_needed = max(0, next_level["min_profit"] - total_profit)
+        progress = {
+            "next_level": next_level["name"],
+            "games_needed": games_needed,
+            "profit_needed": round(profit_needed, 2),
+            "games_progress": min(100, (total_games / next_level["min_games"]) * 100) if next_level["min_games"] > 0 else 100
+        }
+    
+    # Get earned badges
+    earned_badges = user_doc.get("badges", [])
+    all_badges = []
+    for badge in BADGES:
+        all_badges.append({
+            **badge,
+            "earned": badge["id"] in earned_badges
+        })
+    
+    return {
+        "level": current_level,
+        "progress": progress,
+        "stats": {
+            "total_games": total_games,
+            "total_profit": round(total_profit, 2),
+            "wins": wins,
+            "win_rate": round(win_rate, 1)
+        },
+        "badges": all_badges,
+        "earned_count": len(earned_badges),
+        "total_badges": len(BADGES)
+    }
+
+@api_router.get("/levels")
+async def get_levels():
+    """Get all level definitions."""
+    return {"levels": LEVELS, "badges": BADGES}
 
 @api_router.delete("/groups/{group_id}/members/{member_user_id}")
 async def remove_member(group_id: str, member_user_id: str, user: User = Depends(get_current_user)):

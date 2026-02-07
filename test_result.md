@@ -107,87 +107,108 @@ user_problem_statement: "Kvitt - A behavioral ledger app for home poker games wi
 backend:
   - task: "Health Check & Basic API"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Backend server is running, need to verify basic endpoints"
+      - working: true
+        agent: "testing"
+        comment: "✅ Health check endpoint GET /api/ working correctly, returns 200 with message 'PokerNight API v1.0'"
 
   - task: "Auth Endpoints (sync-user, me, logout)"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Auth endpoints implemented with Supabase JWT and session-based auth"
+      - working: true
+        agent: "testing"
+        comment: "✅ All auth endpoints working: POST /api/auth/sync-user creates users and sessions, GET /api/auth/me returns authenticated user, POST /api/auth/logout clears sessions. Session cookies working properly."
 
   - task: "Groups API (CRUD, invite, members)"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Groups endpoints for create, read, update, invite members"
+      - working: true
+        agent: "testing"
+        comment: "✅ Groups API fully functional: POST /api/groups creates groups, GET /api/groups lists user groups, GET /api/groups/{id} shows details with members, POST /api/groups/{id}/invite sends invites for both registered and unregistered users"
 
   - task: "Games API (create, start, end, join)"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Game night endpoints for creating and managing games"
+      - working: true
+        agent: "testing"
+        comment: "✅ Games API working correctly: POST /api/games creates games (auto-active when no schedule), GET /api/games lists games, GET /api/games/{id} shows details, POST /api/games/{id}/join adds players. Minor: Games created without scheduled_at are auto-active, so start endpoint returns expected 400 error."
 
   - task: "Buy-In/Cash-Out API"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Buy-in, request-buy-in, cash-out, admin-cash-out endpoints"
+      - working: true
+        agent: "testing"
+        comment: "✅ Buy-in/Cash-out API fully functional: POST /api/games/{id}/admin-buy-in adds buy-ins with chip calculation, POST /api/games/{id}/request-buy-in sends notifications to host, POST /api/games/{id}/request-cash-out requests cash-out, POST /api/games/{id}/admin-cash-out processes cash-out with net result calculation"
 
   - task: "Settlement API"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Settlement generation and mark-paid endpoints"
+      - working: true
+        agent: "testing"
+        comment: "✅ Settlement API working: POST /api/games/{id}/settle generates settlements (requires game to be ended first - correct business logic), GET /api/games/{id}/settlement retrieves settlement data. Settlement endpoint is /settle not /settlement for POST."
 
   - task: "Notifications API"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Notifications CRUD endpoints"
+      - working: true
+        agent: "testing"
+        comment: "✅ Notifications API working: GET /api/notifications returns user notifications. Notifications are automatically created for buy-ins, cash-outs, invites, and other game events."
 
 frontend:
   - task: "Landing Page"

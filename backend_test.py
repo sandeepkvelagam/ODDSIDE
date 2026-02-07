@@ -276,7 +276,7 @@ class KvittAPITester:
             return False
         
         # Generate settlement
-        success, settlement_response = self.run_test("Generate Settlement", "POST", f"games/{self.game_id}/settlement", 200)
+        success, settlement_response = self.run_test("Generate Settlement", "POST", f"games/{self.game_id}/settle", 200)
         if success:
             settlements = settlement_response.get('settlements', [])
             print(f"   Generated {len(settlements)} settlement entries")
@@ -286,7 +286,10 @@ class KvittAPITester:
         # Get settlement details
         success, settlement_data = self.run_test("Get Settlement", "GET", f"games/{self.game_id}/settlement", 200)
         if success:
-            print(f"   Settlement status: {settlement_data.get('status', 'unknown')}")
+            if isinstance(settlement_data, list):
+                print(f"   Found {len(settlement_data)} settlement entries")
+            else:
+                print(f"   Settlement status: {settlement_data.get('status', 'unknown')}")
         
         return True
     

@@ -379,7 +379,7 @@ class KvittAPITester:
         
         # 7. Generate settlement
         if flow_success and self.game_id:
-            success, _ = self.run_test("Flow: Generate Settlement", "POST", f"games/{self.game_id}/settlement", 200)
+            success, _ = self.run_test("Flow: Generate Settlement", "POST", f"games/{self.game_id}/settle", 200)
             if not success:
                 flow_success = False
         

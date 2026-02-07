@@ -1056,10 +1056,13 @@ async def create_game(data: GameNightCreate, user: User = Depends(get_current_us
     # Calculate chip value
     chip_value = data.buy_in_amount / data.chips_per_buy_in
     
+    # Use default title if not provided or empty
+    game_title = data.title.strip() if data.title and data.title.strip() else generate_default_game_name()
+    
     game = GameNight(
         group_id=data.group_id,
         host_id=user.user_id,
-        title=data.title,
+        title=game_title,
         location=data.location,
         scheduled_at=data.scheduled_at,
         status="scheduled" if data.scheduled_at else "active",

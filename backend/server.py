@@ -580,8 +580,11 @@ async def logout(request: Request, response: Response):
 @api_router.post("/groups", response_model=dict)
 async def create_group(data: GroupCreate, user: User = Depends(get_current_user)):
     """Create a new group."""
+    # Use default name if not provided or empty
+    group_name = data.name.strip() if data.name and data.name.strip() else generate_default_group_name()
+    
     group = Group(
-        name=data.name,
+        name=group_name,
         description=data.description,
         created_by=user.user_id,
         default_buy_in=data.default_buy_in,

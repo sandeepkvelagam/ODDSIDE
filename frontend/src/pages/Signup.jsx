@@ -4,12 +4,10 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
-import ThemeToggle from "@/components/ThemeToggle";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Eye, EyeOff, ChevronLeft } from "lucide-react";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -17,23 +15,16 @@ export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !email || !password) {
       setError("Please fill in all fields");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords don't match");
       return;
     }
 
@@ -50,8 +41,8 @@ export default function Signup() {
     setLoading(true);
     try {
       await signUp(email, password, name);
-      setSuccess(true);
-      toast.success("Account created! Check your email to verify.");
+      toast.success("Account created! Please check your email to verify.");
+      navigate("/login");
     } catch (err) {
       setError(err.message || "Failed to create account");
     } finally {
@@ -59,173 +50,124 @@ export default function Signup() {
     }
   };
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <header className="border-b border-border/50 bg-background/80 backdrop-blur-lg">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <Link to="/">
-                <Logo />
-              </Link>
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-        <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md bg-card border-border text-center">
-            <CardContent className="p-8">
-              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-8 h-8 text-primary" />
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Check Your Email</h2>
-              <p className="text-muted-foreground mb-6">
-                We've sent a verification link to <strong>{email}</strong>. 
-                Click the link to verify your account.
-              </p>
-              <Link to="/login">
-                <Button variant="outline" className="w-full">
-                  Back to Sign In
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link to="/">
-              <Logo />
-            </Link>
-            <ThemeToggle />
-          </div>
+    <div className="min-h-screen bg-[#0a0a0a] flex flex-col p-6 relative overflow-hidden">
+      {/* Background pattern */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='8' fill='%23ffffff' text-anchor='middle' dominant-baseline='middle' opacity='0.3'%3E%E2%99%A0 %E2%99%A5 %E2%99%A6 %E2%99%A3%3C/text%3E%3C/svg%3E")`,
+          backgroundSize: '60px 60px'
+        }} />
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm mx-auto flex flex-col flex-1">
+        {/* Back button */}
+        <button 
+          onClick={() => navigate("/login")}
+          className="flex items-center gap-1 text-white bg-[#1a1a1a] rounded-full px-4 py-2 w-fit mb-8 hover:bg-[#252525] transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back
+        </button>
+
+        {/* Icon */}
+        <div className="flex justify-center mb-6">
+          <div className="text-5xl">✨</div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-card border-border" data-testid="signup-card">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-            <CardDescription>Join Kvitt and start tracking your games</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+        {/* Title */}
+        <h1 className="text-white text-3xl font-bold text-center mb-8">Create new account</h1>
 
-            {!isSupabaseConfigured && (
-              <Alert className="mb-4 border-primary/50 bg-primary/10">
-                <AlertDescription className="text-sm">
-                  <strong>Setup Required:</strong> Add REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY to your .env file.
-                </AlertDescription>
-              </Alert>
-            )}
+        {error && (
+          <Alert variant="destructive" className="mb-4 bg-red-900/30 border-red-900">
+            <AlertDescription className="text-red-300">{error}</AlertDescription>
+          </Alert>
+        )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Your name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10 bg-secondary/50 border-border"
-                    data-testid="name-input"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
+        {!isSupabaseConfigured && (
+          <Alert className="mb-4 border-yellow-600/50 bg-yellow-900/20">
+            <AlertDescription className="text-sm text-yellow-200">
+              <strong>Setup Required:</strong> Add Supabase credentials to .env
+            </AlertDescription>
+          </Alert>
+        )}
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 bg-secondary/50 border-border"
-                    data-testid="email-input"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label className="text-gray-400 text-xs uppercase tracking-wider">Name</Label>
+            <Input
+              type="text"
+              placeholder="ex: John Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl mt-2"
+              data-testid="name-input"
+              disabled={loading}
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Min 6 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10 bg-secondary/50 border-border"
-                    data-testid="password-input"
-                    disabled={loading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+          <div>
+            <Label className="text-gray-400 text-xs uppercase tracking-wider">Email</Label>
+            <Input
+              type="email"
+              placeholder="ex: john.doe00@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl mt-2"
+              data-testid="email-input"
+              disabled={loading}
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="confirmPassword"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10 bg-secondary/50 border-border"
-                    data-testid="confirm-password-input"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 font-medium"
-                disabled={loading || !isSupabaseConfigured}
-                data-testid="signup-submit-btn"
+          <div>
+            <Label className="text-gray-400 text-xs uppercase tracking-wider">Password</Label>
+            <div className="relative mt-2">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="ex: Ilovevibecoding@007#"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl pr-10"
+                data-testid="password-input"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
               >
-                {loading ? "Creating account..." : "Create Account"}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Already have an account? </span>
-              <Link to="/login" className="text-primary hover:underline font-medium">
-                Sign in
-              </Link>
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
-          </CardContent>
-        </Card>
-      </main>
+          </div>
+
+          <p className="text-gray-500 text-sm text-center pt-2">
+            By continuing, you agree to our{" "}
+            <Link to="/terms" className="underline text-gray-400">Terms of Service</Link> and{" "}
+            <Link to="/privacy" className="underline text-gray-400">Privacy Policy</Link>.
+          </p>
+        </form>
+
+        {/* Bottom section */}
+        <div className="mt-auto pt-8">
+          <p className="text-gray-400 text-center mb-4">
+            Already have an account?{" "}
+            <Link to="/login" className="text-primary underline font-medium uppercase">
+              Log In
+            </Link>
+          </p>
+
+          <Button
+            onClick={handleSubmit}
+            className="w-full bg-white text-black font-semibold h-14 rounded-xl hover:bg-gray-100"
+            disabled={loading || !isSupabaseConfigured}
+            data-testid="signup-submit-btn"
+          >
+            {loading ? "Creating..." : "Create your account"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -101,3 +101,172 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Kvitt - A behavioral ledger app for home poker games with Supabase Auth, group management, game night tracking, buy-in/cash-out flows, settlement, and gamification features."
+
+backend:
+  - task: "Health Check & Basic API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend server is running, need to verify basic endpoints"
+
+  - task: "Auth Endpoints (sync-user, me, logout)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Auth endpoints implemented with Supabase JWT and session-based auth"
+
+  - task: "Groups API (CRUD, invite, members)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Groups endpoints for create, read, update, invite members"
+
+  - task: "Games API (create, start, end, join)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Game night endpoints for creating and managing games"
+
+  - task: "Buy-In/Cash-Out API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Buy-in, request-buy-in, cash-out, admin-cash-out endpoints"
+
+  - task: "Settlement API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Settlement generation and mark-paid endpoints"
+
+  - task: "Notifications API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Notifications CRUD endpoints"
+
+frontend:
+  - task: "Landing Page"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Landing.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Landing page with Kvitt branding and scroll animations"
+
+  - task: "Login/Signup with Supabase"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Login.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Login and Signup pages with Supabase email/password auth"
+
+  - task: "Dashboard"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Dashboard with stats and pending invites"
+
+  - task: "Groups Management"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Groups.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Groups list and create group functionality"
+
+  - task: "Game Night Page"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/GameNight.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Game night with buy-in, cash-out, and admin controls"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Health Check & Basic API"
+    - "Auth Endpoints"
+    - "Groups API"
+    - "Games API"
+    - "Buy-In/Cash-Out API"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Initial testing setup. App is Kvitt - poker game ledger app. Backend and frontend are running. Need comprehensive backend API testing including health check, auth flow, groups, games, buy-in/cash-out, and settlement. Note: Supabase auth is configured but we'll need to test without actual Supabase credentials by using direct user sync."

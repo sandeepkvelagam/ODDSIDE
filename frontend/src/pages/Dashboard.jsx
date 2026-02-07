@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { 
-  TrendingUp, TrendingDown, DollarSign, Trophy, 
-  Users, Play, Bell, LogOut, Plus, ChevronRight,
-  Wallet, Target, Clock
+  TrendingUp, TrendingDown,
+  Users, Play, Plus, ChevronRight,
+  Wallet, Target
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PendingInvites from "@/components/PendingInvites";
@@ -63,7 +63,7 @@ export default function Dashboard() {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Welcome */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-6">
           <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight" data-testid="welcome-heading">
             Welcome back, {user?.name?.split(' ')[0] || 'Player'}
           </h1>
@@ -73,90 +73,88 @@ export default function Dashboard() {
         {/* Pending Invites */}
         <PendingInvites />
 
-        {/* Stats Grid - Horizontal scroll on mobile */}
-        <div className="flex md:grid md:grid-cols-12 gap-3 sm:gap-6 mb-6 sm:mb-8 overflow-x-auto pb-3 md:pb-0 snap-x snap-mandatory md:snap-none scrollbar-hide">
-          {/* Net Profit - Large Card */}
-          <Card className="md:col-span-4 bg-card border-border/50 flex-shrink-0 w-[200px] sm:w-[260px] md:w-auto snap-center" data-testid="net-profit-card">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <span className="text-muted-foreground text-xs sm:text-sm">Net Profit</span>
+        {/* Stats Grid - 3 cols on mobile (smaller), 3 on desktop */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-6 mb-6">
+          {/* Net Profit */}
+          <Card className="bg-card border-border/50" data-testid="net-profit-card">
+            <CardContent className="p-3 sm:p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <span className="text-muted-foreground text-[10px] sm:text-xs md:text-sm">Net Profit</span>
                 {stats?.net_profit >= 0 ? (
-                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                  <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-primary" />
                 ) : (
-                  <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-destructive" />
+                  <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-destructive" />
                 )}
               </div>
-              <p className={`font-heading text-2xl sm:text-3xl md:text-4xl font-black ${stats?.net_profit >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                {stats?.net_profit >= 0 ? '+' : ''}{stats?.net_profit?.toFixed(2) || '0.00'}
+              <p className={`font-heading text-lg sm:text-2xl md:text-4xl font-black ${stats?.net_profit >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                {stats?.net_profit >= 0 ? '+' : ''}{stats?.net_profit?.toFixed(0) || '0'}
               </p>
-              <p className="text-muted-foreground text-xs sm:text-sm mt-1 sm:mt-2">
-                {stats?.total_games || 0} games played
+              <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm mt-1">
+                {stats?.total_games || 0} games
               </p>
             </CardContent>
           </Card>
 
           {/* Win Rate */}
-          <Card className="md:col-span-4 bg-card border-border/50 flex-shrink-0 w-[200px] sm:w-[260px] md:w-auto snap-center">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <span className="text-muted-foreground text-xs sm:text-sm">Win Rate</span>
-                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+          <Card className="bg-card border-border/50">
+            <CardContent className="p-3 sm:p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <span className="text-muted-foreground text-[10px] sm:text-xs md:text-sm">Win Rate</span>
+                <Target className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-muted-foreground" />
               </div>
-              <p className="font-heading text-2xl sm:text-3xl md:text-4xl font-black">
+              <p className="font-heading text-lg sm:text-2xl md:text-4xl font-black">
                 {stats?.win_rate?.toFixed(0) || 0}%
               </p>
-              <p className="text-muted-foreground text-xs sm:text-sm mt-1 sm:mt-2">
-                Best: +${stats?.biggest_win?.toFixed(0) || 0} / Worst: ${stats?.biggest_loss?.toFixed(0) || 0}
+              <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm mt-1 hidden sm:block">
+                Best: +${stats?.biggest_win?.toFixed(0) || 0}
               </p>
             </CardContent>
           </Card>
 
           {/* Balance */}
-          <Card className="md:col-span-4 bg-card border-border/50 flex-shrink-0 w-[200px] sm:w-[260px] md:w-auto snap-center" data-testid="balance-card">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <span className="text-muted-foreground text-xs sm:text-sm">Balance</span>
-                <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+          <Card className="bg-card border-border/50" data-testid="balance-card">
+            <CardContent className="p-3 sm:p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <span className="text-muted-foreground text-[10px] sm:text-xs md:text-sm">Balance</span>
+                <Wallet className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-muted-foreground" />
               </div>
-              <p className={`font-heading text-2xl sm:text-3xl md:text-4xl font-black ${balances?.net_balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                {balances?.net_balance >= 0 ? '+' : ''}{balances?.net_balance?.toFixed(2) || '0.00'}
+              <p className={`font-heading text-lg sm:text-2xl md:text-4xl font-black ${balances?.net_balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                {balances?.net_balance >= 0 ? '+' : ''}{balances?.net_balance?.toFixed(0) || '0'}
               </p>
-              <div className="text-xs sm:text-sm mt-1 sm:mt-2 space-y-0.5 sm:space-y-1">
-                <p className="text-muted-foreground">You owe: <span className="text-destructive">${balances?.total_owes?.toFixed(2) || '0.00'}</span></p>
-                <p className="text-muted-foreground">Owed to you: <span className="text-primary">${balances?.total_owed?.toFixed(2) || '0.00'}</span></p>
-              </div>
+              <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm mt-1">
+                <span className="text-destructive">${balances?.total_owes?.toFixed(0) || '0'}</span> owed
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Active Games & Groups - Horizontal scroll on mobile */}
-        <div className="flex md:grid md:grid-cols-2 gap-4 sm:gap-6 overflow-x-auto pb-3 md:pb-0 snap-x snap-mandatory md:snap-none scrollbar-hide">
+        {/* Active Games & Groups - Stack on mobile */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {/* Active Games */}
-          <Card className="bg-card border-border/50 flex-shrink-0 w-[280px] sm:w-[340px] md:w-auto snap-center" data-testid="active-games-card">
+          <Card className="bg-card border-border/50" data-testid="active-games-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2 px-4 sm:px-6">
               <CardTitle className="font-heading text-base sm:text-xl font-bold">ACTIVE GAMES</CardTitle>
               <Play className="w-4 h-4 sm:w-5 sm:h-5 text-primary animate-pulse-live" />
             </CardHeader>
-            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+            <CardContent className="px-4 sm:px-6 pb-4">
               {activeGames.length === 0 ? (
-                <p className="text-muted-foreground text-xs sm:text-sm py-3 sm:py-4">No active games right now</p>
+                <p className="text-muted-foreground text-xs sm:text-sm py-4">No active games right now</p>
               ) : (
-                <div className="space-y-2 sm:space-y-3">
+                <div className="space-y-2">
                   {activeGames.slice(0, 3).map(game => (
                     <div 
                       key={game.game_id}
-                      className="p-3 sm:p-4 bg-secondary/30 rounded-lg cursor-pointer card-hover border border-transparent"
+                      className="p-3 bg-secondary/30 rounded-lg cursor-pointer card-hover border border-transparent"
                       onClick={() => navigate(`/games/${game.game_id}`)}
-                      data-testid={`game-${game.game_id}`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-sm sm:text-base">{game.title || game.group_name}</p>
-                          <p className="text-xs sm:text-sm text-muted-foreground">
+                          <p className="font-medium text-sm">{game.title || game.group_name}</p>
+                          <p className="text-xs text-muted-foreground">
                             {game.player_count} players • {game.status === 'active' ? 'Live' : 'Scheduled'}
                           </p>
                         </div>
-                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       </div>
                     </div>
                   ))}
@@ -164,9 +162,8 @@ export default function Dashboard() {
               )}
               <Button 
                 variant="outline" 
-                className="w-full mt-3 sm:mt-4 text-xs sm:text-sm h-9 sm:h-10"
+                className="w-full mt-4 text-xs sm:text-sm h-9"
                 onClick={() => navigate('/groups')}
-                data-testid="view-all-games-btn"
               >
                 View All Games
               </Button>
@@ -174,42 +171,40 @@ export default function Dashboard() {
           </Card>
 
           {/* My Groups */}
-          <Card className="bg-card border-border/50 flex-shrink-0 w-[280px] sm:w-[340px] md:w-auto snap-center" data-testid="groups-card">
+          <Card className="bg-card border-border/50" data-testid="groups-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2 px-4 sm:px-6">
               <CardTitle className="font-heading text-base sm:text-xl font-bold">MY GROUPS</CardTitle>
               <Users className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
             </CardHeader>
-            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+            <CardContent className="px-4 sm:px-6 pb-4">
               {groups.length === 0 ? (
-                <p className="text-muted-foreground text-xs sm:text-sm py-3 sm:py-4">No groups yet. Create one to get started!</p>
+                <p className="text-muted-foreground text-xs sm:text-sm py-4">No groups yet. Create one!</p>
               ) : (
-                <div className="space-y-2 sm:space-y-3">
+                <div className="space-y-2">
                   {groups.slice(0, 3).map(group => (
                     <div 
                       key={group.group_id}
-                      className="p-3 sm:p-4 bg-secondary/30 rounded-lg cursor-pointer card-hover border border-transparent"
+                      className="p-3 bg-secondary/30 rounded-lg cursor-pointer card-hover border border-transparent"
                       onClick={() => navigate(`/groups/${group.group_id}`)}
-                      data-testid={`group-${group.group_id}`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-sm sm:text-base">{group.name}</p>
-                          <p className="text-xs sm:text-sm text-muted-foreground">
+                          <p className="font-medium text-sm">{group.name}</p>
+                          <p className="text-xs text-muted-foreground">
                             {group.member_count} members • {group.user_role}
                           </p>
                         </div>
-                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       </div>
                     </div>
                   ))}
                 </div>
               )}
               <Button 
-                className="w-full mt-3 sm:mt-4 bg-primary text-black hover:bg-primary/90 text-xs sm:text-sm h-9 sm:h-10"
+                className="w-full mt-4 bg-primary text-black hover:bg-primary/90 text-xs sm:text-sm h-9"
                 onClick={() => navigate('/groups')}
-                data-testid="manage-groups-btn"
               >
-                <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                 Manage Groups
               </Button>
             </CardContent>
@@ -219,10 +214,10 @@ export default function Dashboard() {
         {/* Recent Games */}
         {stats?.recent_games?.length > 0 && (
           <Card className="bg-card border-border/50 mt-4 sm:mt-6" data-testid="recent-games-card">
-            <CardHeader className="px-4 sm:px-6">
+            <CardHeader className="px-4 sm:px-6 py-3">
               <CardTitle className="font-heading text-base sm:text-xl font-bold">RECENT RESULTS</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+            <CardContent className="px-4 sm:px-6 pb-4">
               <div className="space-y-2">
                 {stats.recent_games.map((game, idx) => (
                   <div 
@@ -230,13 +225,13 @@ export default function Dashboard() {
                     className="flex items-center justify-between p-2 sm:p-3 bg-secondary/20 rounded-lg"
                   >
                     <div>
-                      <p className="font-medium text-sm sm:text-base">{game.group_name}</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
+                      <p className="font-medium text-sm">{game.group_name}</p>
+                      <p className="text-xs text-muted-foreground">
                         {game.date ? new Date(game.date).toLocaleDateString() : 'Recent'}
                       </p>
                     </div>
-                    <span className={`font-mono font-bold text-sm sm:text-base ${game.net_result >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                      {game.net_result >= 0 ? '+' : ''}{game.net_result.toFixed(2)}
+                    <span className={`font-mono font-bold text-sm ${game.net_result >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                      {game.net_result >= 0 ? '+' : ''}{game.net_result.toFixed(0)}
                     </span>
                   </div>
                 ))}

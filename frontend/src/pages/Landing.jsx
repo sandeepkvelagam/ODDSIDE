@@ -83,20 +83,20 @@ const howItWorks = [
 const upcoming = [
   {
     icon: BarChart3,
-    title: "Dashboard Charts & Visualization",
-    description: "Visual analytics for your poker performance — win/loss trends, session breakdowns, and group leaderboards at a glance.",
+    title: "Dashboard Charts",
+    description: "Visual analytics for your poker performance.",
     status: "In Development"
   },
   {
     icon: CalendarCheck,
-    title: "RSVP Calendar for Games",
-    description: "Schedule game nights, send invites, and track RSVPs so you always know who's showing up.",
+    title: "RSVP Calendar",
+    description: "Schedule games and track RSVPs.",
     status: "Planned"
   },
   {
     icon: BellRing,
-    title: "Browser Push Notifications",
-    description: "Get instant alerts for game invites, settlement reminders, and when it's time to play.",
+    title: "Push Notifications",
+    description: "Get alerts for game invites and reminders.",
     status: "Planned"
   }
 ];
@@ -151,7 +151,6 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        {/* Decorative floating elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
           <div className="absolute top-20 left-[10%] w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-float" />
           <div className="absolute bottom-10 right-[15%] w-48 h-48 bg-primary/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '3s' }} />
@@ -163,7 +162,6 @@ export default function Landing() {
               The smarter way to track home games
             </div>
             
-            {/* Logo with tagline */}
             <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out mb-6 sm:mb-8">
               <Logo size="large" showTagline={true} className="justify-center" />
             </div>
@@ -204,25 +202,21 @@ export default function Landing() {
             <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">
               From group creation to settlement in just 4 simple steps.
             </p>
-            <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-200 ease-out gradient-line w-24 mx-auto mt-6" />
           </div>
           
-          {/* Mobile: Horizontal scroll, Desktop: Grid */}
-          <div className="flex md:grid md:grid-cols-4 gap-4 sm:gap-8 overflow-x-auto pb-4 md:pb-0 snap-x snap-mandatory md:snap-none scrollbar-hide">
+          {/* 2x2 grid on mobile, 4 cols on desktop */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
             {howItWorks.map((item, idx) => (
               <div 
                 key={idx} 
-                className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-center relative flex-shrink-0 w-[200px] sm:w-[240px] md:w-auto snap-center"
+                className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-center relative"
                 style={{ transitionDelay: `${idx * 100}ms` }}
               >
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-primary text-white rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 text-xl sm:text-2xl font-bold shadow-soft">
+                <div className="w-10 h-10 sm:w-14 sm:h-14 bg-primary text-white rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-2 sm:mb-4 text-lg sm:text-2xl font-bold shadow-soft">
                   {item.step}
                 </div>
-                <h3 className="font-bold text-base sm:text-lg mb-1 sm:mb-2 text-foreground">{item.title}</h3>
+                <h3 className="font-bold text-sm sm:text-lg mb-1 text-foreground">{item.title}</h3>
                 <p className="text-muted-foreground text-xs sm:text-sm">{item.description}</p>
-                {idx < howItWorks.length - 1 && (
-                  <ChevronRight className="hidden md:block absolute top-6 -right-4 w-8 h-8 text-border" />
-                )}
               </div>
             ))}
           </div>
@@ -237,24 +231,24 @@ export default function Landing() {
               Everything You Need
             </h2>
             <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">
-              Built by poker players, for poker players. Every feature designed to eliminate friction.
+              Built by poker players, for poker players.
             </p>
           </div>
           
-          {/* Mobile: Horizontal scroll, Desktop: Grid */}
-          <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto pb-4 md:pb-0 snap-x snap-mandatory md:snap-none scrollbar-hide">
+          {/* 2 cols on mobile, 3 cols on desktop */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {features.map((feature, idx) => (
               <Card
                 key={idx}
-                className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out bg-card border-border/30 card-hover group shadow-card flex-shrink-0 w-[260px] sm:w-[300px] md:w-auto snap-center"
+                className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out bg-card border-border/30 card-hover group shadow-card"
                 style={{ transitionDelay: `${idx * 100}ms` }}
               >
-                <CardContent className="p-5 sm:p-8">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-primary/20 transition-colors">
-                    <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                <CardContent className="p-4 sm:p-6">
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 bg-primary/10 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 group-hover:bg-primary/20 transition-colors">
+                    <feature.icon className="w-4 h-4 sm:w-6 sm:h-6 text-primary" />
                   </div>
-                  <h3 className="font-bold text-base sm:text-lg mb-1 sm:mb-2 text-foreground">{feature.title}</h3>
-                  <p className="text-muted-foreground text-xs sm:text-sm">{feature.description}</p>
+                  <h3 className="font-bold text-sm sm:text-lg mb-1 text-foreground">{feature.title}</h3>
+                  <p className="text-muted-foreground text-xs sm:text-sm line-clamp-2 sm:line-clamp-none">{feature.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -269,20 +263,15 @@ export default function Landing() {
             <h2 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-xl sm:text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
               Why <span className="text-primary">Kvitt</span>?
             </h2>
-            <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">
-              See how we stack up against spreadsheets, group chats, and other tracking methods.
-            </p>
           </div>
           
           <div className="max-w-3xl mx-auto scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-200 ease-out">
             <div className="bg-card border border-border/30 rounded-2xl overflow-hidden shadow-card">
-              {/* Header */}
               <div className="grid grid-cols-3 bg-secondary/50 p-3 sm:p-4">
                 <div className="font-bold text-foreground text-xs sm:text-base">Feature</div>
                 <div className="font-bold text-center text-primary text-xs sm:text-base">Kvitt</div>
-                <div className="font-bold text-center text-muted-foreground text-xs sm:text-base">Spreadsheets</div>
+                <div className="font-bold text-center text-muted-foreground text-xs sm:text-base">Others</div>
               </div>
-              {/* Rows */}
               {comparisons.map((row, idx) => (
                 <div 
                   key={idx} 
@@ -295,9 +284,7 @@ export default function Landing() {
                         <Check className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
                       </div>
                     ) : (
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-destructive/20 rounded-full flex items-center justify-center">
-                        <span className="text-destructive">-</span>
-                      </div>
+                      <span className="text-destructive">-</span>
                     )}
                   </div>
                   <div className="flex justify-center">
@@ -306,9 +293,7 @@ export default function Landing() {
                         <Check className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
                       </div>
                     ) : (
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-destructive/10 rounded-full flex items-center justify-center">
-                        <span className="text-destructive text-sm sm:text-lg">×</span>
-                      </div>
+                      <span className="text-destructive">×</span>
                     )}
                   </div>
                 </div>
@@ -325,33 +310,30 @@ export default function Landing() {
             <h2 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-xl sm:text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
               Trusted by Players
             </h2>
-            <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">
-              Join thousands of poker enthusiasts who've simplified their home games.
-            </p>
           </div>
           
-          {/* Mobile: Horizontal scroll, Desktop: Grid */}
-          <div className="flex md:grid md:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto pb-4 md:pb-0 snap-x snap-mandatory md:snap-none scrollbar-hide">
+          {/* Stack on mobile, 3 cols on desktop */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             {testimonials.map((testimonial, idx) => (
               <Card
                 key={idx}
-                className="scroll-animate-scale transition-all duration-700 ease-out bg-card border-border/30 shadow-card flex-shrink-0 w-[280px] sm:w-[320px] md:w-auto snap-center"
+                className="scroll-animate-scale transition-all duration-700 ease-out bg-card border-border/30 shadow-card"
                 style={{ transitionDelay: `${idx * 150}ms` }}
               >
-                <CardContent className="p-5 sm:p-8">
-                  <div className="flex items-center gap-1 mb-3 sm:mb-4">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center gap-1 mb-3">
                     {[...Array(5)].map((_, i) => (
                       <Star key={i} className="w-3 h-3 sm:w-4 sm:h-4 fill-primary text-primary" />
                     ))}
                   </div>
-                  <p className="text-foreground mb-4 sm:mb-6 italic text-sm sm:text-base">"{testimonial.quote}"</p>
+                  <p className="text-foreground mb-4 italic text-sm sm:text-base">"{testimonial.quote}"</p>
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/20 rounded-full flex items-center justify-center font-bold text-primary text-sm sm:text-base">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/20 rounded-full flex items-center justify-center font-bold text-primary text-sm">
                       {testimonial.avatar}
                     </div>
                     <div>
-                      <p className="font-medium text-foreground text-sm sm:text-base">{testimonial.name}</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">{testimonial.role}</p>
+                      <p className="font-medium text-foreground text-sm">{testimonial.name}</p>
+                      <p className="text-xs text-muted-foreground">{testimonial.role}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -361,33 +343,29 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Upcoming / Roadmap Section */}
+      {/* Upcoming Section */}
       <section className="py-12 sm:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 sm:mb-16">
-            <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-4 sm:mb-6 border border-primary/20">
+            <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-4 border border-primary/20">
               <Sparkles className="w-4 h-4" />
               Coming Soon
             </div>
             <h2 className="scroll-animate-scale text-xl sm:text-2xl md:text-3xl font-bold tracking-tight mb-4 text-foreground">
               What's <span className="text-primary">Next</span>
             </h2>
-            <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-200 ease-out text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">
-              We're building the features you've been asking for. Here's a peek at what's on the roadmap.
-            </p>
-            <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-300 ease-out gradient-line w-24 mx-auto mt-6" />
           </div>
 
-          {/* Mobile: Horizontal scroll, Desktop: Grid */}
-          <div className="flex md:grid md:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto overflow-x-auto pb-4 md:pb-0 snap-x snap-mandatory md:snap-none scrollbar-hide">
+          {/* Stack on mobile, 3 cols on desktop */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto">
             {upcoming.map((item, idx) => (
               <Card
                 key={idx}
-                className="scroll-animate-scale transition-all duration-700 ease-out bg-card border-border/30 shadow-card relative overflow-hidden group card-hover flex-shrink-0 w-[280px] sm:w-[320px] md:w-auto snap-center"
+                className="scroll-animate-scale transition-all duration-700 ease-out bg-card border-border/30 shadow-card relative"
                 style={{ transitionDelay: `${idx * 150}ms` }}
               >
-                <div className="absolute top-3 sm:top-4 right-3 sm:right-4">
-                  <span className={`text-[10px] sm:text-[11px] font-semibold px-2 py-1 rounded-full ${
+                <div className="absolute top-3 right-3">
+                  <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${
                     item.status === "In Development"
                       ? "bg-primary/15 text-primary"
                       : "bg-muted text-muted-foreground"
@@ -395,11 +373,11 @@ export default function Landing() {
                     {item.status}
                   </span>
                 </div>
-                <CardContent className="p-5 sm:p-8">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-primary/20 transition-colors">
-                    <item.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                <CardContent className="p-4 sm:p-6">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-lg flex items-center justify-center mb-3">
+                    <item.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   </div>
-                  <h3 className="font-bold text-base sm:text-lg mb-1 sm:mb-2 text-foreground pr-16 sm:pr-20">{item.title}</h3>
+                  <h3 className="font-bold text-sm sm:text-base mb-1 text-foreground pr-16">{item.title}</h3>
                   <p className="text-muted-foreground text-xs sm:text-sm">{item.description}</p>
                 </CardContent>
               </Card>
@@ -412,19 +390,16 @@ export default function Landing() {
       <section className="py-12 sm:py-24 bg-secondary/30">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out">
-            <Logo size="large" showTagline={true} className="justify-center mb-6 sm:mb-8" />
+            <Logo size="large" showTagline={true} className="justify-center mb-6" />
           </div>
           <h2 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-xl sm:text-2xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
             Ready to up your game?
           </h2>
-          <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-200 ease-out text-base sm:text-lg text-muted-foreground mb-8 sm:mb-10">
-            Join the platform that takes the hassle out of home games.
-          </p>
-          <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-300 ease-out">
+          <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-300 ease-out mt-8">
             <Link to="/login">
               <Button
                 size="lg"
-                className="bg-[#262626] text-white hover:bg-[#363636] h-12 sm:h-14 px-8 sm:px-10 rounded-full font-semibold tracking-wide transition-all hover:scale-105 text-sm sm:text-base animate-pulse-glow"
+                className="bg-[#262626] text-white hover:bg-[#363636] h-12 sm:h-14 px-8 sm:px-10 rounded-full font-semibold"
               >
                 Start Tracking Free
                 <ArrowRight className="w-5 h-5 ml-2" />
@@ -437,62 +412,33 @@ export default function Landing() {
       {/* Footer */}
       <footer className="border-t border-border/30 bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            {/* Brand */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="col-span-2">
               <Logo showTagline={true} className="mb-4" />
               <p className="text-muted-foreground text-xs sm:text-sm max-w-sm">
-                Track buy-ins, settle debts, and keep the peace at your poker nights. 
-                No spreadsheets needed.
+                Track buy-ins, settle debts, and keep the peace at your poker nights.
               </p>
             </div>
-            
-            {/* Links */}
             <div>
-              <h4 className="font-bold mb-3 sm:mb-4 text-foreground text-sm sm:text-base">Legal</h4>
+              <h4 className="font-bold mb-3 text-foreground text-sm">Legal</h4>
               <ul className="space-y-2 text-xs sm:text-sm">
-                <li>
-                  <Link to="/privacy" className="text-muted-foreground hover:text-primary transition-colors">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/terms" className="text-muted-foreground hover:text-primary transition-colors">
-                    Terms of Use
-                  </Link>
-                </li>
+                <li><Link to="/privacy" className="text-muted-foreground hover:text-primary">Privacy</Link></li>
+                <li><Link to="/terms" className="text-muted-foreground hover:text-primary">Terms</Link></li>
               </ul>
             </div>
-            
             <div>
-              <h4 className="font-bold mb-3 sm:mb-4 text-foreground text-sm sm:text-base">Support</h4>
+              <h4 className="font-bold mb-3 text-foreground text-sm">Support</h4>
               <ul className="space-y-2 text-xs sm:text-sm">
-                <li>
-                  <a href="mailto:support@kvitt.app" className="text-muted-foreground hover:text-primary transition-colors">
-                    Contact Us
-                  </a>
-                </li>
-                <li>
-                  <Link to="/history" className="text-muted-foreground hover:text-primary transition-colors">
-                    Game History
-                  </Link>
-                </li>
+                <li><a href="mailto:support@kvitt.app" className="text-muted-foreground hover:text-primary">Contact</a></li>
               </ul>
             </div>
           </div>
-          
-          {/* Bottom */}
-          <div className="border-t border-border/30 mt-6 pt-4 sm:mt-8 sm:pt-6 md:mt-12 md:pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} Kvitt. All rights reserved.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Your side, <span className="text-primary">settled.</span>
-            </p>
+          <div className="border-t border-border/30 mt-6 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Kvitt</p>
+            <p className="text-xs text-muted-foreground">Your side, <span className="text-primary">settled.</span></p>
           </div>
         </div>
       </footer>
-
     </div>
   );
 }

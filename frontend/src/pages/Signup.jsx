@@ -53,30 +53,31 @@ export default function Signup() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col p-6 relative overflow-hidden">
       {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='8' fill='%23ffffff' text-anchor='middle' dominant-baseline='middle' opacity='0.3'%3E%E2%99%A0 %E2%99%A5 %E2%99%A6 %E2%99%A3%3C/text%3E%3C/svg%3E")`,
-          backgroundSize: '60px 60px'
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='16' fill='%23ffffff' text-anchor='middle' dominant-baseline='middle'%3E%E2%99%A0%3C/text%3E%3C/svg%3E")`,
+          backgroundSize: '40px 40px'
         }} />
       </div>
 
       <div className="relative z-10 w-full max-w-sm mx-auto flex flex-col flex-1">
         {/* Back button */}
-        <button 
-          onClick={() => navigate("/login")}
+        <Link 
+          to="/login"
           className="flex items-center gap-1 text-white bg-[#1a1a1a] rounded-full px-4 py-2 w-fit mb-8 hover:bg-[#252525] transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Back
-        </button>
+        </Link>
 
-        {/* Icon */}
+        {/* Logo */}
         <div className="flex justify-center mb-6">
-          <div className="text-5xl">✨</div>
+          <Logo size="large" showTagline={false} className="justify-center" />
         </div>
 
         {/* Title */}
-        <h1 className="text-white text-3xl font-bold text-center mb-8">Create new account</h1>
+        <h1 className="text-white text-2xl sm:text-3xl font-bold text-center mb-2">Create account</h1>
+        <p className="text-gray-400 text-center mb-8">Join Kvitt and start tracking</p>
 
         {error && (
           <Alert variant="destructive" className="mb-4 bg-red-900/30 border-red-900">
@@ -98,7 +99,7 @@ export default function Signup() {
             <Label className="text-gray-400 text-xs uppercase tracking-wider">Name</Label>
             <Input
               type="text"
-              placeholder="ex: John Doe"
+              placeholder="Your name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl mt-2"
@@ -111,7 +112,7 @@ export default function Signup() {
             <Label className="text-gray-400 text-xs uppercase tracking-wider">Email</Label>
             <Input
               type="email"
-              placeholder="ex: john.doe00@gmail.com"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl mt-2"
@@ -125,7 +126,7 @@ export default function Signup() {
             <div className="relative mt-2">
               <Input
                 type={showPassword ? "text" : "password"}
-                placeholder="ex: Ilovevibecoding@007#"
+                placeholder="Min. 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl pr-10"
@@ -142,31 +143,30 @@ export default function Signup() {
             </div>
           </div>
 
-          <p className="text-gray-500 text-sm text-center pt-2">
-            By continuing, you agree to our{" "}
-            <Link to="/terms" className="underline text-gray-400">Terms of Service</Link> and{" "}
-            <Link to="/privacy" className="underline text-gray-400">Privacy Policy</Link>.
-          </p>
-        </form>
-
-        {/* Bottom section */}
-        <div className="mt-auto pt-8">
-          <p className="text-gray-400 text-center mb-4">
-            Already have an account?{" "}
-            <Link to="/login" className="text-primary underline font-medium uppercase">
-              Log In
-            </Link>
-          </p>
-
           <Button
-            onClick={handleSubmit}
-            className="w-full bg-white text-black font-semibold h-14 rounded-xl hover:bg-gray-100"
+            type="submit"
+            className="w-full bg-white text-black font-semibold h-12 rounded-xl hover:bg-gray-100"
             disabled={loading || !isSupabaseConfigured}
             data-testid="signup-submit-btn"
           >
-            {loading ? "Creating..." : "Create your account"}
+            {loading ? "Creating..." : "Create Account"}
           </Button>
-        </div>
+        </form>
+
+        {/* Sign in link */}
+        <p className="text-gray-400 text-center mt-6">
+          Already have an account?{" "}
+          <Link to="/login" className="text-primary hover:underline font-medium">
+            Sign in
+          </Link>
+        </p>
+
+        {/* Terms */}
+        <p className="text-gray-500 text-xs text-center mt-auto pt-8">
+          By signing up, you agree to our{" "}
+          <Link to="/terms" className="underline">Terms</Link> and{" "}
+          <Link to="/privacy" className="underline">Privacy Policy</Link>.
+        </p>
       </div>
     </div>
   );

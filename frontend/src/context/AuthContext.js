@@ -174,6 +174,7 @@ export const AuthProvider = ({ children }) => {
       signUp,
       signIn,
       signOut,
+      resetPassword,
       getAccessToken,
       setUser,
       isSupabaseConfigured: isSupabaseConfigured()

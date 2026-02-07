@@ -408,8 +408,10 @@ class KvittAPITester:
             
         except KeyboardInterrupt:
             print("\n⚠️ Tests interrupted by user")
+            health_ok = auth_ok = groups_ok = games_ok = transactions_ok = settlement_ok = notifications_ok = flow_ok = False
         except Exception as e:
             print(f"\n💥 Unexpected error: {e}")
+            health_ok = auth_ok = groups_ok = games_ok = transactions_ok = settlement_ok = notifications_ok = flow_ok = False
         
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()

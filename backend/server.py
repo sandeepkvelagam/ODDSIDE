@@ -9,11 +9,32 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 import uuid
+import random
 from datetime import datetime, timezone, timedelta
 import httpx
 import jwt
 
 ROOT_DIR = Path(__file__).parent
+
+# Fun poker-themed default names
+GROUP_NAME_PREFIXES = ["High Rollers", "Royal Flush", "Pocket Aces", "All In", "Full House", 
+                       "The Sharks", "Diamond Club", "Lucky 7s", "Card Kings", "Chip Leaders",
+                       "Bluff Masters", "Texas Holdem", "River Rats", "Flop House", "Ante Up"]
+
+GAME_NAME_PREFIXES = ["Friday Night", "Saturday Showdown", "The Big Game", "Cash Game", 
+                      "Tournament Time", "High Stakes", "Dealer's Choice", "Wild Card Night",
+                      "Poker Party", "All-In Action", "River Run", "Final Table", "House Game"]
+
+def generate_default_group_name():
+    """Generate a fun default group name."""
+    prefix = random.choice(GROUP_NAME_PREFIXES)
+    suffix = random.randint(1, 99)
+    return f"{prefix} #{suffix}"
+
+def generate_default_game_name():
+    """Generate a fun default game name."""
+    prefix = random.choice(GAME_NAME_PREFIXES)
+    return prefix
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection

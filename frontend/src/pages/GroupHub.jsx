@@ -297,47 +297,104 @@ export default function GroupHub() {
             {/* Members */}
             <Card className="bg-card border-border/50">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
-                  <Users className="w-5 h-5" />
+                <CardTitle className="font-heading text-lg font-bold flex items-center gap-2">
+                  <Users className="w-4 h-4" />
                   MEMBERS ({group?.members?.length || 0})
                 </CardTitle>
+                {/* Leave Group Button (for non-admins) */}
+                {!isAdmin && (
+                  <Dialog open={leaveGroupDialog} onOpenChange={setLeaveGroupDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive">
+                        <LogOut className="w-3 h-3 mr-1" /> Leave
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-card border-border">
+                      <DialogHeader>
+                        <DialogTitle>Leave Group?</DialogTitle>
+                        <DialogDescription>
+                          Your game history and stats will be preserved, but you'll no longer have access to this group.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setLeaveGroupDialog(false)}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleLeaveGroup}>Leave Group</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </CardHeader>
-              <CardContent className="space-y-3">
-                {group?.members?.map(member => (
-                  <div key={member.user_id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={member.user?.picture} />
-                        <AvatarFallback>{member.user?.name?.[0] || '?'}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{member.user?.name || 'Unknown'}</p>
-                          {getRoleBadge(member)}
+              <CardContent className="space-y-2">
+                {group?.members?.map(member => {
+                  const inActiveGame = isMemberInActiveGame(member.user_id);
+                  const isCurrentUser = member.user_id === user?.user_id;
+                  const canRemove = isAdmin && !isCurrentUser && member.role !== "admin" && !inActiveGame;
+                  
+                  return (
+                    <div key={member.user_id} className="flex items-center justify-between p-2 bg-secondary/30 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src={member.user?.picture} />
+                          <AvatarFallback className="text-xs">{member.user?.name?.[0] || '?'}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="flex items-center gap-1">
+                            <p className="text-sm font-medium">{member.user?.name || 'Unknown'}</p>
+                            {getRoleBadge(member)}
+                            {isCurrentUser && <span className="text-[10px] text-muted-foreground">(you)</span>}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">{member.user?.email}</p>
                         </div>
-                        <p className="text-xs text-muted-foreground">{member.user?.email}</p>
                       </div>
+                      
+                      {/* Admin Remove Button */}
+                      {canRemove && (
+                        <Dialog open={removeMemberDialog === member.user_id} onOpenChange={(open) => setRemoveMemberDialog(open ? member.user_id : null)}>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive">
+                              <UserMinus className="w-3 h-3" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="bg-card border-border">
+                            <DialogHeader>
+                              <DialogTitle>Remove {member.user?.name}?</DialogTitle>
+                              <DialogDescription>
+                                This member will be removed from the group. Their game history will be preserved.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => setRemoveMemberDialog(null)}>Cancel</Button>
+                              <Button variant="destructive" onClick={() => handleRemoveMember(member.user_id)}>Remove</Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                      
+                      {/* Show why can't remove */}
+                      {isAdmin && !isCurrentUser && member.role !== "admin" && inActiveGame && (
+                        <span className="text-[10px] text-yellow-500">In active game</span>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
 
             {/* Recent Games */}
             <Card className="bg-card border-border/50">
               <CardHeader>
-                <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
-                  <Play className="w-5 h-5" />
+                <CardTitle className="font-heading text-lg font-bold flex items-center gap-2">
+                  <Play className="w-4 h-4" />
                   GAMES
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {games.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
+                  <p className="text-muted-foreground text-center py-6 text-sm">
                     No games yet. Start your first game!
                   </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {games.map(game => (
                       <div 
                         key={game.game_id}

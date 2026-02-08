@@ -740,12 +740,22 @@ export default function GameNight() {
                                 <p className="font-medium text-sm md:text-base truncate">
                                   {player.user?.name || 'Unknown'}
                                   {isCurrentUser && <span className="text-primary ml-1">(You)</span>}
+                                </p>
+                                <div className="flex items-center gap-1">
                                   {player.user_id === game?.host_id && (
-                                    <Crown className="w-3 h-3 text-yellow-500 inline ml-1" />
+                                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 bg-yellow-500/20 text-yellow-500 rounded-full">
+                                      <Crown className="w-2.5 h-2.5" /> Host
+                                    </span>
+                                  )}
+                                  {player.user_id !== game?.host_id && (
+                                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 bg-secondary text-muted-foreground rounded-full">
+                                      <User className="w-2.5 h-2.5" /> Player
+                                    </span>
                                   )}
                                   {player.cashed_out && (
-                                    <CheckCircle className="w-3 h-3 text-green-500 inline ml-1" />
+                                    <CheckCircle className="w-3 h-3 text-green-500" />
                                   )}
+                                </div>
                                 </p>
                                 <div className="flex flex-wrap items-center gap-1 md:gap-2 text-[10px] md:text-xs text-muted-foreground">
                                   <span className="flex items-center gap-1">

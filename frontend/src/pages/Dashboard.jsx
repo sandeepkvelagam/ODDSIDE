@@ -58,11 +58,6 @@ export default function Dashboard() {
     }
   };
 
-  // Show welcome screen
-  if (showWelcome) {
-    return <WelcomeScreen onComplete={() => setShowWelcome(false)} userName={user?.name} />;
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

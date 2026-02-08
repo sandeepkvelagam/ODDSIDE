@@ -86,11 +86,22 @@ export default function Dashboard() {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Welcome */}
-        <div className="mb-6">
-          <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight" data-testid="welcome-heading">
-            Welcome back, {user?.name?.split(' ')[0] || 'Player'}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Here's your poker overview</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight" data-testid="welcome-heading">
+              Welcome back, {user?.name?.split(' ')[0] || 'Player'}
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">Here's your poker overview</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => resetOnboarding()}
+            className="text-xs text-muted-foreground"
+            title="Show getting started guide"
+          >
+            <HelpCircle className="w-4 h-4 mr-1" /> Help
+          </Button>
         </div>
 
         {/* Pending Invites */}

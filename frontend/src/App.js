@@ -126,11 +126,23 @@ function App() {
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <AppContent />
         </AuthProvider>
       </BrowserRouter>
       <Toaster position="top-right" />
     </div>
   );
+}
+
+// Separate component to access auth context
+function AppContent() {
+  const { user } = useAuth();
+  const location = useLocation();
+  
+  // Only show AI assistant for logged-in users
+  if (!user) return null;
+  
+  return <AIAssistant currentPage={location.pathname} />;
 }
 
 export default App;

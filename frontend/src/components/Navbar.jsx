@@ -158,7 +158,7 @@ export default function Navbar() {
 
   // Render notification item with actions
   const renderNotification = (notif) => {
-    const isActionable = ["join_request", "buy_in_request"].includes(notif.type);
+    const isActionable = ["join_request", "buy_in_request", "group_invite_request"].includes(notif.type);
     
     return (
       <div 

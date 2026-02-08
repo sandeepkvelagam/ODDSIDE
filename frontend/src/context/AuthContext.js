@@ -110,6 +110,24 @@ export const AuthProvider = ({ children }) => {
     });
     
     if (error) throw error;
+    
+    // Sync new user to MongoDB immediately after signup
+    // This ensures user exists in our DB even before email confirmation
+    if (data.user) {
+      try {
+        await axios.post(`${API}/auth/sync-user`, {
+          supabase_id: data.user.id,
+          email: data.user.email,
+          name: name || data.user.email?.split('@')[0],
+          picture: null
+        });
+        console.log('User synced to MongoDB after signup');
+      } catch (syncError) {
+        console.error('Error syncing user after signup:', syncError);
+        // Don't throw - user is still created in Supabase
+      }
+    }
+    
     return data;
   };
 
@@ -125,6 +143,11 @@ export const AuthProvider = ({ children }) => {
     });
     
     if (error) throw error;
+    
+    // Sync user to MongoDB on sign in (ensures data is always fresh)
+    if (data.session) {
+      syncUserToBackend(data.session);
+    }
     
     // Return user data for welcome screen
     return {

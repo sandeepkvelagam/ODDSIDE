@@ -891,6 +891,78 @@ async def respond_to_invite(invite_id: str, data: RespondToInviteRequest, user: 
         )
         return {"message": "Invite declined"}
 
+@api_router.delete("/groups/{group_id}/members/{member_id}")
+async def remove_group_member(group_id: str, member_id: str, user: User = Depends(get_current_user)):
+    """Remove a member from group (admin only) or leave group (self). Stats are preserved."""
+    group = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if user is admin or removing themselves
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    is_admin = membership and membership.get("role") == "admin"
+    is_self = user.user_id == member_id
+    
+    if not is_admin and not is_self:
+        raise HTTPException(status_code=403, detail="Only admins can remove other members")
+    
+    # Check if target member exists
+    target_membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": member_id},
+        {"_id": 0}
+    )
+    if not target_membership:
+        raise HTTPException(status_code=404, detail="Member not found in group")
+    
+    # Cannot remove group admin (unless leaving as admin)
+    if target_membership.get("role") == "admin" and not is_self:
+        raise HTTPException(status_code=403, detail="Cannot remove group admin")
+    
+    # Check if member is in active game without cashing out
+    active_games = await db.game_nights.find(
+        {"group_id": group_id, "status": "active"},
+        {"_id": 0, "game_id": 1}
+    ).to_list(100)
+    
+    for game in active_games:
+        player = await db.players.find_one(
+            {"game_id": game["game_id"], "user_id": member_id, "cashed_out": {"$ne": True}},
+            {"_id": 0}
+        )
+        if player:
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot remove member who is in an active game. They must cash out first."
+            )
+    
+    # Remove membership (but keep player records for stats)
+    await db.group_members.delete_one({"group_id": group_id, "user_id": member_id})
+    
+    # Get member name for notification
+    removed_user = await db.users.find_one({"user_id": member_id}, {"_id": 0, "name": 1})
+    member_name = removed_user["name"] if removed_user else "Member"
+    
+    if is_self:
+        return {"message": f"You have left {group['name']}"}
+    else:
+        # Notify the removed member
+        notification = Notification(
+            user_id=member_id,
+            type="removed_from_group",
+            title="Removed from Group",
+            message=f"You have been removed from {group['name']} by an admin.",
+            data={"group_id": group_id}
+        )
+        notif_dict = notification.model_dump()
+        notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+        await db.notifications.insert_one(notif_dict)
+        
+        return {"message": f"{member_name} has been removed from the group"}
+
 @api_router.get("/users/me/badges")
 async def get_my_badges(user: User = Depends(get_current_user)):
     """Get current user's badges and level progress."""

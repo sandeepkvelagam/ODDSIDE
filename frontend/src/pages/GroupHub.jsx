@@ -454,18 +454,18 @@ export default function GroupHub() {
           <div className="space-y-6">
             <Card className="bg-card border-border/50">
               <CardHeader>
-                <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-500" />
+                <CardTitle className="font-heading text-lg font-bold flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-yellow-500" />
                   LEADERBOARD
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {stats?.leaderboard?.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {stats.leaderboard.map((entry, idx) => (
-                      <div key={entry.user_id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/20">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      <div key={entry.user_id} className="flex items-center justify-between p-1.5 rounded-lg bg-secondary/20">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
                             idx === 0 ? 'bg-yellow-500 text-black' :
                             idx === 1 ? 'bg-gray-400 text-black' :
                             idx === 2 ? 'bg-amber-700 text-white' :
@@ -473,15 +473,15 @@ export default function GroupHub() {
                           }`}>
                             {idx + 1}
                           </span>
-                          <Avatar className="h-6 w-6">
+                          <Avatar className="h-5 w-5">
                             <AvatarImage src={entry.user?.picture} />
-                            <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                            <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
                               {entry.user?.name?.[0] || '?'}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm font-medium">{entry.user?.name || 'Unknown'}</span>
+                          <span className="text-xs font-medium">{entry.user?.name || 'Unknown'}</span>
                         </div>
-                        <span className={`font-mono text-sm font-bold ${
+                        <span className={`font-mono text-xs font-bold ${
                           entry.total_profit >= 0 ? 'text-primary' : 'text-destructive'
                         }`}>
                           {entry.total_profit >= 0 ? '+' : ''}${entry.total_profit?.toFixed(0)}
@@ -490,7 +490,7 @@ export default function GroupHub() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground text-center py-4 text-sm">
+                  <p className="text-muted-foreground text-center py-4 text-xs">
                     Play games to see rankings!
                   </p>
                 )}

@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PendingInvites from "@/components/PendingInvites";
-import WelcomeScreen from "@/components/WelcomeScreen";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 

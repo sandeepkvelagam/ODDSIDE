@@ -109,6 +109,37 @@ export default function Navbar() {
     }
   };
 
+  const handleAcceptInvite = async (notif) => {
+    try {
+      await axios.post(`${API}/users/invites/${notif.data.invite_id}/respond`, {
+        accept: true
+      });
+      toast.success("Invite accepted!");
+      handleMarkRead(notif.notification_id);
+      fetchNotifications();
+      // Navigate to the group
+      if (notif.data.group_id) {
+        navigate(`/groups/${notif.data.group_id}`);
+        setNotifSheetOpen(false);
+      }
+    } catch (error) {
+      toast.error("Failed to accept invite");
+    }
+  };
+
+  const handleDeclineInvite = async (notif) => {
+    try {
+      await axios.post(`${API}/users/invites/${notif.data.invite_id}/respond`, {
+        accept: false
+      });
+      toast.success("Invite declined");
+      handleMarkRead(notif.notification_id);
+      fetchNotifications();
+    } catch (error) {
+      toast.error("Failed to decline invite");
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut();

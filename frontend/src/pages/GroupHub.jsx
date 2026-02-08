@@ -33,6 +33,7 @@ export default function GroupHub() {
   const [loading, setLoading] = useState(true);
   const [gameDialogOpen, setGameDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [smartDefaults, setSmartDefaults] = useState(null);
   
   // Game creation form - NOW includes buy-in settings
   const [gameForm, setGameForm] = useState({
@@ -47,14 +48,25 @@ export default function GroupHub() {
 
   const fetchData = async () => {
     try {
-      const [groupRes, gamesRes, statsRes] = await Promise.all([
+      const [groupRes, gamesRes, statsRes, defaultsRes] = await Promise.all([
         axios.get(`${API}/groups/${groupId}`),
         axios.get(`${API}/games?group_id=${groupId}`),
-        axios.get(`${API}/stats/group/${groupId}`)
+        axios.get(`${API}/stats/group/${groupId}`),
+        axios.get(`${API}/groups/${groupId}/smart-defaults`).catch(() => ({ data: null }))
       ]);
       setGroup(groupRes.data);
       setGames(gamesRes.data);
       setStats(statsRes.data);
+      
+      // Apply smart defaults if available
+      if (defaultsRes.data && defaultsRes.data.games_analyzed > 0) {
+        setSmartDefaults(defaultsRes.data);
+        setGameForm(prev => ({
+          ...prev,
+          buy_in_amount: defaultsRes.data.buy_in_amount,
+          chips_per_buy_in: defaultsRes.data.chips_per_buy_in
+        }));
+      }
     } catch (error) {
       toast.error("Failed to load group");
       navigate("/groups");
@@ -75,7 +87,7 @@ export default function GroupHub() {
       });
       toast.success("Game started!");
       setGameDialogOpen(false);
-      setGameForm({ title: "", buy_in_amount: 20, chips_per_buy_in: 20 });
+      setGameForm({ title: "", buy_in_amount: smartDefaults?.buy_in_amount || 20, chips_per_buy_in: smartDefaults?.chips_per_buy_in || 20 });
       navigate(`/games/${response.data.game_id}`);
     } catch (error) {
       toast.error("Failed to start game");

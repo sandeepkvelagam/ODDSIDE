@@ -4,9 +4,34 @@
 Build **Kvitt** - a behavioral ledger app for home poker games.
 **Tagline: "Your side, settled."**
 
-## Latest Update: December 2025 (Session 2)
+## Latest Update: December 2025 (Session 3)
 
-### New Features Implemented This Session ✅
+### Phase 0: Foundation Infrastructure ✅
+
+#### 1. WebSocket Real-Time Updates
+- **Backend**: Socket.IO server integrated with FastAPI (`/app/backend/websocket_manager.py`)
+- **Frontend**: WebSocket hook for games (`/app/frontend/src/hooks/useGameSocket.js`)
+- **Events**: player_joined, buy_in, cash_out, chips_edited, message, game_state
+- **Room-based**: Each game has its own room for targeted updates
+
+#### 2. Game-Agnostic Event Schema
+- **File**: `/app/backend/event_schema.py`
+- **Supports**: poker, rummy, blackjack, other (extensible)
+- **Event Types**: join, leave, buy_in, rebuy, cash_out, chips_edit, game_start, game_end, settle
+- **Future-proof**: Ready for multi-game support
+
+#### 3. Rule-Based Onboarding Guide
+- **Component**: `/app/frontend/src/components/OnboardingGuide.jsx`
+- **7-step flow**: Welcome → Create Group → Invite Friends → Start Game → During Game → Cash Out → Done
+- **Features**:
+  - Progress tracker
+  - Contextual tips
+  - Skip option
+  - Help button in dashboard to replay
+
+---
+
+### Previous Session Features ✅
 
 #### 1. Auto Buy-In on Game Start/Join
 - **Host auto buy-in**: When creating an active game, host automatically receives default buy-in and chips

@@ -92,14 +92,14 @@ export default function GameNight() {
   };
 
   // Search users by email/name
-  const searchPlayers = async (query) => {
-    if (!query || query.length < 2) {
+  const searchPlayers = async (searchQuery) => {
+    if (!searchQuery || searchQuery.length < 2) {
       setPlayerSearchResults([]);
       return;
     }
     setSearchingPlayers(true);
     try {
-      const response = await axios.get(`${API}/users/search?q=${encodeURIComponent(query)}`);
+      const response = await axios.get(`${API}/users/search?query=${encodeURIComponent(searchQuery)}`);
       // Filter out players already in game
       const currentPlayerIds = game?.players?.map(p => p.user_id) || [];
       const filtered = response.data.filter(u => !currentPlayerIds.includes(u.user_id));

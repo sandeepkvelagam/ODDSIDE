@@ -8,7 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
 import WelcomeScreen from "@/components/WelcomeScreen";
-import { Eye, EyeOff, ChevronLeft } from "lucide-react";
+import { Eye, EyeOff, ChevronLeft, AlertCircle, Wifi, WifiOff } from "lucide-react";
+import { parseSupabaseError, ErrorCode, logError } from "@/lib/errorHandler";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null); // { code, message }
   const [loading, setLoading] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -25,15 +26,29 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError(null);
     
-    if (!email || !password) {
-      setError("Please fill in all fields");
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      setError({ code: ErrorCode.USER_INVALID_EMAIL, message: "Please enter your email address." });
+      return;
+    }
+    if (!emailRegex.test(email)) {
+      setError({ code: ErrorCode.USER_INVALID_EMAIL, message: "Please enter a valid email address." });
+      return;
+    }
+    if (!password) {
+      setError({ code: ErrorCode.AUTH_WRONG_PASSWORD, message: "Please enter your password." });
+      return;
+    }
+    if (password.length < 6) {
+      setError({ code: ErrorCode.AUTH_WRONG_PASSWORD, message: "Password must be at least 6 characters." });
       return;
     }
 
     if (!isSupabaseConfigured) {
-      setError("Authentication is not configured. Please add Supabase credentials.");
+      setError({ code: ErrorCode.SERVER_ERROR, message: "Authentication service is not configured. Please contact support." });
       return;
     }
 
@@ -44,7 +59,9 @@ export default function Login() {
       // Show welcome screen after successful login
       setShowWelcome(true);
     } catch (err) {
-      setError(err.message || "Invalid email or password");
+      logError('Login', err);
+      const parsedError = parseSupabaseError(err);
+      setError(parsedError);
       setLoading(false);
     }
   };
@@ -65,7 +82,7 @@ export default function Login() {
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (!email) {
-      setError("Please enter your email address");
+      setError({ code: ErrorCode.USER_INVALID_EMAIL, message: "Please enter your email address." });
       return;
     }
     
@@ -75,7 +92,9 @@ export default function Login() {
       setResetSent(true);
       toast.success("Reset link sent to your email");
     } catch (err) {
-      setError(err.message || "Failed to send reset link");
+      logError('ForgotPassword', err);
+      const parsedError = parseSupabaseError(err);
+      setError(parsedError);
     } finally {
       setLoading(false);
     }

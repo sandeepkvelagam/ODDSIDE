@@ -1595,7 +1595,7 @@ async def join_game(game_id: str, user: User = Depends(get_current_user)):
 
 @api_router.post("/games/{game_id}/approve-join")
 async def approve_join(game_id: str, data: dict, user: User = Depends(get_current_user)):
-    """Host approves a join request."""
+    """Host approves a join request - auto adds default buy-in."""
     game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -1608,10 +1608,19 @@ async def approve_join(game_id: str, data: dict, user: User = Depends(get_curren
     if not player_user_id:
         raise HTTPException(status_code=400, detail="user_id required")
     
-    # Update player status
+    # Get default buy-in from game
+    buy_in_amount = game.get("buy_in_amount", 20)
+    chips_per_buy_in = game.get("chips_per_buy_in", 20)
+    
+    # Update player status AND add default buy-in
     result = await db.players.update_one(
         {"game_id": game_id, "user_id": player_user_id, "rsvp_status": "pending"},
-        {"$set": {"rsvp_status": "yes"}}
+        {"$set": {
+            "rsvp_status": "yes",
+            "total_buy_in": buy_in_amount,
+            "total_chips": chips_per_buy_in,
+            "buy_in_count": 1
+        }}
     )
     
     if result.modified_count == 0:
@@ -1625,9 +1634,9 @@ async def approve_join(game_id: str, data: dict, user: User = Depends(get_curren
     notification = Notification(
         user_id=player_user_id,
         type="join_approved",
-        title="Join Approved!",
-        message=f"You've been approved to join the game",
-        data={"game_id": game_id}
+        title="You're In!",
+        message=f"Joined with ${buy_in_amount} ({chips_per_buy_in} chips)",
+        data={"game_id": game_id, "buy_in": buy_in_amount, "chips": chips_per_buy_in}
     )
     notif_dict = notification.model_dump()
     notif_dict["created_at"] = notif_dict["created_at"].isoformat()
@@ -1637,14 +1646,14 @@ async def approve_join(game_id: str, data: dict, user: User = Depends(get_curren
     message = GameThread(
         game_id=game_id,
         user_id=user.user_id,
-        content=f"✅ {player_name} joined the game",
+        content=f"✅ {player_name} joined with ${buy_in_amount} ({chips_per_buy_in} chips)",
         type="system"
     )
     msg_dict = message.model_dump()
     msg_dict["created_at"] = msg_dict["created_at"].isoformat()
     await db.game_threads.insert_one(msg_dict)
     
-    return {"message": f"{player_name} approved"}
+    return {"message": f"{player_name} approved with default buy-in"}
 
 @api_router.post("/games/{game_id}/reject-join")
 async def reject_join(game_id: str, data: dict, user: User = Depends(get_current_user)):

@@ -2499,9 +2499,10 @@ async def edit_player_chips(game_id: str, data: EditPlayerChipsRequest, user: Us
             {"$inc": {"total_chips_returned": chip_diff}}
         )
     
-    # Get player name for notifications
-    target_user = await db.users.find_one({"user_id": data.user_id}, {"_id": 0, "name": 1})
+    # Get player info for notifications
+    target_user = await db.users.find_one({"user_id": data.user_id}, {"_id": 0, "name": 1, "email": 1})
     player_name = target_user["name"] if target_user else "Player"
+    player_email = target_user.get("email") if target_user else None
     
     # Notify the player about the change
     notification = Notification(
@@ -2514,6 +2515,22 @@ async def edit_player_chips(game_id: str, data: EditPlayerChipsRequest, user: Us
     notif_dict = notification.model_dump()
     notif_dict["created_at"] = notif_dict["created_at"].isoformat()
     await db.notifications.insert_one(notif_dict)
+    
+    # Send email notification
+    if player_email:
+        try:
+            from email_service import send_chips_edited_email
+            asyncio.create_task(send_chips_edited_email(
+                player_email,
+                player_name,
+                game.get("title", "Game"),
+                old_chips,
+                data.chips_count,
+                user.name,
+                data.reason
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to send chips edited email: {e}")
     
     # Add system message to thread
     message = GameThread(

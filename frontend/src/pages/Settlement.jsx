@@ -92,22 +92,22 @@ export default function Settlement() {
 
         {/* Summary */}
         <Card className="bg-card border-border/50 mb-6" data-testid="game-summary">
-          <CardHeader>
-            <CardTitle className="font-heading text-xl font-bold">GAME SUMMARY</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="font-heading text-lg font-bold">GAME SUMMARY</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="grid grid-cols-3 gap-3 text-center">
               <div>
-                <p className="text-3xl font-bold font-mono">${totalPot.toFixed(0)}</p>
-                <p className="text-sm text-muted-foreground">Total Pot</p>
+                <p className="text-xl font-bold font-mono">${totalPot.toFixed(0)}</p>
+                <p className="text-xs text-muted-foreground">Total Pot</p>
               </div>
               <div>
-                <p className="text-3xl font-bold text-primary">{winners.length}</p>
-                <p className="text-sm text-muted-foreground">Winners</p>
+                <p className="text-xl font-bold text-primary">{winners.length}</p>
+                <p className="text-xs text-muted-foreground">Winners</p>
               </div>
               <div>
-                <p className="text-3xl font-bold text-destructive">{losers.length}</p>
-                <p className="text-sm text-muted-foreground">Losers</p>
+                <p className="text-xl font-bold text-destructive">{losers.length}</p>
+                <p className="text-xs text-muted-foreground">Losers</p>
               </div>
             </div>
           </CardContent>
@@ -115,32 +115,32 @@ export default function Settlement() {
 
         {/* Results */}
         <Card className="bg-card border-border/50 mb-6" data-testid="results-card">
-          <CardHeader>
-            <CardTitle className="font-heading text-xl font-bold">RESULTS</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="font-heading text-lg font-bold">RESULTS</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {game?.players?.sort((a, b) => (b.net_result || 0) - (a.net_result || 0)).map(player => (
                 <div 
                   key={player.player_id}
-                  className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg"
+                  className="flex items-center justify-between p-2 bg-secondary/30 rounded-lg"
                 >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-10 h-10">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="w-8 h-8">
                       <AvatarImage src={player.user?.picture} />
-                      <AvatarFallback>{player.user?.name?.[0] || '?'}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{player.user?.name?.[0] || '?'}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{player.user?.name || 'Unknown'}</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm font-medium">{player.user?.name || 'Unknown'}</p>
+                      <p className="text-[10px] text-muted-foreground">
                         In: ${player.total_buy_in || 0} • Out: ${player.cash_out || 0}
                       </p>
                     </div>
                   </div>
-                  <span className={`font-mono text-xl font-bold ${
+                  <span className={`font-mono text-sm font-bold ${
                     (player.net_result || 0) >= 0 ? 'text-primary' : 'text-destructive'
                   }`}>
-                    {(player.net_result || 0) >= 0 ? '+' : ''}{(player.net_result || 0).toFixed(2)}
+                    {(player.net_result || 0) >= 0 ? '+' : ''}${(player.net_result || 0).toFixed(0)}
                   </span>
                 </div>
               ))}
@@ -150,19 +150,19 @@ export default function Settlement() {
 
         {/* Settlements */}
         <Card className="bg-card border-border/50" data-testid="settlements-card">
-          <CardHeader>
-            <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
-              <Lock className="w-5 h-5 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="font-heading text-lg font-bold flex items-center gap-2">
+              <Lock className="w-4 h-4 text-muted-foreground" />
               PAYMENTS
             </CardTitle>
           </CardHeader>
           <CardContent>
             {settlements.length === 0 ? (
-              <p className="text-muted-foreground text-center py-6">
+              <p className="text-muted-foreground text-center py-4 text-sm">
                 No payments needed - everyone broke even!
               </p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {settlements.map(entry => {
                   const canToggle = user?.user_id === entry.from_user_id || user?.user_id === entry.to_user_id;
                   const isPaid = entry.status === 'paid';
@@ -170,45 +170,45 @@ export default function Settlement() {
                   return (
                     <div 
                       key={entry.ledger_id}
-                      className={`p-4 rounded-lg border ${
+                      className={`p-3 rounded-lg border ${
                         isPaid 
                           ? 'bg-primary/10 border-primary/30' 
                           : 'bg-secondary/30 border-border/50'
                       }`}
                       data-testid={`settlement-${entry.ledger_id}`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="w-8 h-8">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <Avatar className="w-6 h-6">
                               <AvatarImage src={entry.from_user?.picture} />
-                              <AvatarFallback>{entry.from_user?.name?.[0] || '?'}</AvatarFallback>
+                              <AvatarFallback className="text-[10px]">{entry.from_user?.name?.[0] || '?'}</AvatarFallback>
                             </Avatar>
-                            <span className="font-medium">{entry.from_user?.name}</span>
+                            <span className="text-xs font-medium">{entry.from_user?.name}</span>
                           </div>
-                          <ArrowRight className="w-5 h-5 text-muted-foreground" />
-                          <div className="flex items-center gap-2">
-                            <Avatar className="w-8 h-8">
+                          <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                          <div className="flex items-center gap-1">
+                            <Avatar className="w-6 h-6">
                               <AvatarImage src={entry.to_user?.picture} />
-                              <AvatarFallback>{entry.to_user?.name?.[0] || '?'}</AvatarFallback>
+                              <AvatarFallback className="text-[10px]">{entry.to_user?.name?.[0] || '?'}</AvatarFallback>
                             </Avatar>
-                            <span className="font-medium">{entry.to_user?.name}</span>
+                            <span className="text-xs font-medium">{entry.to_user?.name}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="font-mono text-xl font-bold">
-                            ${entry.amount.toFixed(2)}
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-bold">
+                            ${entry.amount.toFixed(0)}
                           </span>
                           {canToggle && (
                             <Button
                               variant={isPaid ? "default" : "outline"}
                               size="sm"
                               onClick={() => handleMarkPaid(entry.ledger_id, !isPaid)}
-                              className={isPaid ? "bg-primary text-black" : ""}
+                              className={`h-7 text-xs ${isPaid ? "bg-primary text-black" : ""}`}
                               data-testid={`mark-paid-${entry.ledger_id}`}
                             >
                               {isPaid ? (
-                                <><Check className="w-4 h-4 mr-1" /> Paid</>
+                                <><Check className="w-3 h-3 mr-1" /> Paid</>
                               ) : (
                                 "Mark Paid"
                               )}
@@ -217,8 +217,8 @@ export default function Settlement() {
                         </div>
                       </div>
                       {isPaid && entry.paid_at && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Settled on {new Date(entry.paid_at).toLocaleString()}
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Settled {new Date(entry.paid_at).toLocaleDateString()}
                         </p>
                       )}
                     </div>

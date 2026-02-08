@@ -22,7 +22,6 @@ export default function Dashboard() {
   const [activeGames, setActiveGames] = useState([]);
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showWelcome, setShowWelcome] = useState(true);
 
   useEffect(() => {
     fetchData();

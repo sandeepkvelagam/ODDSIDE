@@ -135,7 +135,8 @@ export default function Login() {
 
           {error && (
             <Alert variant="destructive" className="mb-4 bg-red-900/30 border-red-900">
-              <AlertDescription className="text-red-300">{error}</AlertDescription>
+              <AlertCircle className="h-4 w-4 text-red-400" />
+              <AlertDescription className="text-red-300">{error.message}</AlertDescription>
             </Alert>
           )}
 

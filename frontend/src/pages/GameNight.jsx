@@ -756,7 +756,6 @@ export default function GameNight() {
                                     <CheckCircle className="w-3 h-3 text-green-500" />
                                   )}
                                 </div>
-                                </p>
                                 <div className="flex flex-wrap items-center gap-1 md:gap-2 text-[10px] md:text-xs text-muted-foreground">
                                   <span className="flex items-center gap-1">
                                     <Coins className="w-3 h-3" />

@@ -59,6 +59,19 @@ Build **Kvitt** - a behavioral ledger app for home poker games.
   - Skip option
   - Help button in dashboard to replay
 
+#### 4. Email Notifications (Resend)
+- **Backend**: `/app/backend/email_service.py` - Resend integration
+- **Beautiful HTML templates** with Kvitt branding
+- **Email Types**:
+  - `send_welcome_email` - New user registration
+  - `send_group_invite_email` - Group invitations (registered & unregistered users)
+  - `send_game_started_email` - Game start notifications
+  - `send_settlement_ready_email` - Game settled with results
+  - `send_payment_reminder_email` - Outstanding payment reminders
+  - `send_login_notification_email` - Security login alerts
+  - `send_chips_edited_email` - Host chip edit notifications
+- **Async/Non-blocking**: Emails sent in background, don't slow down API
+
 ---
 
 ### Previous Session Features ✅
@@ -77,7 +90,7 @@ Build **Kvitt** - a behavioral ledger app for home poker games.
 
 #### 3. Host Post-Game Edit Permissions
 - **Edit chips after cash-out**: POST `/api/games/{game_id}/edit-player-chips`
-- **Player notification**: Affected players notified of chip changes
+- **Player notification**: Affected players notified of chip changes + EMAIL
 - **Audit trail**: Changes logged in audit_logs
 - **System message**: Edit recorded in game thread
 

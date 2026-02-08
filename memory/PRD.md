@@ -138,10 +138,14 @@ Build **Kvitt** - a behavioral ledger app for home poker games.
 ### API Endpoints
 - Auth: sync-user, me, logout
 - Groups: CRUD, invite/remove
+- **NEW**: DELETE `/api/groups/{id}/members/{member_id}` - Remove member or leave group
 - Games: CRUD, start/end/join
 - **NEW**: `/api/games/{id}/request-buy-in` - Player requests buy-in
 - **NEW**: `/api/games/{id}/request-cash-out` - Player requests cash-out
 - **NEW**: `/api/games/{id}/admin-cash-out` - Host cashes out player
+- **NEW**: `/api/games/{id}/edit-player-chips` - Host edits player chips post cash-out
+- **NEW**: `/api/games/{id}/approve-join` - Auto adds default buy-in
+- **NEW**: `/api/games/{id}/approve-buy-in` - Host approves buy-in request
 - **NEW**: `/api/users/game-history` - User's game history with stats
 - Settlement: generate, mark paid
 - Social: user search, invites, badges
@@ -150,11 +154,15 @@ Build **Kvitt** - a behavioral ledger app for home poker games.
 
 ## Prioritized Backlog
 
-### P0 - Critical (Next Sprint)
-- [ ] Email notification service for invites (SendGrid/Resend)
-- [ ] Verify Supabase auth with actual login test
+### P0 - Critical (Completed This Session)
+- [x] Auto buy-in on game start/join
+- [x] Host edit chips after cash-out with notification
+- [x] Notification navigation (View Game/Group buttons)
+- [x] Group admin controls (remove/leave members)
 
 ### P1 - High Priority
+- [ ] Email notification service for invites (SendGrid/Resend)
+- [ ] Verify Supabase auth with actual login test
 - [ ] Enhanced dashboard with charts
 - [ ] RSVP calendar for scheduled games
 - [ ] Push notifications (browser)

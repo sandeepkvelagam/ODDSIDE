@@ -426,7 +426,27 @@ export default function GameNight() {
           </button>
           
           {/* Poker Hand Rankings Button */}
-          <Sheet open={showHandRankings} onOpenChange={setShowHandRankings}>
+          <div className="flex items-center gap-2">
+            {/* Connection Status */}
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+              isConnected 
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' 
+                : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+            }`}>
+              {isConnected ? (
+                <>
+                  <Wifi className="w-3 h-3" />
+                  <span className="hidden sm:inline">Live</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3" />
+                  <span className="hidden sm:inline">Offline</span>
+                </>
+              )}
+            </div>
+            
+            <Sheet open={showHandRankings} onOpenChange={setShowHandRankings}>
             <SheetTrigger asChild>
               <Button 
                 variant="outline" 

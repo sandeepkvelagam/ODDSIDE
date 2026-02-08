@@ -91,6 +91,36 @@ export default function GameNight() {
     }
   };
 
+  // Search users by email/name
+  const searchPlayers = async (query) => {
+    if (!query || query.length < 2) {
+      setPlayerSearchResults([]);
+      return;
+    }
+    setSearchingPlayers(true);
+    try {
+      const response = await axios.get(`${API}/users/search?q=${encodeURIComponent(query)}`);
+      // Filter out players already in game
+      const currentPlayerIds = game?.players?.map(p => p.user_id) || [];
+      const filtered = response.data.filter(u => !currentPlayerIds.includes(u.user_id));
+      setPlayerSearchResults(filtered);
+    } catch (error) {
+      console.error("Search failed:", error);
+    } finally {
+      setSearchingPlayers(false);
+    }
+  };
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (playerSearchQuery) {
+        searchPlayers(playerSearchQuery);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [playerSearchQuery]);
+
   useEffect(() => {
     fetchGame();
     const interval = setInterval(fetchGame, 10000);

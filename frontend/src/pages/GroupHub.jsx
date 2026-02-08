@@ -259,15 +259,15 @@ export default function GroupHub() {
                   <div key={member.user_id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Avatar className="w-10 h-10">
-                        <AvatarImage src={member.picture} />
-                        <AvatarFallback>{member.name?.[0] || '?'}</AvatarFallback>
+                        <AvatarImage src={member.user?.picture} />
+                        <AvatarFallback>{member.user?.name?.[0] || '?'}</AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-medium">{member.name}</p>
+                          <p className="font-medium">{member.user?.name || 'Unknown'}</p>
                           {getRoleBadge(member)}
                         </div>
-                        <p className="text-xs text-muted-foreground">{member.email}</p>
+                        <p className="text-xs text-muted-foreground">{member.user?.email}</p>
                       </div>
                     </div>
                   </div>

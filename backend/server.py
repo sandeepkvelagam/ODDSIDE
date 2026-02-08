@@ -1716,6 +1716,9 @@ async def approve_join(game_id: str, data: dict, user: User = Depends(get_curren
     msg_dict["created_at"] = msg_dict["created_at"].isoformat()
     await db.game_threads.insert_one(msg_dict)
     
+    # Emit WebSocket event for real-time update
+    await notify_player_joined(game_id, player_name, player_user_id, buy_in_amount, chips_per_buy_in)
+    
     return {"message": f"{player_name} approved with default buy-in"}
 
 @api_router.post("/games/{game_id}/reject-join")

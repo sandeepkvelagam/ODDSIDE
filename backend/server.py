@@ -1646,6 +1646,7 @@ async def approve_join(game_id: str, data: dict, user: User = Depends(get_curren
     # Get default buy-in from game
     buy_in_amount = game.get("buy_in_amount", 20)
     chips_per_buy_in = game.get("chips_per_buy_in", 20)
+    chip_value = buy_in_amount / chips_per_buy_in if chips_per_buy_in > 0 else 1.0
     
     # Update player status AND add default buy-in
     result = await db.players.update_one(
@@ -1660,6 +1661,26 @@ async def approve_join(game_id: str, data: dict, user: User = Depends(get_curren
     
     if result.modified_count == 0:
         raise HTTPException(status_code=400, detail="No pending request found")
+    
+    # Update game's total chips distributed
+    await db.game_nights.update_one(
+        {"game_id": game_id},
+        {"$inc": {"total_chips_distributed": chips_per_buy_in}}
+    )
+    
+    # Create transaction record
+    txn = Transaction(
+        game_id=game_id,
+        user_id=player_user_id,
+        type="buy_in",
+        amount=buy_in_amount,
+        chips=chips_per_buy_in,
+        chip_value=chip_value,
+        notes="Initial buy-in (auto on join)"
+    )
+    txn_dict = txn.model_dump()
+    txn_dict["timestamp"] = txn_dict["timestamp"].isoformat()
+    await db.transactions.insert_one(txn_dict)
     
     # Get player name
     player_user = await db.users.find_one({"user_id": player_user_id}, {"_id": 0})

@@ -1529,12 +1529,12 @@ async def rsvp_game(game_id: str, data: RSVPRequest, user: User = Depends(get_cu
 
 @api_router.post("/games/{game_id}/join")
 async def join_game(game_id: str, user: User = Depends(get_current_user)):
-    """Join an active game."""
+    """Request to join an active game. Sends notification to host for approval."""
     game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
-    # Verify membership
+    # Verify membership in group
     membership = await db.group_members.find_one(
         {"group_id": game["group_id"], "user_id": user.user_id},
         {"_id": 0}
@@ -1549,19 +1549,307 @@ async def join_game(game_id: str, user: User = Depends(get_current_user)):
     )
     
     if existing:
+        if existing.get("rsvp_status") == "pending":
+            return {"message": "Join request already pending", "status": "pending"}
+        elif existing.get("rsvp_status") == "yes":
+            return {"message": "Already in game", "status": "joined"}
+        else:
+            # Update to pending
+            await db.players.update_one(
+                {"game_id": game_id, "user_id": user.user_id},
+                {"$set": {"rsvp_status": "pending"}}
+            )
+    else:
+        # Create pending player record
+        player = Player(
+            game_id=game_id,
+            user_id=user.user_id,
+            rsvp_status="pending"
+        )
+        await db.players.insert_one(player.model_dump())
+    
+    # Send notification to host
+    notification = Notification(
+        user_id=game["host_id"],
+        type="join_request",
+        title="Join Request",
+        message=f"{user.name} wants to join the game",
+        data={"game_id": game_id, "user_id": user.user_id, "user_name": user.name}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    # Add system message to thread
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"🙋 {user.name} requested to join",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {"message": "Join request sent to host", "status": "pending"}
+
+@api_router.post("/games/{game_id}/approve-join")
+async def approve_join(game_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Host approves a join request."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Only host can approve
+    if game["host_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Only host can approve join requests")
+    
+    player_user_id = data.get("user_id")
+    if not player_user_id:
+        raise HTTPException(status_code=400, detail="user_id required")
+    
+    # Update player status
+    result = await db.players.update_one(
+        {"game_id": game_id, "user_id": player_user_id, "rsvp_status": "pending"},
+        {"$set": {"rsvp_status": "yes"}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=400, detail="No pending request found")
+    
+    # Get player name
+    player_user = await db.users.find_one({"user_id": player_user_id}, {"_id": 0})
+    player_name = player_user["name"] if player_user else "Player"
+    
+    # Notify the player
+    notification = Notification(
+        user_id=player_user_id,
+        type="join_approved",
+        title="Join Approved!",
+        message=f"You've been approved to join the game",
+        data={"game_id": game_id}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    # Add system message
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"✅ {player_name} joined the game",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {"message": f"{player_name} approved"}
+
+@api_router.post("/games/{game_id}/reject-join")
+async def reject_join(game_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Host rejects a join request."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if game["host_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Only host can reject join requests")
+    
+    player_user_id = data.get("user_id")
+    if not player_user_id:
+        raise HTTPException(status_code=400, detail="user_id required")
+    
+    # Remove player record
+    result = await db.players.delete_one(
+        {"game_id": game_id, "user_id": player_user_id, "rsvp_status": "pending"}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=400, detail="No pending request found")
+    
+    # Notify the player
+    notification = Notification(
+        user_id=player_user_id,
+        type="join_rejected",
+        title="Join Request Declined",
+        message="Your request to join the game was declined",
+        data={"game_id": game_id}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    return {"message": "Request rejected"}
+
+@api_router.post("/games/{game_id}/add-player")
+async def add_player_to_game(game_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Host adds a group member to the game directly."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Only host can add players
+    if game["host_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Only host can add players")
+    
+    player_user_id = data.get("user_id")
+    if not player_user_id:
+        raise HTTPException(status_code=400, detail="user_id required")
+    
+    # Verify player is in the group
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": player_user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=400, detail="User is not a member of this group")
+    
+    # Check if already a player
+    existing = await db.players.find_one(
+        {"game_id": game_id, "user_id": player_user_id},
+        {"_id": 0}
+    )
+    
+    if existing:
+        if existing.get("rsvp_status") == "yes":
+            raise HTTPException(status_code=400, detail="Player already in game")
+        # Update status to yes
         await db.players.update_one(
-            {"game_id": game_id, "user_id": user.user_id},
+            {"game_id": game_id, "user_id": player_user_id},
             {"$set": {"rsvp_status": "yes"}}
         )
     else:
         player = Player(
             game_id=game_id,
-            user_id=user.user_id,
+            user_id=player_user_id,
             rsvp_status="yes"
         )
         await db.players.insert_one(player.model_dump())
     
-    return {"message": "Joined game"}
+    # Get player name
+    player_user = await db.users.find_one({"user_id": player_user_id}, {"_id": 0})
+    player_name = player_user["name"] if player_user else "Player"
+    
+    # Notify the player
+    notification = Notification(
+        user_id=player_user_id,
+        type="added_to_game",
+        title="Added to Game",
+        message=f"You've been added to a game by {user.name}",
+        data={"game_id": game_id}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    # Add system message
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"➕ {user.name} added {player_name} to the game",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {"message": f"{player_name} added to game"}
+
+@api_router.get("/games/{game_id}/available-players")
+async def get_available_players(game_id: str, user: User = Depends(get_current_user)):
+    """Get group members who can be added to the game."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Get all group members
+    memberships = await db.group_members.find(
+        {"group_id": game["group_id"]},
+        {"_id": 0}
+    ).to_list(100)
+    
+    member_ids = [m["user_id"] for m in memberships]
+    
+    # Get existing players in game
+    existing_players = await db.players.find(
+        {"game_id": game_id, "rsvp_status": {"$in": ["yes", "pending"]}},
+        {"_id": 0, "user_id": 1}
+    ).to_list(100)
+    existing_ids = [p["user_id"] for p in existing_players]
+    
+    # Filter out existing players
+    available_ids = [uid for uid in member_ids if uid not in existing_ids]
+    
+    # Get user details
+    users = await db.users.find(
+        {"user_id": {"$in": available_ids}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1}
+    ).to_list(100)
+    
+    return users
+
+@api_router.post("/games/{game_id}/approve-buy-in")
+async def approve_buy_in(game_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Host approves a buy-in request."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if game["host_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Only host can approve buy-ins")
+    
+    player_user_id = data.get("user_id")
+    amount = data.get("amount", game.get("buy_in_amount", 20))
+    chips = data.get("chips")
+    
+    if not player_user_id:
+        raise HTTPException(status_code=400, detail="user_id required")
+    
+    # Calculate chips if not provided
+    if not chips:
+        chip_value = game.get("chip_value", 1.0)
+        chips_per_buy_in = game.get("chips_per_buy_in", 20)
+        buy_in_amount = game.get("buy_in_amount", 20.0)
+        chips = int((amount / buy_in_amount) * chips_per_buy_in)
+    
+    # Update player
+    result = await db.players.update_one(
+        {"game_id": game_id, "user_id": player_user_id},
+        {"$inc": {"total_buy_in": amount, "total_chips": chips, "buy_in_count": 1}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=400, detail="Player not found")
+    
+    # Get player name
+    player_user = await db.users.find_one({"user_id": player_user_id}, {"_id": 0})
+    player_name = player_user["name"] if player_user else "Player"
+    
+    # Notify the player
+    notification = Notification(
+        user_id=player_user_id,
+        type="buy_in_approved",
+        title="Buy-In Approved!",
+        message=f"Your ${amount} buy-in was approved. You received {chips} chips.",
+        data={"game_id": game_id, "amount": amount, "chips": chips}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    # Add system message
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"💰 {player_name} bought in for ${amount} ({chips} chips)",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    return {"message": f"Buy-in approved for {player_name}", "chips": chips}
 
 # ============== BUY-IN / CASH-OUT ENDPOINTS ==============
 

@@ -55,6 +55,35 @@ export default function GameNight() {
   const [showHandRankings, setShowHandRankings] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
 
+  // WebSocket for real-time updates
+  const { isConnected, on } = useGameSocket(gameId);
+
+  // Listen for real-time game updates
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const unsubscribe = on('*', (event) => {
+      // Refresh game data on any update
+      if (['player_joined', 'buy_in', 'cash_out', 'chips_edited', 'game_state'].includes(event.type)) {
+        fetchGame();
+        if (event.type !== 'message') {
+          toast.info(`${event.player_name || 'Game'}: ${event.type.replace(/_/g, ' ')}`);
+        }
+      }
+      // Add new messages to thread
+      if (event.type === 'message') {
+        setThread(prev => [...prev, {
+          content: event.content,
+          user: { name: event.sender_name },
+          type: event.message_type,
+          created_at: event.timestamp
+        }]);
+      }
+    });
+
+    return unsubscribe;
+  }, [isConnected, on]);
+
   const fetchGame = useCallback(async () => {
     try {
       const [gameRes, threadRes] = await Promise.all([

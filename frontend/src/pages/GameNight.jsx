@@ -15,9 +15,10 @@ import { toast } from "sonner";
 import { 
   Play, Square, DollarSign, Plus, Send, Clock,
   Users, MessageSquare, ArrowLeft, Coins, User,
-  HelpCircle, Crown, History, Hand, LogOut, CheckCircle
+  HelpCircle, Crown, History, Hand, LogOut, CheckCircle, Wifi, WifiOff
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { useGameSocket } from "@/hooks/useGameSocket";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 

@@ -44,6 +44,9 @@ export default function GameNight() {
   const [adminCashOutDialogOpen, setAdminCashOutDialogOpen] = useState(false);
   const [addPlayerDialogOpen, setAddPlayerDialogOpen] = useState(false);
   const [availablePlayers, setAvailablePlayers] = useState([]);
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+  const [playerSearchResults, setPlayerSearchResults] = useState([]);
+  const [searchingPlayers, setSearchingPlayers] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [adminCashOutChips, setAdminCashOutChips] = useState("");
   const [submitting, setSubmitting] = useState(false);

@@ -196,9 +196,46 @@ export default function Navbar() {
                 View Game <ChevronRight className="w-3 h-3 ml-1" />
               </Button>
             )}
+            
+            {/* Navigate button for group notifications */}
+            {notif.data?.group_id && !notif.data?.game_id && !isActionable && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs mt-2 p-0"
+                onClick={() => {
+                  handleMarkRead(notif.notification_id);
+                  navigate(`/groups/${notif.data.group_id}`);
+                  setNotifSheetOpen(false);
+                }}
+              >
+                View Group <ChevronRight className="w-3 h-3 ml-1" />
+              </Button>
+            )}
+            
+            {/* Accept/Decline buttons for group invites */}
+            {notif.type === "group_invite_request" && notif.data?.invite_id && (
+              <div className="flex gap-2 mt-2">
+                <Button 
+                  size="sm" 
+                  className="h-7 text-xs bg-primary text-black hover:bg-primary/90"
+                  onClick={() => handleAcceptInvite(notif)}
+                >
+                  <Check className="w-3 h-3 mr-1" /> Accept
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => handleDeclineInvite(notif)}
+                >
+                  <XIcon className="w-3 h-3 mr-1" /> Decline
+                </Button>
+              </div>
+            )}
           </div>
           
-          {!isActionable && (
+          {!isActionable && notif.type !== "group_invite_request" && (
             <button
               onClick={() => handleMarkRead(notif.notification_id)}
               className="text-muted-foreground hover:text-foreground"

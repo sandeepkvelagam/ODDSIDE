@@ -1133,6 +1133,7 @@ async def get_games(group_id: Optional[str] = None, user: User = Depends(get_cur
     # Batch fetch all related data
     game_ids = [g["game_id"] for g in games]
     unique_group_ids = list(set(g["group_id"] for g in games))
+    unique_host_ids = list(set(g["host_id"] for g in games if g.get("host_id")))
     
     # Get all groups at once
     groups = await db.groups.find(
@@ -1141,12 +1142,23 @@ async def get_games(group_id: Optional[str] = None, user: User = Depends(get_cur
     ).to_list(100)
     group_map = {g["group_id"]: g for g in groups}
     
-    # Get player counts using aggregation
-    player_counts = await db.players.aggregate([
+    # Get all hosts
+    hosts = await db.users.find(
+        {"user_id": {"$in": unique_host_ids}},
+        {"_id": 0, "user_id": 1, "name": 1}
+    ).to_list(100)
+    host_map = {h["user_id"]: h for h in hosts}
+    
+    # Get player counts and total buy-ins using aggregation
+    player_stats = await db.players.aggregate([
         {"$match": {"game_id": {"$in": game_ids}}},
-        {"$group": {"_id": "$game_id", "count": {"$sum": 1}}}
+        {"$group": {
+            "_id": "$game_id", 
+            "count": {"$sum": 1},
+            "total_pot": {"$sum": "$total_buy_in"}
+        }}
     ]).to_list(100)
-    count_map = {pc["_id"]: pc["count"] for pc in player_counts}
+    stats_map = {ps["_id"]: ps for ps in player_stats}
     
     # Get user's player records for all games
     user_players = await db.players.find(
@@ -1158,8 +1170,14 @@ async def get_games(group_id: Optional[str] = None, user: User = Depends(get_cur
     # Apply to games
     for game in games:
         group = group_map.get(game["group_id"])
+        host = host_map.get(game.get("host_id"))
+        stats = stats_map.get(game["game_id"], {})
+        
         game["group_name"] = group["name"] if group else "Unknown"
-        game["player_count"] = count_map.get(game["game_id"], 0)
+        game["host_name"] = host["name"] if host else "Unknown"
+        game["player_count"] = stats.get("count", 0)
+        game["total_pot"] = stats.get("total_pot", 0)
+        
         player = player_map.get(game["game_id"])
         game["is_player"] = player is not None
         game["rsvp_status"] = player["rsvp_status"] if player else None

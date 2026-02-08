@@ -553,17 +553,45 @@ export default function GameNight() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-2 space-y-3">
-                  <p className="text-xs md:text-sm text-muted-foreground">
-                    As host, you control buy-ins and can cash out players.
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* Pending Join Requests */}
+                  {pendingRequests.length > 0 && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-3">
+                      <p className="text-xs font-semibold text-yellow-500 mb-2">PENDING REQUESTS ({pendingRequests.length})</p>
+                      <div className="space-y-2">
+                        {pendingRequests.map(player => (
+                          <div key={player.user_id} className="flex items-center justify-between bg-background/50 p-2 rounded">
+                            <span className="text-sm">{player.user?.name || 'Unknown'}</span>
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm" 
+                                className="h-7 text-xs bg-primary text-black"
+                                onClick={() => handleApproveJoin(player.user_id, player.user?.name)}
+                              >
+                                Approve
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => handleRejectJoin(player.user_id)}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-3 gap-2">
                     <Button 
                       className="h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
                       onClick={() => setAdminBuyInDialogOpen(true)}
                       data-testid="admin-buy-in-trigger-btn"
                     >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Buy-In
+                      <Plus className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">Buy-In</span>
                     </Button>
                     <Button 
                       variant="outline"
@@ -571,9 +599,63 @@ export default function GameNight() {
                       onClick={() => setAdminCashOutDialogOpen(true)}
                       data-testid="admin-cash-out-trigger-btn"
                     >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Cash Out Player
+                      <LogOut className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">Cash Out</span>
                     </Button>
+                    <Dialog open={addPlayerDialogOpen} onOpenChange={(open) => {
+                      setAddPlayerDialogOpen(open);
+                      if (open) fetchAvailablePlayers();
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="secondary"
+                          className="h-12 font-bold"
+                        >
+                          <Users className="w-4 h-4 mr-1" />
+                          <span className="hidden sm:inline">Add Player</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-card border-border">
+                        <DialogHeader>
+                          <DialogTitle className="font-heading text-xl font-bold">ADD PLAYER</DialogTitle>
+                          <DialogDescription>
+                            Select a group member to add to the game
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {availablePlayers.length === 0 ? (
+                            <p className="text-muted-foreground text-center py-4">
+                              All group members are already in the game
+                            </p>
+                          ) : (
+                            availablePlayers.map(player => (
+                              <div 
+                                key={player.user_id}
+                                className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg hover:bg-secondary/50"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="w-8 h-8">
+                                    <AvatarImage src={player.picture} />
+                                    <AvatarFallback>{player.name?.[0]}</AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium text-sm">{player.name}</p>
+                                    <p className="text-xs text-muted-foreground">{player.email}</p>
+                                  </div>
+                                </div>
+                                <Button 
+                                  size="sm"
+                                  onClick={() => handleAddPlayer(player.user_id)}
+                                  disabled={submitting}
+                                >
+                                  Add
+                                </Button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </CardContent>
               </Card>

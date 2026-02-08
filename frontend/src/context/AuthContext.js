@@ -52,10 +52,8 @@ export const AuthProvider = ({ children }) => {
             name: session.user.user_metadata?.name || session.user.email?.split('@')[0],
             picture: session.user.user_metadata?.avatar_url
           });
-          // Sync user on sign in
-          if (event === 'SIGNED_IN') {
-            syncUserToBackend(session);
-          }
+          // Always sync user to backend on any auth event
+          syncUserToBackend(session);
         } else {
           setUser(null);
         }

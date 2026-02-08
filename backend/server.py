@@ -2446,6 +2446,7 @@ async def edit_player_chips(game_id: str, data: EditPlayerChipsRequest, user: Us
     )
     
     # Update game's total chips returned
+    old_chips = old_chips or 0  # Handle None case
     chip_diff = data.chips_count - old_chips
     if chip_diff != 0:
         await db.game_nights.update_one(

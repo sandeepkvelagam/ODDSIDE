@@ -330,7 +330,7 @@ export default function GroupHub() {
                   <div className="space-y-2">
                     {stats.leaderboard.map((entry, idx) => (
                       <div key={entry.user_id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/20">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                             idx === 0 ? 'bg-yellow-500 text-black' :
                             idx === 1 ? 'bg-gray-400 text-black' :
@@ -339,12 +339,18 @@ export default function GroupHub() {
                           }`}>
                             {idx + 1}
                           </span>
-                          <span className="text-sm">{entry.name}</span>
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={entry.user?.picture} />
+                            <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                              {entry.user?.name?.[0] || '?'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium">{entry.user?.name || 'Unknown'}</span>
                         </div>
                         <span className={`font-mono text-sm font-bold ${
-                          entry.net_profit >= 0 ? 'text-primary' : 'text-destructive'
+                          entry.total_profit >= 0 ? 'text-primary' : 'text-destructive'
                         }`}>
-                          {entry.net_profit >= 0 ? '+' : ''}{entry.net_profit?.toFixed(0)}
+                          {entry.total_profit >= 0 ? '+' : ''}${entry.total_profit?.toFixed(0)}
                         </span>
                       </div>
                     ))}

@@ -23,8 +23,16 @@ Build **Kvitt** - a behavioral ledger app for home poker games.
 - **Endpoint**: GET `/api/groups/{group_id}/smart-defaults`
 - Returns median buy-in and chips based on group history
 - Falls back to app defaults if no history
+- **Frontend Integration**: GroupHub auto-loads smart defaults when creating games
+- Shows "Based on X games" indicator in game creation dialog
 - **Endpoint**: GET `/api/groups/{group_id}/frequent-players`
 - Returns frequently invited players for quick game setup
+
+#### 3. Real-Time WebSocket Integration in GameNight
+- **Live connection indicator**: Green "Live" / Red "Offline" badge
+- **Auto-refresh**: Game data updates when other players take actions
+- **Toast notifications**: Real-time alerts for player joins, buy-ins, cash-outs
+- **Live chat**: Messages appear instantly via WebSocket
 
 ---
 

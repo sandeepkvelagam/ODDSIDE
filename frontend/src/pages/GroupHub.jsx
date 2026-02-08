@@ -398,7 +398,7 @@ export default function GroupHub() {
                     {games.map(game => (
                       <div 
                         key={game.game_id}
-                        className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg"
+                        className="flex items-center justify-between p-2 bg-secondary/30 rounded-lg"
                       >
                         <div 
                           className="flex-1 cursor-pointer hover:opacity-80 transition-opacity"
@@ -406,9 +406,9 @@ export default function GroupHub() {
                         >
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${game.status === 'active' ? 'bg-primary animate-pulse' : game.status === 'ended' ? 'bg-orange-500' : 'bg-muted-foreground'}`} />
-                            <p className="font-medium">{game.title}</p>
+                            <p className="text-sm font-medium">{game.title}</p>
                           </div>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-[10px] text-muted-foreground ml-4">
                             {game.player_count} players • {game.status}
                           </p>
                         </div>
@@ -416,28 +416,28 @@ export default function GroupHub() {
                           {game.status === 'active' && !game.is_player && (
                             <Button
                               size="sm"
-                              className="h-7 text-xs bg-primary text-black hover:bg-primary/90"
+                              className="h-6 text-[10px] bg-primary text-black hover:bg-primary/90 px-2"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleRequestJoin(game.game_id);
                               }}
                               data-testid={`request-join-${game.game_id}`}
                             >
-                              Request Join
+                              Join
                             </Button>
                           )}
                           {game.is_player && game.rsvp_status === 'pending' && (
-                            <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-500 rounded-full">
+                            <span className="text-[10px] px-1.5 py-0.5 bg-yellow-500/20 text-yellow-500 rounded-full">
                               Pending
                             </span>
                           )}
                           {game.is_player && game.rsvp_status === 'yes' && (
-                            <span className="text-xs px-2 py-1 bg-primary/20 text-primary rounded-full">
+                            <span className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary rounded-full">
                               Joined
                             </span>
                           )}
                           {!game.is_player && game.status !== 'active' && (
-                            <span className="text-xs px-2 py-1 bg-secondary rounded-full">
+                            <span className="text-[10px] px-1.5 py-0.5 bg-secondary rounded-full">
                               {game.status}
                             </span>
                           )}

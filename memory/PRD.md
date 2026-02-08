@@ -74,6 +74,48 @@ Build **Kvitt** - a behavioral ledger app for home poker games.
 
 ---
 
+### Error Handling & Logging ✅
+
+#### 1. Centralized Error Handler
+- **Backend**: `/app/backend/error_handler.py`
+- **Frontend**: `/app/frontend/src/lib/errorHandler.js`
+- **Error Codes**: Standardized codes (AUTH_001, USER_001, etc.)
+- **User-friendly messages**: Maps cryptic errors to helpful text
+
+#### 2. Login Error Messages
+- "Invalid email or password" → specific guidance
+- "No account found" → suggest signup
+- "Incorrect password" → link to reset
+- "Network error" → connection troubleshooting
+- "body locked/disturbed" → mapped to network error
+
+#### 3. Supabase Error Mapping
+- Maps all Supabase auth errors to user-friendly messages
+- Handles rate limiting, email verification, disabled accounts
+
+---
+
+### Stripe Premium Subscriptions ✅
+
+#### 1. Premium Plans
+- **Monthly**: $4.99/month - Unlimited games, analytics, summaries
+- **Yearly**: $39.99/year - 2 months free, advanced insights
+- **Lifetime**: $99.99 - All features forever
+
+#### 2. Backend Endpoints
+- `GET /api/premium/plans` - List available plans
+- `POST /api/premium/checkout` - Create Stripe checkout session
+- `GET /api/premium/status/{session_id}` - Check payment status
+- `GET /api/premium/me` - Get user's premium status
+- `POST /api/webhook/stripe` - Handle Stripe webhooks
+
+#### 3. Frontend Page
+- `/premium` - Beautiful pricing page with plan comparison
+- Auto-polls payment status after checkout
+- Shows current plan if subscribed
+
+---
+
 ### Previous Session Features ✅
 
 #### 1. Auto Buy-In on Game Start/Join

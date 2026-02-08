@@ -140,6 +140,43 @@ export default function GameNight() {
     }
   };
 
+  // Add player to game
+  const handleAddPlayer = async (playerId) => {
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/games/${gameId}/add-player`, { user_id: playerId });
+      toast.success("Player added!");
+      setAddPlayerDialogOpen(false);
+      fetchGame();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to add player");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Approve join request
+  const handleApproveJoin = async (playerId, playerName) => {
+    try {
+      await axios.post(`${API}/games/${gameId}/approve-join`, { user_id: playerId });
+      toast.success(`${playerName} approved!`);
+      fetchGame();
+    } catch (error) {
+      toast.error("Failed to approve");
+    }
+  };
+
+  // Reject join request
+  const handleRejectJoin = async (playerId) => {
+    try {
+      await axios.post(`${API}/games/${gameId}/reject-join`, { user_id: playerId });
+      toast.success("Request rejected");
+      fetchGame();
+    } catch (error) {
+      toast.error("Failed to reject");
+    }
+  };
+
   // Player requests buy-in (notifies host)
   const handleRequestBuyIn = async () => {
     if (!selectedBuyIn || selectedBuyIn <= 0) {

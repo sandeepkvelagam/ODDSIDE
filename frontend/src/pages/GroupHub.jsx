@@ -293,10 +293,12 @@ export default function GroupHub() {
                     {games.map(game => (
                       <div 
                         key={game.game_id}
-                        className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg cursor-pointer hover:bg-secondary/50 transition-colors"
-                        onClick={() => navigate(`/games/${game.game_id}`)}
+                        className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg"
                       >
-                        <div>
+                        <div 
+                          className="flex-1 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => navigate(`/games/${game.game_id}`)}
+                        >
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${game.status === 'active' ? 'bg-primary animate-pulse' : game.status === 'ended' ? 'bg-orange-500' : 'bg-muted-foreground'}`} />
                             <p className="font-medium">{game.title}</p>
@@ -305,9 +307,36 @@ export default function GroupHub() {
                             {game.player_count} players • {game.status}
                           </p>
                         </div>
-                        <span className="text-xs px-2 py-1 bg-secondary rounded-full">
-                          {game.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {game.status === 'active' && !game.is_player && (
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs bg-primary text-black hover:bg-primary/90"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRequestJoin(game.game_id);
+                              }}
+                              data-testid={`request-join-${game.game_id}`}
+                            >
+                              Request Join
+                            </Button>
+                          )}
+                          {game.is_player && game.rsvp_status === 'pending' && (
+                            <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-500 rounded-full">
+                              Pending
+                            </span>
+                          )}
+                          {game.is_player && game.rsvp_status === 'yes' && (
+                            <span className="text-xs px-2 py-1 bg-primary/20 text-primary rounded-full">
+                              Joined
+                            </span>
+                          )}
+                          {!game.is_player && game.status !== 'active' && (
+                            <span className="text-xs px-2 py-1 bg-secondary rounded-full">
+                              {game.status}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

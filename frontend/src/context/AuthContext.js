@@ -127,7 +127,13 @@ export const AuthProvider = ({ children }) => {
     });
     
     if (error) throw error;
-    return data;
+    
+    // Return user data for welcome screen
+    return {
+      user_id: data.user?.id,
+      email: data.user?.email,
+      name: data.user?.user_metadata?.name || data.user?.email?.split('@')[0]
+    };
   };
 
   // Reset password

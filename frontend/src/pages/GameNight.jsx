@@ -487,9 +487,9 @@ export default function GameNight() {
               </div>
             )}
 
-            {/* Host Controls Card */}
+            {/* Host Controls Card - ONLY for hosts */}
             {isActive && isHost && (
-              <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/30" data-testid="admin-action-card">
+              <Card className="bg-gradient-to-r from-yellow-500/10 to-yellow-500/5 border-yellow-500/30" data-testid="admin-action-card">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm md:text-base font-bold flex items-center gap-2">
                     <Crown className="w-4 h-4 text-yellow-500" />
@@ -523,8 +523,8 @@ export default function GameNight() {
               </Card>
             )}
 
-            {/* Player Actions Card (for non-hosts) */}
-            {isActive && currentPlayer && !currentPlayer.cashed_out && (
+            {/* Player Actions Card - ONLY for non-host players who haven't cashed out */}
+            {isActive && currentPlayer && !currentPlayer.cashed_out && !isHost && (
               <Card className="bg-card border-border/50" data-testid="player-action-card">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm md:text-base font-bold">YOUR GAME</CardTitle>

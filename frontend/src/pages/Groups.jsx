@@ -5,16 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Users, ChevronRight, DollarSign, Coins } from "lucide-react";
+import { Plus, Users, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
-
-const BUY_IN_OPTIONS = [5, 10, 20, 50, 100];
-const CHIP_OPTIONS = [10, 20, 50, 100];
 
 export default function Groups() {
   const navigate = useNavigate();
@@ -24,9 +20,7 @@ export default function Groups() {
   const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    description: "",
-    default_buy_in: 20,
-    chips_per_buy_in: 20
+    description: ""
   });
 
   useEffect(() => {
@@ -38,7 +32,7 @@ export default function Groups() {
       const response = await axios.get(`${API}/groups`, { withCredentials: true });
       setGroups(response.data);
     } catch (error) {
-      toast.error("Failed to load groups");
+      console.error("Failed to load groups:", error);
     } finally {
       setLoading(false);
     }
@@ -46,17 +40,16 @@ export default function Groups() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      toast.error("Group name is required");
-      return;
-    }
     
     setCreating(true);
     try {
-      const response = await axios.post(`${API}/groups`, formData, { withCredentials: true });
+      const response = await axios.post(`${API}/groups`, {
+        name: formData.name || "", // Backend will generate default if empty
+        description: formData.description
+      }, { withCredentials: true });
       toast.success("Group created!");
       setDialogOpen(false);
-      setFormData({ name: "", description: "", default_buy_in: 20, chips_per_buy_in: 20 });
+      setFormData({ name: "", description: "" });
       fetchGroups();
       navigate(`/groups/${response.data.group_id}`);
     } catch (error) {
@@ -109,12 +102,15 @@ export default function Groups() {
                   <Input
                     id="name"
                     data-testid="group-name-input"
-                    placeholder="Friday Night Fellas"
+                    placeholder="Friday Night Fellas (or leave empty for random)"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="bg-secondary/50 border-border"
                     autoFocus
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave empty for a fun random name!
+                  </p>
                 </div>
                 <div>
                   <Label htmlFor="description">Description (optional)</Label>
@@ -126,45 +122,6 @@ export default function Groups() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="bg-secondary/50 border-border"
                   />
-                </div>
-                <div>
-                  <Label htmlFor="buy_in">Default Buy-In ($)</Label>
-                  <Select
-                    value={formData.default_buy_in.toString()}
-                    onValueChange={(value) => setFormData({ ...formData, default_buy_in: parseFloat(value) })}
-                  >
-                    <SelectTrigger className="bg-secondary/50 border-border" data-testid="group-buyin-select">
-                      <SelectValue placeholder="Select buy-in" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BUY_IN_OPTIONS.map((amount) => (
-                        <SelectItem key={amount} value={amount.toString()}>
-                          ${amount}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="chips">Chips per Buy-In</Label>
-                  <Select
-                    value={formData.chips_per_buy_in.toString()}
-                    onValueChange={(value) => setFormData({ ...formData, chips_per_buy_in: parseInt(value) })}
-                  >
-                    <SelectTrigger className="bg-secondary/50 border-border" data-testid="group-chips-select">
-                      <SelectValue placeholder="Select chips" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CHIP_OPTIONS.map((chips) => (
-                        <SelectItem key={chips} value={chips.toString()}>
-                          {chips} chips
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Chip value: ${(formData.default_buy_in / formData.chips_per_buy_in).toFixed(2)} per chip
-                  </p>
                 </div>
                 <Button 
                   type="submit" 
@@ -223,10 +180,7 @@ export default function Groups() {
                     <span className="text-muted-foreground">
                       {group.member_count} member{group.member_count !== 1 ? 's' : ''}
                     </span>
-                    <div className="flex items-center text-muted-foreground">
-                      <DollarSign className="w-4 h-4 mr-1" />
-                      {group.default_buy_in} buy-in
-                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </div>
                 </CardContent>
               </Card>

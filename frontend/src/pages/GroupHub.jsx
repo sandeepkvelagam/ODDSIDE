@@ -6,17 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { 
-  Users, Play, Plus, Settings, Trophy, UserPlus,
-  ChevronRight, Calendar, Crown, ArrowLeft
+  Users, Play, Plus, Trophy, Crown, ArrowLeft, Shield, User, DollarSign, Coins
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import InviteMembers from "@/components/InviteMembers";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
+
+const BUY_IN_OPTIONS = [5, 10, 20, 50, 100];
+const CHIP_OPTIONS = [10, 20, 50, 100];
 
 export default function GroupHub() {
   const { groupId } = useParams();
@@ -27,8 +30,14 @@ export default function GroupHub() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [gameDialogOpen, setGameDialogOpen] = useState(false);
-  const [gameTitle, setGameTitle] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  
+  // Game creation form - NOW includes buy-in settings
+  const [gameForm, setGameForm] = useState({
+    title: "",
+    buy_in_amount: 20,
+    chips_per_buy_in: 20
+  });
 
   useEffect(() => {
     fetchData();
@@ -58,17 +67,35 @@ export default function GroupHub() {
     try {
       const response = await axios.post(`${API}/games`, {
         group_id: groupId,
-        title: gameTitle || null
+        title: gameForm.title || null,
+        buy_in_amount: gameForm.buy_in_amount,
+        chips_per_buy_in: gameForm.chips_per_buy_in
       });
       toast.success("Game started!");
       setGameDialogOpen(false);
-      setGameTitle("");
+      setGameForm({ title: "", buy_in_amount: 20, chips_per_buy_in: 20 });
       navigate(`/games/${response.data.game_id}`);
     } catch (error) {
       toast.error("Failed to start game");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Get role badge
+  const getRoleBadge = (member) => {
+    if (member.role === "admin") {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-yellow-500/20 text-yellow-500 rounded-full">
+          <Crown className="w-2.5 h-2.5" /> Admin
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-secondary text-muted-foreground rounded-full">
+        <User className="w-2.5 h-2.5" /> Member
+      </span>
+    );
   };
 
   if (loading) {
@@ -83,6 +110,7 @@ export default function GroupHub() {
   }
 
   const isAdmin = group?.user_role === "admin";
+  const chipValue = gameForm.buy_in_amount / gameForm.chips_per_buy_in;
 
   return (
     <div className="min-h-screen bg-background">
@@ -106,8 +134,8 @@ export default function GroupHub() {
                 {group?.name}
               </h1>
               {isAdmin && (
-                <span className="text-xs px-2 py-1 bg-primary/20 text-primary rounded-full uppercase">
-                  Admin
+                <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-500 rounded-full uppercase flex items-center gap-1">
+                  <Crown className="w-3 h-3" /> Admin
                 </span>
               )}
             </div>
@@ -135,22 +163,79 @@ export default function GroupHub() {
                       id="title"
                       data-testid="game-title-input"
                       placeholder="Friday Night Showdown"
-                      value={gameTitle}
-                      onChange={(e) => setGameTitle(e.target.value)}
+                      value={gameForm.title}
+                      onChange={(e) => setGameForm({ ...gameForm, title: e.target.value })}
                       className="bg-secondary/50 border-border"
                       autoFocus
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Leave empty for a random fun name!
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Default buy-in: ${group?.default_buy_in || 20}
-                  </p>
+                  
+                  {/* Buy-in Settings */}
+                  <div className="border-t border-border pt-4">
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" /> Game Settings
+                    </h4>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="buy_in">Buy-In Amount ($)</Label>
+                        <Select
+                          value={gameForm.buy_in_amount.toString()}
+                          onValueChange={(value) => setGameForm({ ...gameForm, buy_in_amount: parseFloat(value) })}
+                        >
+                          <SelectTrigger className="bg-secondary/50 border-border">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BUY_IN_OPTIONS.map((amount) => (
+                              <SelectItem key={amount} value={amount.toString()}>
+                                ${amount}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="chips">Chips per Buy-In</Label>
+                        <Select
+                          value={gameForm.chips_per_buy_in.toString()}
+                          onValueChange={(value) => setGameForm({ ...gameForm, chips_per_buy_in: parseInt(value) })}
+                        >
+                          <SelectTrigger className="bg-secondary/50 border-border">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CHIP_OPTIONS.map((chips) => (
+                              <SelectItem key={chips} value={chips.toString()}>
+                                {chips} chips
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Chip Value:</span>
+                        <span className="font-mono font-bold text-primary">${chipValue.toFixed(2)} per chip</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        All buy-ins in this game will use this denomination
+                      </p>
+                    </div>
+                  </div>
+                  
                   <Button 
                     type="submit" 
                     className="w-full bg-primary text-black hover:bg-primary/90"
                     disabled={submitting}
-                    data-testid="submit-start-game-btn"
+                    data-testid="confirm-start-game-btn"
                   >
-                    {submitting ? "Starting..." : "Start Now"}
+                    {submitting ? "Starting..." : "Start Game"}
                   </Button>
                 </form>
               </DialogContent>
@@ -159,73 +244,94 @@ export default function GroupHub() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
+          {/* Left Column - Members & Games */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Games */}
-            <Card className="bg-card border-border/50" data-testid="games-list">
+            {/* Members */}
+            <Card className="bg-card border-border/50">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  MEMBERS ({group?.members?.length || 0})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {group?.members?.map(member => (
+                  <div key={member.user_id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={member.picture} />
+                        <AvatarFallback>{member.name?.[0] || '?'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{member.name}</p>
+                          {getRoleBadge(member)}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{member.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Recent Games */}
+            <Card className="bg-card border-border/50">
               <CardHeader>
-                <CardTitle className="font-heading text-xl font-bold">GAMES</CardTitle>
+                <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
+                  <Play className="w-5 h-5" />
+                  GAMES
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {games.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-6">
-                    No games yet. Start the first one!
+                  <p className="text-muted-foreground text-center py-8">
+                    No games yet. Start your first game!
                   </p>
                 ) : (
                   <div className="space-y-3">
                     {games.map(game => (
-                      <div
+                      <div 
                         key={game.game_id}
-                        className="p-4 bg-secondary/30 rounded-lg cursor-pointer card-hover border border-transparent"
-                        onClick={() => navigate(
-                          game.status === 'settled' 
-                            ? `/games/${game.game_id}/settlement` 
-                            : `/games/${game.game_id}`
-                        )}
-                        data-testid={`game-row-${game.game_id}`}
+                        className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg cursor-pointer hover:bg-secondary/50 transition-colors"
+                        onClick={() => navigate(`/games/${game.game_id}`)}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-2 h-2 rounded-full ${
-                              game.status === 'active' ? 'bg-primary animate-pulse' :
-                              game.status === 'scheduled' ? 'bg-yellow-500' :
-                              game.status === 'ended' ? 'bg-orange-500' :
-                              'bg-muted-foreground'
-                            }`} />
-                            <div>
-                              <p className="font-medium">{game.title || 'Untitled Game'}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {game.player_count} players • {game.status}
-                              </p>
-                            </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${game.status === 'active' ? 'bg-primary animate-pulse' : game.status === 'ended' ? 'bg-orange-500' : 'bg-muted-foreground'}`} />
+                            <p className="font-medium">{game.title}</p>
                           </div>
-                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                          <p className="text-xs text-muted-foreground">
+                            {game.player_count} players • {game.status}
+                          </p>
                         </div>
+                        <span className="text-xs px-2 py-1 bg-secondary rounded-full">
+                          {game.status}
+                        </span>
                       </div>
                     ))}
                   </div>
                 )}
               </CardContent>
             </Card>
+          </div>
 
-            {/* Leaderboard */}
-            {stats?.leaderboard?.length > 0 && (
-              <Card className="bg-card border-border/50" data-testid="leaderboard">
-                <CardHeader>
-                  <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-primary" />
-                    LEADERBOARD
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
+          {/* Right Column - Leaderboard */}
+          <div className="space-y-6">
+            <Card className="bg-card border-border/50">
+              <CardHeader>
+                <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-yellow-500" />
+                  LEADERBOARD
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {stats?.leaderboard?.length > 0 ? (
+                  <div className="space-y-2">
                     {stats.leaderboard.map((entry, idx) => (
-                      <div
-                        key={entry.user_id}
-                        className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
+                      <div key={entry.user_id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/20">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                             idx === 0 ? 'bg-yellow-500 text-black' :
                             idx === 1 ? 'bg-gray-400 text-black' :
                             idx === 2 ? 'bg-amber-700 text-white' :
@@ -233,76 +339,21 @@ export default function GroupHub() {
                           }`}>
                             {idx + 1}
                           </span>
-                          <Avatar className="w-8 h-8">
-                            <AvatarImage src={entry.user?.picture} />
-                            <AvatarFallback>{entry.user?.name?.[0] || '?'}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{entry.user?.name || 'Unknown'}</p>
-                            <p className="text-xs text-muted-foreground">{entry.total_games} games</p>
-                          </div>
+                          <span className="text-sm">{entry.name}</span>
                         </div>
-                        <span className={`font-mono font-bold ${
-                          entry.total_profit >= 0 ? 'text-primary' : 'text-destructive'
+                        <span className={`font-mono text-sm font-bold ${
+                          entry.net_profit >= 0 ? 'text-primary' : 'text-destructive'
                         }`}>
-                          {entry.total_profit >= 0 ? '+' : ''}{entry.total_profit.toFixed(2)}
+                          {entry.net_profit >= 0 ? '+' : ''}{entry.net_profit?.toFixed(0)}
                         </span>
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Members */}
-            <Card className="bg-card border-border/50" data-testid="members-list">
-              <CardHeader>
-                <CardTitle className="font-heading text-xl font-bold">MEMBERS</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {group?.members?.map(member => (
-                    <div key={member.member_id} className="flex items-center gap-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={member.user?.picture} />
-                        <AvatarFallback>{member.user?.name?.[0] || '?'}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium flex items-center gap-2">
-                          {member.user?.name || 'Unknown'}
-                          {member.role === 'admin' && (
-                            <Crown className="w-4 h-4 text-yellow-500" />
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{member.user?.email}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Group Info */}
-            <Card className="bg-card border-border/50">
-              <CardHeader>
-                <CardTitle className="font-heading text-xl font-bold">INFO</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Default Buy-In</span>
-                  <span className="font-mono">${group?.default_buy_in || 20}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Currency</span>
-                  <span>{group?.currency || 'USD'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Games</span>
-                  <span>{stats?.total_games || 0}</span>
-                </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4 text-sm">
+                    Play games to see rankings!
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

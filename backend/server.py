@@ -1684,7 +1684,7 @@ async def reject_join(game_id: str, data: dict, user: User = Depends(get_current
 
 @api_router.post("/games/{game_id}/add-player")
 async def add_player_to_game(game_id: str, data: dict, user: User = Depends(get_current_user)):
-    """Host adds a group member to the game directly."""
+    """Host adds a player to the game by user_id or email."""
     game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -1694,16 +1694,34 @@ async def add_player_to_game(game_id: str, data: dict, user: User = Depends(get_
         raise HTTPException(status_code=403, detail="Only host can add players")
     
     player_user_id = data.get("user_id")
-    if not player_user_id:
-        raise HTTPException(status_code=400, detail="user_id required")
+    email = data.get("email")
     
-    # Verify player is in the group
+    # Find user by email if user_id not provided
+    if not player_user_id and email:
+        found_user = await db.users.find_one({"email": email.lower()}, {"_id": 0})
+        if found_user:
+            player_user_id = found_user["user_id"]
+        else:
+            raise HTTPException(status_code=404, detail=f"No user found with email {email}")
+    
+    if not player_user_id:
+        raise HTTPException(status_code=400, detail="user_id or email required")
+    
+    # Check if user is in the group, if not add them
     membership = await db.group_members.find_one(
         {"group_id": game["group_id"], "user_id": player_user_id},
         {"_id": 0}
     )
     if not membership:
-        raise HTTPException(status_code=400, detail="User is not a member of this group")
+        # Auto-add to group
+        member = GroupMember(
+            group_id=game["group_id"],
+            user_id=player_user_id,
+            role="member"
+        )
+        member_dict = member.model_dump()
+        member_dict["joined_at"] = member_dict["joined_at"].isoformat()
+        await db.group_members.insert_one(member_dict)
     
     # Check if already a player
     existing = await db.players.find_one(

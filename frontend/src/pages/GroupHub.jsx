@@ -237,6 +237,11 @@ export default function GroupHub() {
                   <div className="border-t border-border pt-4">
                     <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                       <DollarSign className="w-4 h-4" /> Game Settings
+                      {smartDefaults?.games_analyzed > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+                          Based on {smartDefaults.games_analyzed} games
+                        </span>
+                      )}
                     </h4>
                     
                     <div className="grid grid-cols-2 gap-3">

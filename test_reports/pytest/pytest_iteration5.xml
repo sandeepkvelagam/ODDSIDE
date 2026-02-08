@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="13" skipped="0" tests="14" time="0.797" timestamp="2026-02-08T06:48:59.590199+00:00" hostname="agent-env-f67bd52c-00c3-4ab9-aa18-c370c342aded"><testcase classname="backend.tests.test_iteration5_features.TestAutoBuyInOnGameCreation" name="test_active_game_host_gets_auto_buyin" time="0.101"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_iteration5_features.py:74: in test_active_game_host_gets_auto_buyin
+    assert group_response.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestAutoBuyInOnGameCreation" name="test_scheduled_game_host_no_auto_buyin" time="0.035"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_iteration5_features.py:132: in test_scheduled_game_host_no_auto_buyin
+    assert group_response.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestLeaderboardDisplay" name="test_leaderboard_returns_user_info" time="0.039"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_iteration5_features.py:199: in test_leaderboard_returns_user_info
+    assert group_response.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestEditPlayerChips" name="test_edit_player_chips_requires_auth" time="0.038" /><testcase classname="backend.tests.test_iteration5_features.TestEditPlayerChips" name="test_edit_player_chips_game_not_found" time="0.038"><failure message="assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_iteration5_features.py:295: in test_edit_player_chips_game_not_found
+    assert response.status_code == 404
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestEditPlayerChips" name="test_edit_player_chips_host_only" time="0.033"><failure message="KeyError: 'group_id'">backend/tests/test_iteration5_features.py:312: in test_edit_player_chips_host_only
+    group_id = group_response.json()["group_id"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'group_id'</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestEditPlayerChips" name="test_edit_player_chips_success" time="0.034"><failure message="KeyError: 'group_id'">backend/tests/test_iteration5_features.py:354: in test_edit_player_chips_success
+    group_id = group_response.json()["group_id"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'group_id'</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestRequestJoinFlow" name="test_request_join_creates_pending_player" time="0.035"><failure message="KeyError: 'group_id'">backend/tests/test_iteration5_features.py:428: in test_request_join_creates_pending_player
+    group_id = group_response.json()["group_id"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'group_id'</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestRequestJoinFlow" name="test_approve_join_gives_default_buyin" time="0.035"><failure message="KeyError: 'group_id'">backend/tests/test_iteration5_features.py:472: in test_approve_join_gives_default_buyin
+    group_id = group_response.json()["group_id"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'group_id'</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestBuyInRequestFlow" name="test_buy_in_request_creates_notification" time="0.034"><failure message="KeyError: 'group_id'">backend/tests/test_iteration5_features.py:545: in test_buy_in_request_creates_notification
+    group_id = group_response.json()["group_id"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'group_id'</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestBuyInRequestFlow" name="test_approve_buy_in_gives_chips" time="0.035"><failure message="KeyError: 'group_id'">backend/tests/test_iteration5_features.py:615: in test_approve_buy_in_gives_chips
+    group_id = group_response.json()["group_id"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'group_id'</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestGroupInviteNotifications" name="test_group_invite_creates_notification" time="0.033"><failure message="KeyError: 'group_id'">backend/tests/test_iteration5_features.py:699: in test_group_invite_creates_notification
+    group_id = group_response.json()["group_id"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'group_id'</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestGroupInviteNotifications" name="test_accept_invite_via_notification" time="0.032"><failure message="KeyError: 'group_id'">backend/tests/test_iteration5_features.py:743: in test_accept_invite_via_notification
+    group_id = group_response.json()["group_id"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'group_id'</failure></testcase><testcase classname="backend.tests.test_iteration5_features.TestNotificationActions" name="test_join_request_notification_has_action_data" time="0.038"><failure message="KeyError: 'group_id'">backend/tests/test_iteration5_features.py:809: in test_join_request_notification_has_action_data
+    group_id = group_response.json()["group_id"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'group_id'</failure></testcase></testsuite></testsuites>

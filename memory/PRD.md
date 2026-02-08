@@ -6,6 +6,28 @@ Build **Kvitt** - a behavioral ledger app for home poker games.
 
 ## Latest Update: December 2025 (Session 3)
 
+### Phase 1: AI-Light Features ✅
+
+#### 1. AI Chat Assistant (Explain-Only)
+- **Backend**: `/app/backend/ai_assistant.py` - OpenAI GPT-5.2 via Emergent key
+- **Frontend**: `/app/frontend/src/components/AIAssistant.jsx` - Floating chat bubble
+- **Endpoint**: POST `/api/assistant/ask`
+- **Features**:
+  - Quick answers for common questions (no API call)
+  - AI responses for complex questions
+  - Contextual system prompt about Kvitt
+  - Cannot guess chip counts or make predictions
+  - Suggestion buttons for first-time users
+
+#### 2. Smart Defaults (Data-Driven)
+- **Endpoint**: GET `/api/groups/{group_id}/smart-defaults`
+- Returns median buy-in and chips based on group history
+- Falls back to app defaults if no history
+- **Endpoint**: GET `/api/groups/{group_id}/frequent-players`
+- Returns frequently invited players for quick game setup
+
+---
+
 ### Phase 0: Foundation Infrastructure ✅
 
 #### 1. WebSocket Real-Time Updates

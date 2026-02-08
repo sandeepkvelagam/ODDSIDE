@@ -100,25 +100,36 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Supabase not configured');
     }
     
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name },
-        emailRedirectTo: `${window.location.origin}/login`
-      }
-    });
+    let signUpData = null;
+    let signUpError = null;
     
-    if (error) throw error;
+    try {
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name },
+          emailRedirectTo: `${window.location.origin}/login`
+        }
+      });
+      signUpData = result.data;
+      signUpError = result.error;
+    } catch (err) {
+      console.error('Supabase signup error:', err);
+      throw new Error(err.message || 'Signup failed. Please try again.');
+    }
+    
+    if (signUpError) {
+      throw signUpError;
+    }
     
     // Sync new user to MongoDB immediately after signup
-    // This ensures user exists in our DB even before email confirmation
-    if (data.user) {
+    if (signUpData?.user) {
       try {
         await axios.post(`${API}/auth/sync-user`, {
-          supabase_id: data.user.id,
-          email: data.user.email,
-          name: name || data.user.email?.split('@')[0],
+          supabase_id: signUpData.user.id,
+          email: signUpData.user.email,
+          name: name || signUpData.user.email?.split('@')[0],
           picture: null
         });
         console.log('User synced to MongoDB after signup');
@@ -128,7 +139,7 @@ export const AuthProvider = ({ children }) => {
       }
     }
     
-    return data;
+    return signUpData;
   };
 
   // Sign in with email/password

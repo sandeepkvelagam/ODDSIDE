@@ -4,7 +4,43 @@
 Build **Kvitt** - a behavioral ledger app for home poker games.
 **Tagline: "Your side, settled."**
 
-## Latest Update: December 2025
+## Latest Update: December 2025 (Session 2)
+
+### New Features Implemented This Session ✅
+
+#### 1. Auto Buy-In on Game Start/Join
+- **Host auto buy-in**: When creating an active game, host automatically receives default buy-in and chips
+- **Player auto buy-in on approve**: When host approves a join request, player auto-receives default buy-in
+- Transaction records automatically created with "Initial buy-in (auto)" note
+- `total_chips_distributed` properly tracked in game
+
+#### 2. Group Admin Controls
+- **Admin can remove members**: DELETE `/api/groups/{group_id}/members/{member_id}`
+- **Cannot remove players in active games**: Protection against removing players who haven't cashed out
+- **Players can leave groups**: Stats are preserved when leaving
+- **Notification on removal**: Removed members receive notification
+
+#### 3. Host Post-Game Edit Permissions
+- **Edit chips after cash-out**: POST `/api/games/{game_id}/edit-player-chips`
+- **Player notification**: Affected players notified of chip changes
+- **Audit trail**: Changes logged in audit_logs
+- **System message**: Edit recorded in game thread
+
+#### 4. Notification Navigation
+- **View Game button**: Click to navigate to relevant game
+- **View Group button**: Click to navigate to relevant group
+- **Accept/Decline for invites**: Group invite notifications have action buttons
+
+#### 5. UI Font Size Improvements
+- GroupHub: Members, games, leaderboard - all reduced font sizes
+- Settlement: Summary, results, payments - cleaner layout
+- Better mobile responsiveness
+
+#### 6. Request Join Button
+- Added "Join" button on games list for non-players
+- Status badges for pending/joined players
+
+---
 
 ### Rebrand Complete
 - **Name**: Kvitt (from ODDSIDE)

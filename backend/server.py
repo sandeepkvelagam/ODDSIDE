@@ -2354,6 +2354,106 @@ async def cash_out(game_id: str, data: CashOutRequest, user: User = Depends(get_
         "net_result": net_result
     }
 
+@api_router.post("/games/{game_id}/edit-player-chips")
+async def edit_player_chips(game_id: str, data: EditPlayerChipsRequest, user: User = Depends(get_current_user)):
+    """Host can edit player's chip count after cash-out. Notifies the affected player."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Only host can edit
+    if game["host_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Only host can edit player chips")
+    
+    # Can only edit after cash-out (ended or settled status also allowed)
+    if game["status"] not in ["active", "ended", "settled"]:
+        raise HTTPException(status_code=400, detail="Cannot edit chips in this game state")
+    
+    player = await db.players.find_one(
+        {"game_id": game_id, "user_id": data.user_id},
+        {"_id": 0}
+    )
+    
+    if not player:
+        raise HTTPException(status_code=400, detail="Player not in this game")
+    
+    # Get previous values for notification
+    old_chips = player.get("chips_returned", 0)
+    chip_value = game.get("chip_value", 1.0)
+    
+    # Calculate new cash value and net result
+    new_cash_value = data.chips_count * chip_value
+    new_net_result = new_cash_value - player.get("total_buy_in", 0)
+    
+    # Update player record
+    await db.players.update_one(
+        {"game_id": game_id, "user_id": data.user_id},
+        {"$set": {
+            "chips_returned": data.chips_count,
+            "cash_out": new_cash_value,
+            "net_result": new_net_result,
+            "cashed_out": True,
+            "cashed_out_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Update game's total chips returned
+    chip_diff = data.chips_count - old_chips
+    if chip_diff != 0:
+        await db.game_nights.update_one(
+            {"game_id": game_id},
+            {"$inc": {"total_chips_returned": chip_diff}}
+        )
+    
+    # Get player name for notifications
+    target_user = await db.users.find_one({"user_id": data.user_id}, {"_id": 0, "name": 1})
+    player_name = target_user["name"] if target_user else "Player"
+    
+    # Notify the player about the change
+    notification = Notification(
+        user_id=data.user_id,
+        type="chips_edited",
+        title="Chip Count Updated",
+        message=f"Host updated your chips: {old_chips} → {data.chips_count} chips. New cash-out: ${new_cash_value:.2f}. {f'Reason: {data.reason}' if data.reason else ''}",
+        data={"game_id": game_id, "old_chips": old_chips, "new_chips": data.chips_count, "net_result": new_net_result}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    # Add system message to thread
+    message = GameThread(
+        game_id=game_id,
+        user_id=user.user_id,
+        content=f"✏️ {user.name} edited {player_name}'s chips: {old_chips} → {data.chips_count}. {f'Reason: {data.reason}' if data.reason else ''}",
+        type="system"
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    await db.game_threads.insert_one(msg_dict)
+    
+    # Create audit log
+    audit = AuditLog(
+        entity_type="player",
+        entity_id=player.get("player_id", data.user_id),
+        action="edit_chips",
+        old_value={"chips_returned": old_chips},
+        new_value={"chips_returned": data.chips_count},
+        changed_by=user.user_id,
+        reason=data.reason
+    )
+    audit_dict = audit.model_dump()
+    audit_dict["timestamp"] = audit_dict["timestamp"].isoformat()
+    await db.audit_logs.insert_one(audit_dict)
+    
+    return {
+        "message": f"Chips updated for {player_name}",
+        "old_chips": old_chips,
+        "new_chips": data.chips_count,
+        "new_cash_value": new_cash_value,
+        "new_net_result": new_net_result
+    }
+
 # ============== SETTLEMENT ENDPOINTS ==============
 
 @api_router.post("/games/{game_id}/settle")

@@ -13,6 +13,7 @@ import random
 from datetime import datetime, timezone, timedelta
 import httpx
 import jwt
+import socketio
 
 ROOT_DIR = Path(__file__).parent
 
@@ -45,8 +46,14 @@ db = client[os.environ['DB_NAME']]
 # Supabase config
 SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
 
+# Import WebSocket manager
+from websocket_manager import sio, emit_game_event, notify_player_joined, notify_buy_in, notify_cash_out, notify_chips_edited, notify_game_message, notify_game_state_change, emit_notification
+
 # Create the main app
 app = FastAPI(title="ODDSIDE API")
+
+# Wrap FastAPI with Socket.IO
+socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")

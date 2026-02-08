@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
+import WelcomeScreen from "@/components/WelcomeScreen";
 import { Eye, EyeOff, ChevronLeft } from "lucide-react";
 
 export default function Login() {
@@ -19,6 +20,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,15 +39,28 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await signIn(email, password);
-      toast.success("Welcome back!");
-      navigate("/dashboard");
+      const user = await signIn(email, password);
+      setLoggedInUser(user);
+      // Show welcome screen after successful login
+      setShowWelcome(true);
     } catch (err) {
       setError(err.message || "Invalid email or password");
-    } finally {
       setLoading(false);
     }
   };
+
+  // Show welcome screen after login
+  if (showWelcome) {
+    return (
+      <WelcomeScreen 
+        onComplete={() => {
+          toast.success("Welcome back!");
+          navigate("/dashboard");
+        }} 
+        userName={loggedInUser?.name || email.split('@')[0]} 
+      />
+    );
+  }
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();

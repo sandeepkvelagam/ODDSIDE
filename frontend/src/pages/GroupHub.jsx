@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { 
-  Users, Play, Plus, Trophy, Crown, ArrowLeft, Shield, User, DollarSign, Coins
+  Users, Play, Plus, Trophy, Crown, ArrowLeft, Shield, User, DollarSign, Coins, UserMinus, LogOut
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import InviteMembers from "@/components/InviteMembers";
@@ -28,6 +28,8 @@ export default function GroupHub() {
   const [group, setGroup] = useState(null);
   const [games, setGames] = useState([]);
   const [stats, setStats] = useState(null);
+  const [removeMemberDialog, setRemoveMemberDialog] = useState(null);
+  const [leaveGroupDialog, setLeaveGroupDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [gameDialogOpen, setGameDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);

@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { 
   Play, Square, DollarSign, Plus, Send, Clock,
-  Users, MessageSquare, ArrowLeft, Coins,
+  Users, MessageSquare, ArrowLeft, Coins, User,
   HelpCircle, Crown, History, Hand, LogOut, CheckCircle
 } from "lucide-react";
 import Navbar from "@/components/Navbar";

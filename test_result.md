@@ -209,6 +209,45 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ Notifications API working: GET /api/notifications returns user notifications. Notifications are automatically created for buy-ins, cash-outs, invites, and other game events."
+      - working: true
+        agent: "testing"
+        comment: "✅ NEW ENDPOINTS TESTED: All notification and game flow endpoints working correctly. Join game flow creates pending requests (not auto-join), notifications have proper type fields (join_request, buy_in_request, join_approved, join_rejected), host can approve/reject joins, and buy-in approval flow works as expected."
+
+  - task: "Join Game Flow Endpoints"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ NEW JOIN FLOW ENDPOINTS WORKING: POST /api/games/{game_id}/join creates pending join request (status='pending'), POST /api/games/{game_id}/approve-join allows host to approve joins, POST /api/games/{game_id}/reject-join allows host to reject joins. All endpoints tested and working correctly with proper notifications."
+
+  - task: "Add Player Endpoints"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ ADD PLAYER ENDPOINTS WORKING: GET /api/games/{game_id}/available-players returns group members not in game, POST /api/games/{game_id}/add-player allows host to add players directly. Both endpoints tested and working correctly."
+
+  - task: "Buy-In Flow Endpoints"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ BUY-IN FLOW ENDPOINTS WORKING: POST /api/games/{game_id}/request-buy-in allows players to request buy-ins, POST /api/games/{game_id}/approve-buy-in allows host to approve buy-ins with proper amount and chip calculation. Notifications created correctly with type 'buy_in_request' and 'buy_in_approved'."
 
 frontend:
   - task: "Landing Page"

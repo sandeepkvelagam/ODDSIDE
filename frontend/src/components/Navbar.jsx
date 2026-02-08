@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
@@ -11,8 +11,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import Logo from "@/components/Logo";
-import { Home, Users, Bell, User, LogOut, Menu, X } from "lucide-react";
+import { toast } from "sonner";
+import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -22,26 +30,82 @@ export default function Navbar() {
   const { user, signOut } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifSheetOpen, setNotifSheetOpen] = useState(false);
+
+  // Fetch notifications with polling
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API}/notifications`);
+      setNotifications(response.data.filter(n => !n.read));
+    } catch (error) {
+      // Silently fail
+    }
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
-  }, []);
+    // Poll every 15 seconds
+    const interval = setInterval(fetchNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
-  const fetchNotifications = async () => {
+  const handleMarkAllRead = async () => {
     try {
-      const response = await axios.get(`${API}/notifications`, { withCredentials: true });
-      setNotifications(response.data.filter(n => !n.read));
+      await axios.put(`${API}/notifications/read-all`);
+      setNotifications([]);
     } catch (error) {
       // Silently fail
     }
   };
 
-  const handleMarkAllRead = async () => {
+  const handleMarkRead = async (notificationId) => {
     try {
-      await axios.put(`${API}/notifications/read-all`, {}, { withCredentials: true });
-      setNotifications([]);
+      await axios.put(`${API}/notifications/${notificationId}/read`);
+      setNotifications(prev => prev.filter(n => n.notification_id !== notificationId));
     } catch (error) {
       // Silently fail
+    }
+  };
+
+  // Handle actionable notifications
+  const handleApproveJoin = async (notif) => {
+    try {
+      await axios.post(`${API}/games/${notif.data.game_id}/approve-join`, {
+        user_id: notif.data.user_id
+      });
+      toast.success(`${notif.data.user_name || 'Player'} approved!`);
+      handleMarkRead(notif.notification_id);
+      fetchNotifications();
+    } catch (error) {
+      toast.error("Failed to approve");
+    }
+  };
+
+  const handleRejectJoin = async (notif) => {
+    try {
+      await axios.post(`${API}/games/${notif.data.game_id}/reject-join`, {
+        user_id: notif.data.user_id
+      });
+      toast.success("Request rejected");
+      handleMarkRead(notif.notification_id);
+      fetchNotifications();
+    } catch (error) {
+      toast.error("Failed to reject");
+    }
+  };
+
+  const handleApproveBuyIn = async (notif) => {
+    try {
+      await axios.post(`${API}/games/${notif.data.game_id}/approve-buy-in`, {
+        user_id: notif.data.user_id,
+        amount: notif.data.amount,
+        chips: notif.data.chips
+      });
+      toast.success("Buy-in approved!");
+      handleMarkRead(notif.notification_id);
+      fetchNotifications();
+    } catch (error) {
+      toast.error("Failed to approve buy-in");
     }
   };
 
@@ -60,6 +124,92 @@ export default function Navbar() {
     { path: "/dashboard", label: "Dashboard", icon: Home },
     { path: "/groups", label: "Groups", icon: Users },
   ];
+
+  // Render notification item with actions
+  const renderNotification = (notif) => {
+    const isActionable = ["join_request", "buy_in_request"].includes(notif.type);
+    
+    return (
+      <div 
+        key={notif.notification_id} 
+        className={`p-3 border-b border-border/50 ${isActionable ? 'bg-primary/5' : ''}`}
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <p className="font-medium text-sm">{notif.title}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{notif.message}</p>
+            
+            {/* Action buttons for join requests */}
+            {notif.type === "join_request" && (
+              <div className="flex gap-2 mt-2">
+                <Button 
+                  size="sm" 
+                  className="h-7 text-xs bg-primary text-black hover:bg-primary/90"
+                  onClick={() => handleApproveJoin(notif)}
+                >
+                  <Check className="w-3 h-3 mr-1" /> Approve
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => handleRejectJoin(notif)}
+                >
+                  <XIcon className="w-3 h-3 mr-1" /> Reject
+                </Button>
+              </div>
+            )}
+            
+            {/* Action buttons for buy-in requests */}
+            {notif.type === "buy_in_request" && (
+              <div className="flex gap-2 mt-2">
+                <Button 
+                  size="sm" 
+                  className="h-7 text-xs bg-primary text-black hover:bg-primary/90"
+                  onClick={() => handleApproveBuyIn(notif)}
+                >
+                  <Check className="w-3 h-3 mr-1" /> Approve ${notif.data?.amount}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  onClick={() => handleMarkRead(notif.notification_id)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            )}
+            
+            {/* Navigate button for game notifications */}
+            {notif.data?.game_id && !isActionable && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs mt-2 p-0"
+                onClick={() => {
+                  handleMarkRead(notif.notification_id);
+                  navigate(`/games/${notif.data.game_id}`);
+                  setNotifSheetOpen(false);
+                }}
+              >
+                View Game <ChevronRight className="w-3 h-3 ml-1" />
+              </Button>
+            )}
+          </div>
+          
+          {!isActionable && (
+            <button
+              onClick={() => handleMarkRead(notif.notification_id)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <nav className="border-b border-border/50 bg-background/80 backdrop-blur-lg sticky top-0 z-50">
@@ -95,49 +245,46 @@ export default function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Notifications */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            {/* Notifications - Using Sheet for better UX */}
+            <Sheet open={notifSheetOpen} onOpenChange={setNotifSheetOpen}>
+              <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative w-9 h-9 sm:w-10 sm:h-10" data-testid="notifications-btn">
                   <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                   {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-primary text-primary-foreground text-[10px] sm:text-xs rounded-full flex items-center justify-center font-bold">
+                    <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-primary text-primary-foreground text-[10px] sm:text-xs rounded-full flex items-center justify-center font-bold animate-pulse">
                       {notifications.length}
                     </span>
                   )}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 sm:w-80 bg-card border-border">
-                <div className="flex items-center justify-between px-3 sm:px-4 py-2">
-                  <span className="font-bold text-sm sm:text-base">Notifications</span>
-                  {notifications.length > 0 && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-xs"
-                      onClick={handleMarkAllRead}
-                    >
-                      Mark all read
-                    </Button>
+              </SheetTrigger>
+              <SheetContent className="w-full sm:max-w-md p-0">
+                <SheetHeader className="p-4 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <SheetTitle className="font-heading text-lg">Notifications</SheetTitle>
+                    {notifications.length > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={handleMarkAllRead}
+                      >
+                        Mark all read
+                      </Button>
+                    )}
+                  </div>
+                </SheetHeader>
+                <div className="overflow-y-auto max-h-[calc(100vh-80px)]">
+                  {notifications.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <Bell className="w-10 h-10 mb-3 opacity-50" />
+                      <p className="text-sm">No new notifications</p>
+                    </div>
+                  ) : (
+                    notifications.map(renderNotification)
                   )}
                 </div>
-                <DropdownMenuSeparator />
-                {notifications.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-muted-foreground text-xs sm:text-sm">
-                    No new notifications
-                  </div>
-                ) : (
-                  notifications.slice(0, 5).map(notif => (
-                    <DropdownMenuItem key={notif.notification_id} className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer">
-                      <div>
-                        <p className="font-medium text-sm">{notif.title}</p>
-                        <p className="text-xs sm:text-sm text-muted-foreground">{notif.message}</p>
-                      </div>
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </SheetContent>
+            </Sheet>
 
             {/* User Menu */}
             <DropdownMenu>

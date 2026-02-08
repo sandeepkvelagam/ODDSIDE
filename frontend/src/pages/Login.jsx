@@ -203,7 +203,28 @@ export default function Login() {
 
         {error && (
           <Alert variant="destructive" className="mb-4 bg-red-900/30 border-red-900">
-            <AlertDescription className="text-red-300">{error}</AlertDescription>
+            <AlertCircle className="h-4 w-4 text-red-400" />
+            <AlertDescription className="text-red-300">
+              {error.message}
+              {error.code === ErrorCode.AUTH_EMAIL_NOT_FOUND && (
+                <Link to="/signup" className="block mt-2 text-orange-400 hover:underline text-sm">
+                  → Create an account
+                </Link>
+              )}
+              {error.code === ErrorCode.AUTH_WRONG_PASSWORD && (
+                <button 
+                  onClick={() => setShowForgot(true)} 
+                  className="block mt-2 text-orange-400 hover:underline text-sm"
+                >
+                  → Reset password
+                </button>
+              )}
+              {error.code === ErrorCode.NETWORK_ERROR && (
+                <span className="flex items-center gap-1 mt-2 text-yellow-400 text-sm">
+                  <WifiOff className="w-3 h-3" /> Check your connection
+                </span>
+              )}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -223,8 +244,8 @@ export default function Login() {
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl mt-2"
+              onChange={(e) => { setEmail(e.target.value); setError(null); }}
+              className={`bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl mt-2 ${error?.code === ErrorCode.USER_INVALID_EMAIL || error?.code === ErrorCode.AUTH_EMAIL_NOT_FOUND ? 'border-red-500' : ''}`}
               data-testid="email-input"
               disabled={loading}
             />
@@ -237,8 +258,8 @@ export default function Login() {
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl pr-10"
+                onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                className={`bg-[#1a1a1a] border-gray-700 text-white placeholder:text-gray-500 h-12 rounded-xl pr-10 ${error?.code === ErrorCode.AUTH_WRONG_PASSWORD || error?.code === ErrorCode.AUTH_INVALID_CREDENTIALS ? 'border-red-500' : ''}`}
                 data-testid="password-input"
                 disabled={loading}
               />

@@ -637,7 +637,11 @@ export default function GameNight() {
                     </Button>
                     <Dialog open={addPlayerDialogOpen} onOpenChange={(open) => {
                       setAddPlayerDialogOpen(open);
-                      if (open) fetchAvailablePlayers();
+                      if (open) {
+                        fetchAvailablePlayers();
+                        setPlayerSearchQuery("");
+                        setPlayerSearchResults([]);
+                      }
                     }}>
                       <DialogTrigger asChild>
                         <Button 
@@ -652,39 +656,100 @@ export default function GameNight() {
                         <DialogHeader>
                           <DialogTitle className="font-heading text-xl font-bold">ADD PLAYER</DialogTitle>
                           <DialogDescription>
-                            Select a group member to add to the game
+                            Search by email or name to add anyone to the game
                           </DialogDescription>
                         </DialogHeader>
+                        
+                        {/* Search Input */}
+                        <div className="relative">
+                          <Input
+                            placeholder="Search by email or name..."
+                            value={playerSearchQuery}
+                            onChange={(e) => setPlayerSearchQuery(e.target.value)}
+                            className="bg-secondary/50 border-border"
+                          />
+                          {searchingPlayers && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        
                         <div className="space-y-2 max-h-64 overflow-y-auto">
-                          {availablePlayers.length === 0 ? (
-                            <p className="text-muted-foreground text-center py-4">
-                              All group members are already in the game
-                            </p>
-                          ) : (
-                            availablePlayers.map(player => (
-                              <div 
-                                key={player.user_id}
-                                className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg hover:bg-secondary/50"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="w-8 h-8">
-                                    <AvatarImage src={player.picture} />
-                                    <AvatarFallback>{player.name?.[0]}</AvatarFallback>
-                                  </Avatar>
-                                  <div>
-                                    <p className="font-medium text-sm">{player.name}</p>
-                                    <p className="text-xs text-muted-foreground">{player.email}</p>
-                                  </div>
-                                </div>
-                                <Button 
-                                  size="sm"
-                                  onClick={() => handleAddPlayer(player.user_id)}
-                                  disabled={submitting}
+                          {/* Search Results */}
+                          {playerSearchQuery && playerSearchResults.length > 0 && (
+                            <>
+                              <p className="text-xs text-muted-foreground font-semibold px-1">SEARCH RESULTS</p>
+                              {playerSearchResults.map(player => (
+                                <div 
+                                  key={player.user_id}
+                                  className="flex items-center justify-between p-3 bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20"
                                 >
-                                  Add
-                                </Button>
-                              </div>
-                            ))
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="w-8 h-8">
+                                      <AvatarImage src={player.picture} />
+                                      <AvatarFallback>{player.name?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="font-medium text-sm">{player.name}</p>
+                                      <p className="text-xs text-muted-foreground">{player.email}</p>
+                                    </div>
+                                  </div>
+                                  <Button 
+                                    size="sm"
+                                    className="bg-primary text-black"
+                                    onClick={() => handleAddPlayer(player.user_id)}
+                                    disabled={submitting}
+                                  >
+                                    Add
+                                  </Button>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                          
+                          {playerSearchQuery && playerSearchResults.length === 0 && !searchingPlayers && (
+                            <p className="text-muted-foreground text-center py-4 text-sm">
+                              No users found matching "{playerSearchQuery}"
+                            </p>
+                          )}
+                          
+                          {/* Group Members */}
+                          {availablePlayers.length > 0 && (
+                            <>
+                              <p className="text-xs text-muted-foreground font-semibold px-1 mt-2">GROUP MEMBERS</p>
+                              {availablePlayers.map(player => (
+                                <div 
+                                  key={player.user_id}
+                                  className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg hover:bg-secondary/50"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="w-8 h-8">
+                                      <AvatarImage src={player.picture} />
+                                      <AvatarFallback>{player.name?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="font-medium text-sm">{player.name}</p>
+                                      <p className="text-xs text-muted-foreground">{player.email}</p>
+                                    </div>
+                                  </div>
+                                  <Button 
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleAddPlayer(player.user_id)}
+                                    disabled={submitting}
+                                  >
+                                    Add
+                                  </Button>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                          
+                          {!playerSearchQuery && availablePlayers.length === 0 && (
+                            <p className="text-muted-foreground text-center py-4 text-sm">
+                              Search by email to add anyone to this game
+                            </p>
                           )}
                         </div>
                       </DialogContent>

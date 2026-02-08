@@ -82,6 +82,21 @@ export default function GroupHub() {
     }
   };
 
+  // Request to join a game
+  const handleRequestJoin = async (gameId) => {
+    try {
+      const response = await axios.post(`${API}/games/${gameId}/join`);
+      if (response.data.status === 'pending') {
+        toast.success("Join request sent to host!");
+      } else if (response.data.status === 'joined') {
+        toast.success("You're already in this game!");
+      }
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to request join");
+    }
+  };
+
   // Get role badge
   const getRoleBadge = (member) => {
     if (member.role === "admin") {

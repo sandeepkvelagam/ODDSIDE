@@ -311,6 +311,11 @@ class AdminCashOutRequest(BaseModel):
     user_id: str
     chips_count: int
 
+class EditPlayerChipsRequest(BaseModel):
+    user_id: str
+    chips_count: int
+    reason: Optional[str] = None
+
 # ============== AUTH HELPERS ==============
 
 async def verify_supabase_jwt(token: str) -> dict:

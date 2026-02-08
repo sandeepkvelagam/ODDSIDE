@@ -1890,8 +1890,8 @@ async def approve_buy_in(game_id: str, data: dict, user: User = Depends(get_curr
         raise HTTPException(status_code=400, detail="user_id required")
     
     # Calculate chips if not provided
+    chip_value = game.get("chip_value", 1.0)
     if not chips:
-        chip_value = game.get("chip_value", 1.0)
         chips_per_buy_in = game.get("chips_per_buy_in", 20)
         buy_in_amount = game.get("buy_in_amount", 20.0)
         chips = int((amount / buy_in_amount) * chips_per_buy_in)
@@ -1904,6 +1904,26 @@ async def approve_buy_in(game_id: str, data: dict, user: User = Depends(get_curr
     
     if result.modified_count == 0:
         raise HTTPException(status_code=400, detail="Player not found")
+    
+    # Update game's total chips distributed
+    await db.game_nights.update_one(
+        {"game_id": game_id},
+        {"$inc": {"total_chips_distributed": chips}}
+    )
+    
+    # Create transaction record
+    txn = Transaction(
+        game_id=game_id,
+        user_id=player_user_id,
+        type="buy_in",
+        amount=amount,
+        chips=chips,
+        chip_value=chip_value,
+        notes="Buy-in (approved by host)"
+    )
+    txn_dict = txn.model_dump()
+    txn_dict["timestamp"] = txn_dict["timestamp"].isoformat()
+    await db.transactions.insert_one(txn_dict)
     
     # Get player name
     player_user = await db.users.find_one({"user_id": player_user_id}, {"_id": 0})

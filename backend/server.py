@@ -2913,6 +2913,121 @@ async def mark_all_read(user: User = Depends(get_current_user)):
     
     return {"message": "All marked as read"}
 
+# ============== AI ASSISTANT ENDPOINTS ==============
+
+class AskAssistantRequest(BaseModel):
+    message: str
+    context: Optional[Dict[str, Any]] = None
+
+@api_router.post("/assistant/ask")
+async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_current_user)):
+    """Ask the AI assistant a question."""
+    from ai_assistant import get_ai_response, get_quick_answer
+    
+    # Check for quick answer first (no API call needed)
+    quick = get_quick_answer(data.message)
+    if quick:
+        return {"response": quick, "source": "quick_answer"}
+    
+    # Use AI for complex questions
+    session_id = f"kvitt_{user.user_id}"
+    context = data.context or {}
+    context["user_role"] = "user"
+    
+    response = await get_ai_response(data.message, session_id, context)
+    return {"response": response, "source": "ai"}
+
+# ============== SMART DEFAULTS ENDPOINTS ==============
+
+@api_router.get("/groups/{group_id}/smart-defaults")
+async def get_smart_defaults(group_id: str, user: User = Depends(get_current_user)):
+    """Get smart defaults based on group history (data-driven, no AI)."""
+    # Verify membership
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a group member")
+    
+    # Get group's game history
+    games = await db.game_nights.find(
+        {"group_id": group_id, "status": {"$in": ["ended", "settled"]}},
+        {"_id": 0, "buy_in_amount": 1, "chips_per_buy_in": 1}
+    ).to_list(50)
+    
+    if not games:
+        # Return app defaults if no history
+        return {
+            "buy_in_amount": 20,
+            "chips_per_buy_in": 20,
+            "reason": "default",
+            "games_analyzed": 0
+        }
+    
+    # Calculate median (most common) values
+    buy_ins = sorted([g.get("buy_in_amount", 20) for g in games])
+    chips = sorted([g.get("chips_per_buy_in", 20) for g in games])
+    
+    median_buy_in = buy_ins[len(buy_ins) // 2]
+    median_chips = chips[len(chips) // 2]
+    
+    return {
+        "buy_in_amount": median_buy_in,
+        "chips_per_buy_in": median_chips,
+        "reason": "based_on_history",
+        "games_analyzed": len(games)
+    }
+
+@api_router.get("/groups/{group_id}/frequent-players")
+async def get_frequent_players(group_id: str, user: User = Depends(get_current_user)):
+    """Get frequently invited players for quick game setup."""
+    # Verify membership
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a group member")
+    
+    # Get all games in this group
+    games = await db.game_nights.find(
+        {"group_id": group_id},
+        {"_id": 0, "game_id": 1}
+    ).to_list(100)
+    
+    if not games:
+        return {"players": [], "games_analyzed": 0}
+    
+    game_ids = [g["game_id"] for g in games]
+    
+    # Count player appearances
+    pipeline = [
+        {"$match": {"game_id": {"$in": game_ids}}},
+        {"$group": {
+            "_id": "$user_id",
+            "game_count": {"$sum": 1}
+        }},
+        {"$sort": {"game_count": -1}},
+        {"$limit": 10}
+    ]
+    
+    player_stats = await db.players.aggregate(pipeline).to_list(10)
+    
+    # Add user info
+    for p in player_stats:
+        user_info = await db.users.find_one(
+            {"user_id": p["_id"]},
+            {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1}
+        )
+        p["user"] = user_info
+        p["user_id"] = p.pop("_id")
+    
+    return {
+        "players": player_stats,
+        "games_analyzed": len(games)
+    }
+
 # ============== LEDGER SUMMARY ENDPOINTS ==============
 
 @api_router.get("/ledger/balances")

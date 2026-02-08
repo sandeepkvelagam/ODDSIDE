@@ -4,13 +4,15 @@ import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { 
   TrendingUp, TrendingDown, Users, Play, Plus, ChevronRight,
-  Wallet, Target, Crown, UserPlus, DollarSign
+  Wallet, Target, Crown, UserPlus, DollarSign, HelpCircle
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PendingInvites from "@/components/PendingInvites";
+import OnboardingGuide, { useOnboarding } from "@/components/OnboardingGuide";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -22,6 +24,8 @@ export default function Dashboard() {
   const [activeGames, setActiveGames] = useState([]);
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { showOnboarding, completeOnboarding, resetOnboarding } = useOnboarding();
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -46,6 +50,16 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  // Show onboarding for first-time users
+  if (showOnboarding) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <OnboardingGuide onComplete={completeOnboarding} />
+      </div>
+    );
+  }
 
   const handleJoinGame = async (gameId, e) => {
     e.stopPropagation();

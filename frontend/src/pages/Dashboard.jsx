@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { 
-  TrendingUp, TrendingDown,
-  Users, Play, Plus, ChevronRight,
-  Wallet, Target
+  TrendingUp, TrendingDown, Users, Play, Plus, ChevronRight,
+  Wallet, Target, Crown, UserPlus, DollarSign
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PendingInvites from "@/components/PendingInvites";
+import WelcomeScreen from "@/components/WelcomeScreen";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [activeGames, setActiveGames] = useState([]);
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(true);
 
   useEffect(() => {
     fetchData();
@@ -31,23 +32,38 @@ export default function Dashboard() {
   const fetchData = async () => {
     try {
       const [statsRes, groupsRes, gamesRes, balancesRes] = await Promise.all([
-        axios.get(`${API}/stats/me`),
-        axios.get(`${API}/groups`),
-        axios.get(`${API}/games`),
-        axios.get(`${API}/ledger/balances`)
+        axios.get(`${API}/stats/me`).catch(() => ({ data: {} })),
+        axios.get(`${API}/groups`).catch(() => ({ data: [] })),
+        axios.get(`${API}/games`).catch(() => ({ data: [] })),
+        axios.get(`${API}/ledger/balances`).catch(() => ({ data: {} }))
       ]);
       
       setStats(statsRes.data);
-      setGroups(groupsRes.data);
-      setActiveGames(gamesRes.data.filter(g => g.status === "active" || g.status === "scheduled"));
+      setGroups(groupsRes.data || []);
+      setActiveGames((gamesRes.data || []).filter(g => g.status === "active" || g.status === "scheduled"));
       setBalances(balancesRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
-      toast.error("Failed to load dashboard");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleJoinGame = async (gameId, e) => {
+    e.stopPropagation();
+    try {
+      await axios.post(`${API}/games/${gameId}/join`);
+      toast.success("Join request sent!");
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to join");
+    }
+  };
+
+  // Show welcome screen
+  if (showWelcome) {
+    return <WelcomeScreen onComplete={() => setShowWelcome(false)} userName={user?.name} />;
+  }
 
   if (loading) {
     return (
@@ -80,14 +96,14 @@ export default function Dashboard() {
             <CardContent className="p-3 sm:p-4 md:p-6">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
                 <span className="text-muted-foreground text-[10px] sm:text-xs md:text-sm">Net Profit</span>
-                {stats?.net_profit >= 0 ? (
+                {(stats?.net_profit || 0) >= 0 ? (
                   <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-primary" />
                 ) : (
                   <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-destructive" />
                 )}
               </div>
-              <p className={`font-heading text-lg sm:text-2xl md:text-4xl font-black ${stats?.net_profit >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                {stats?.net_profit >= 0 ? '+' : ''}{stats?.net_profit?.toFixed(0) || '0'}
+              <p className={`font-heading text-lg sm:text-2xl md:text-4xl font-black ${(stats?.net_profit || 0) >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                {(stats?.net_profit || 0) >= 0 ? '+' : ''}{(stats?.net_profit || 0).toFixed(0)}
               </p>
               <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm mt-1">
                 {stats?.total_games || 0} games
@@ -103,10 +119,10 @@ export default function Dashboard() {
                 <Target className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-muted-foreground" />
               </div>
               <p className="font-heading text-lg sm:text-2xl md:text-4xl font-black">
-                {stats?.win_rate?.toFixed(0) || 0}%
+                {(stats?.win_rate || 0).toFixed(0)}%
               </p>
               <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm mt-1 hidden sm:block">
-                Best: +${stats?.biggest_win?.toFixed(0) || 0}
+                Best: +${(stats?.biggest_win || 0).toFixed(0)}
               </p>
             </CardContent>
           </Card>
@@ -118,11 +134,11 @@ export default function Dashboard() {
                 <span className="text-muted-foreground text-[10px] sm:text-xs md:text-sm">Balance</span>
                 <Wallet className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-muted-foreground" />
               </div>
-              <p className={`font-heading text-lg sm:text-2xl md:text-4xl font-black ${balances?.net_balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                {balances?.net_balance >= 0 ? '+' : ''}{balances?.net_balance?.toFixed(0) || '0'}
+              <p className={`font-heading text-lg sm:text-2xl md:text-4xl font-black ${(balances?.net_balance || 0) >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                {(balances?.net_balance || 0) >= 0 ? '+' : ''}{(balances?.net_balance || 0).toFixed(0)}
               </p>
               <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm mt-1">
-                <span className="text-destructive">${balances?.total_owes?.toFixed(0) || '0'}</span> owed
+                <span className="text-destructive">${(balances?.total_owes || 0).toFixed(0)}</span> owed
               </p>
             </CardContent>
           </Card>
@@ -130,34 +146,102 @@ export default function Dashboard() {
 
         {/* Active Games & Groups - Stack on mobile */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          {/* Active Games */}
+          {/* Active Games - Enhanced */}
           <Card className="bg-card border-border/50" data-testid="active-games-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2 px-4 sm:px-6">
-              <CardTitle className="font-heading text-base sm:text-xl font-bold">ACTIVE GAMES</CardTitle>
+              <CardTitle className="font-heading text-base sm:text-xl font-bold">LIVE GAMES</CardTitle>
               <Play className="w-4 h-4 sm:w-5 sm:h-5 text-primary animate-pulse-live" />
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-4">
               {activeGames.length === 0 ? (
                 <p className="text-muted-foreground text-xs sm:text-sm py-4">No active games right now</p>
               ) : (
-                <div className="space-y-2">
-                  {activeGames.slice(0, 3).map(game => (
-                    <div 
-                      key={game.game_id}
-                      className="p-3 bg-secondary/30 rounded-lg cursor-pointer card-hover border border-transparent"
-                      onClick={() => navigate(`/games/${game.game_id}`)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">{game.title || game.group_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {game.player_count} players • {game.status === 'active' ? 'Live' : 'Scheduled'}
-                          </p>
+                <div className="space-y-3">
+                  {activeGames.slice(0, 3).map(game => {
+                    const isHost = game.host_id === user?.user_id;
+                    const isPlayer = game.is_player;
+                    
+                    return (
+                      <div 
+                        key={game.game_id}
+                        className="p-3 bg-secondary/30 rounded-lg border border-transparent hover:border-primary/30 transition-colors"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${game.status === 'active' ? 'bg-primary animate-pulse' : 'bg-yellow-500'}`} />
+                              <p className="font-medium text-sm">{game.title || game.group_name}</p>
+                            </div>
+                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                              <Crown className="w-3 h-3 text-yellow-500" />
+                              <span>{game.host_name || 'Host'}</span>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${game.status === 'active' ? 'bg-primary/20 text-primary' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                            {game.status === 'active' ? 'LIVE' : 'SCHEDULED'}
+                          </span>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        
+                        {/* Game details */}
+                        <div className="flex flex-wrap gap-2 text-[10px] sm:text-xs mb-3">
+                          <span className="px-2 py-0.5 bg-secondary rounded-full flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {game.player_count || 0} players
+                          </span>
+                          <span className="px-2 py-0.5 bg-secondary rounded-full flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" />
+                            ${game.buy_in_amount || 20} buy-in
+                          </span>
+                          <span className="px-2 py-0.5 bg-secondary rounded-full">
+                            ${game.total_pot || 0} pot
+                          </span>
+                        </div>
+                        
+                        {/* Action buttons */}
+                        <div className="flex gap-2">
+                          {isHost ? (
+                            <>
+                              <Button 
+                                size="sm" 
+                                className="flex-1 h-8 text-xs bg-primary text-black hover:bg-primary/90"
+                                onClick={() => navigate(`/games/${game.game_id}`)}
+                              >
+                                <UserPlus className="w-3 h-3 mr-1" />
+                                Add Players
+                              </Button>
+                            </>
+                          ) : isPlayer ? (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="flex-1 h-8 text-xs"
+                              onClick={() => navigate(`/games/${game.game_id}`)}
+                            >
+                              Open Game
+                              <ChevronRight className="w-3 h-3 ml-1" />
+                            </Button>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              className="flex-1 h-8 text-xs bg-primary text-black hover:bg-primary/90"
+                              onClick={(e) => handleJoinGame(game.game_id, e)}
+                            >
+                              <Play className="w-3 h-3 mr-1" />
+                              Request to Join
+                            </Button>
+                          )}
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="h-8 px-2"
+                            onClick={() => navigate(`/games/${game.game_id}`)}
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               <Button 
@@ -189,9 +273,16 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-sm">{group.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm">{group.name}</p>
+                            {group.user_role === 'admin' && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-yellow-500/20 text-yellow-500 rounded-full flex items-center gap-0.5">
+                                <Crown className="w-2.5 h-2.5" /> Admin
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground">
-                            {group.member_count} members • {group.user_role}
+                            {group.member_count} members
                           </p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-muted-foreground" />

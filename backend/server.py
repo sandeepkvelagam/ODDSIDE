@@ -1079,15 +1079,38 @@ async def create_game(data: GameNightCreate, user: User = Depends(get_current_us
     
     await db.game_nights.insert_one(game_dict)
     
-    # Add host as player
+    # Add host as player with auto buy-in for active games
     player = Player(
         game_id=game.game_id,
         user_id=user.user_id,
-        rsvp_status="yes"
+        rsvp_status="yes",
+        total_buy_in=data.buy_in_amount if game.status == "active" else 0,
+        total_chips=data.chips_per_buy_in if game.status == "active" else 0
     )
     player_dict = player.model_dump()
     player_dict["joined_at"] = player_dict["joined_at"].isoformat()
     await db.players.insert_one(player_dict)
+    
+    # Update game's total chips distributed if auto buy-in was added
+    if game.status == "active":
+        await db.game_nights.update_one(
+            {"game_id": game.game_id},
+            {"$inc": {"total_chips_distributed": data.chips_per_buy_in}}
+        )
+        
+        # Create transaction record for host's initial buy-in
+        txn = Transaction(
+            game_id=game.game_id,
+            user_id=user.user_id,
+            type="buy_in",
+            amount=data.buy_in_amount,
+            chips=data.chips_per_buy_in,
+            chip_value=chip_value,
+            notes="Initial buy-in (auto)"
+        )
+        txn_dict = txn.model_dump()
+        txn_dict["timestamp"] = txn_dict["timestamp"].isoformat()
+        await db.transactions.insert_one(txn_dict)
     
     # Notify group members
     members = await db.group_members.find(

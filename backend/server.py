@@ -1807,30 +1807,6 @@ async def get_available_players(game_id: str, user: User = Depends(get_current_u
     
     return users
 
-@api_router.get("/users/search")
-async def search_users(q: str, user: User = Depends(get_current_user)):
-    """Search users by email or name."""
-    if not q or len(q) < 2:
-        return []
-    
-    # Search by email (exact or partial) or name (partial)
-    query = {
-        "$or": [
-            {"email": {"$regex": q.lower(), "$options": "i"}},
-            {"name": {"$regex": q, "$options": "i"}}
-        ]
-    }
-    
-    users = await db.users.find(
-        query,
-        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1}
-    ).limit(10).to_list(10)
-    
-    # Exclude current user
-    users = [u for u in users if u["user_id"] != user.user_id]
-    
-    return users
-
 @api_router.post("/games/{game_id}/approve-buy-in")
 async def approve_buy_in(game_id: str, data: dict, user: User = Depends(get_current_user)):
     """Host approves a buy-in request."""

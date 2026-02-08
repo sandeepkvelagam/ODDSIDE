@@ -435,6 +435,7 @@ async def sync_user(data: SyncUserRequest, response: Response):
                 "picture": data.picture or existing_user.get("picture")
             }}
         )
+        is_new_user = False
     else:
         new_user = {
             "user_id": user_id,
@@ -445,6 +446,14 @@ async def sync_user(data: SyncUserRequest, response: Response):
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.users.insert_one(new_user)
+        is_new_user = True
+        
+        # Send welcome email for new users (async, non-blocking)
+        try:
+            from email_service import send_welcome_email
+            asyncio.create_task(send_welcome_email(data.email, data.name or data.email.split('@')[0]))
+        except Exception as e:
+            logger.warning(f"Failed to send welcome email: {e}")
     
     # Create a session for cookie-based auth as backup
     session_token = str(uuid.uuid4())

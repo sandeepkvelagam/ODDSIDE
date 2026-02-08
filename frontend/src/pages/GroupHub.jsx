@@ -99,6 +99,37 @@ export default function GroupHub() {
     }
   };
 
+  // Remove member from group (admin only)
+  const handleRemoveMember = async (memberId) => {
+    try {
+      await axios.delete(`${API}/groups/${groupId}/members/${memberId}`);
+      toast.success("Member removed from group");
+      setRemoveMemberDialog(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to remove member");
+    }
+  };
+
+  // Leave group (self)
+  const handleLeaveGroup = async () => {
+    try {
+      await axios.delete(`${API}/groups/${groupId}/members/${user?.user_id}`);
+      toast.success("You have left the group");
+      navigate("/groups");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to leave group");
+    }
+  };
+
+  // Check if member is in active game (can't be removed)
+  const isMemberInActiveGame = (memberId) => {
+    return games.some(game => 
+      game.status === 'active' && 
+      game.players?.some(p => p.user_id === memberId && !p.cashed_out)
+    );
+  };
+
   // Get role badge
   const getRoleBadge = (member) => {
     if (member.role === "admin") {

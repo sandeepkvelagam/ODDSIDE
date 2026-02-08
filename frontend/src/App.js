@@ -123,6 +123,16 @@ function App() {
                 <GameHistory />
               </ProtectedRoute>
             } />
+            <Route path="/premium" element={
+              <ProtectedRoute>
+                <Premium />
+              </ProtectedRoute>
+            } />
+            <Route path="/premium/success" element={
+              <ProtectedRoute>
+                <Premium />
+              </ProtectedRoute>
+            } />
             
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

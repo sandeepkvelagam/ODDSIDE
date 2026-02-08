@@ -42,11 +42,14 @@ export default function GameNight() {
   const [endDialogOpen, setEndDialogOpen] = useState(false);
   const [adminBuyInDialogOpen, setAdminBuyInDialogOpen] = useState(false);
   const [adminCashOutDialogOpen, setAdminCashOutDialogOpen] = useState(false);
+  const [addPlayerDialogOpen, setAddPlayerDialogOpen] = useState(false);
+  const [availablePlayers, setAvailablePlayers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [adminCashOutChips, setAdminCashOutChips] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [elapsedTime, setElapsedTime] = useState("0:00:00");
   const [showHandRankings, setShowHandRankings] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState([]);
 
   const fetchGame = useCallback(async () => {
     try {
@@ -61,6 +64,12 @@ export default function GameNight() {
       if (!selectedBuyIn && gameRes.data.buy_in_amount) {
         setSelectedBuyIn(gameRes.data.buy_in_amount);
       }
+      
+      // Get pending join requests for host
+      if (gameRes.data.is_host) {
+        const pending = gameRes.data.players?.filter(p => p.rsvp_status === "pending") || [];
+        setPendingRequests(pending);
+      }
     } catch (error) {
       toast.error("Failed to load game");
       navigate("/groups");
@@ -68,6 +77,16 @@ export default function GameNight() {
       setLoading(false);
     }
   }, [gameId, navigate, selectedBuyIn]);
+
+  // Fetch available players for adding
+  const fetchAvailablePlayers = async () => {
+    try {
+      const response = await axios.get(`${API}/games/${gameId}/available-players`);
+      setAvailablePlayers(response.data);
+    } catch (error) {
+      toast.error("Failed to load available players");
+    }
+  };
 
   useEffect(() => {
     fetchGame();

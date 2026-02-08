@@ -310,14 +310,85 @@ frontend:
         agent: "main"
         comment: "Game night with buy-in, cash-out, and admin controls"
 
+  - task: "Leaderboard Display"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/GroupHub.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "User reported leaderboard shows numbers instead of player names"
+      - working: "NA"
+        agent: "main"
+        comment: "Fixed leaderboard to display entry.user?.name and entry.total_profit instead of entry.name and entry.net_profit"
+
+  - task: "Request Join Button on Games List"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/GroupHub.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added Request Join button to games list for active games where user is not a player"
+
+  - task: "Auto Buy-In on Game Start"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Modified game creation endpoint to auto-add buy-in for host when game starts immediately (not scheduled)"
+
+  - task: "Host Edit Player Chips After Cash-Out"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added POST /api/games/{game_id}/edit-player-chips endpoint for host to edit chips after cash-out with notification to affected player"
+
+  - task: "Notification Navigation and Actions"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/Navbar.jsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "User reported notifications don't navigate anywhere when clicked"
+      - working: "NA"
+        agent: "main"
+        comment: "Enhanced Navbar notifications to include navigation buttons for game_id and group_id, plus Accept/Decline buttons for group invites"
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Auto Buy-In on Game Start"
+    - "Leaderboard Display"
+    - "Request Join Button on Games List"
+    - "Host Edit Player Chips After Cash-Out"
+    - "Notification Navigation and Actions"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -329,3 +400,5 @@ agent_communication:
     message: "✅ BACKEND TESTING COMPLETE - All major backend APIs are working correctly! Tested complete flow: user creation → group creation → game creation → buy-ins → cash-outs → settlement. Success rate: 88% (22/25 tests passed). The 3 'failures' are expected behavior: games auto-start when created without schedule, settlement requires ended games. All core functionality verified working. Backend is production-ready."
   - agent: "testing"
     message: "✅ NEW ENDPOINTS TESTING COMPLETE - All notification and game flow endpoints working perfectly! Tested complete flow: 1) User requests join (creates pending status), 2) Host receives join_request notification, 3) Host approves join, 4) Player receives join_approved notification, 5) Player requests buy-in, 6) Host receives buy_in_request notification, 7) Host approves buy-in. All endpoints return correct status codes and proper notification types. Success rate: 96% (24/25 tests passed). The 1 failure was expected (trying to add already-joined player). Backend NEW endpoints are production-ready."
+  - agent: "main"
+    message: "IMPLEMENTED FIXES - December 2025: 1) Fixed leaderboard to show player names (entry.user?.name) instead of raw IDs. 2) Added Request Join button to games list in GroupHub. 3) Auto buy-in for host when creating active game. 4) New endpoint /edit-player-chips for host to modify chips after cash-out. 5) Enhanced notification navigation with buttons for games/groups plus Accept/Decline for group invites. Please test these new features."

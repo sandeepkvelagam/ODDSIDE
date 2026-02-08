@@ -770,6 +770,20 @@ async def invite_member(group_id: str, data: InviteMemberRequest, user: User = D
         notif_dict["created_at"] = notif_dict["created_at"].isoformat()
         await db.notifications.insert_one(notif_dict)
         
+        # Send email notification
+        try:
+            from email_service import send_group_invite_email
+            app_url = os.environ.get('APP_URL', 'https://kvitt.app')
+            invite_link = f"{app_url}/dashboard"
+            asyncio.create_task(send_group_invite_email(
+                data.email, 
+                inviter['name'], 
+                group['name'], 
+                invite_link
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to send invite email: {e}")
+        
         return {"message": "Invite sent! They'll see a notification to accept.", "status": "invite_sent"}
     else:
         # User not registered - create pending invite
@@ -791,13 +805,24 @@ async def invite_member(group_id: str, data: InviteMemberRequest, user: User = D
         invite_dict["created_at"] = invite_dict["created_at"].isoformat()
         await db.group_invites.insert_one(invite_dict)
         
-        # TODO: Send email notification here (would need email service)
-        # For now, the invite will be waiting when they register
+        # Send email invitation to non-registered user
+        try:
+            from email_service import send_group_invite_email
+            app_url = os.environ.get('APP_URL', 'https://kvitt.app')
+            invite_link = f"{app_url}/signup"
+            asyncio.create_task(send_group_invite_email(
+                data.email, 
+                inviter['name'], 
+                group['name'], 
+                invite_link
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to send invite email: {e}")
         
         return {
-            "message": f"Invite created for {data.email}. They'll see it when they register!",
+            "message": f"Invite sent to {data.email}. They'll receive an email!",
             "status": "pending_registration",
-            "note": "User not registered yet. Invite will be waiting when they sign up."
+            "note": "Email sent. Invite will be waiting when they sign up."
         }
 
 @api_router.get("/groups/{group_id}/invites")

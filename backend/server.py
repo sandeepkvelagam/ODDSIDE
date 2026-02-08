@@ -3123,6 +3123,71 @@ async def get_balances(user: User = Depends(get_current_user)):
         "owed": owed
     }
 
+# ============== STRIPE PAYMENT ENDPOINTS ==============
+
+class StripeCheckoutRequest(BaseModel):
+    plan_id: str
+    origin_url: str
+
+@api_router.get("/premium/plans")
+async def get_premium_plans():
+    """Get available premium plans"""
+    from stripe_service import PREMIUM_PLANS
+    return {"plans": list(PREMIUM_PLANS.values())}
+
+@api_router.post("/premium/checkout")
+async def create_premium_checkout(data: StripeCheckoutRequest, user: User = Depends(get_current_user)):
+    """Create Stripe checkout session for premium upgrade"""
+    from stripe_service import create_stripe_checkout
+    
+    # Get user email
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "email": 1})
+    user_email = user_doc.get("email", "") if user_doc else ""
+    
+    result = await create_stripe_checkout(
+        plan_id=data.plan_id,
+        origin_url=data.origin_url,
+        user_id=user.user_id,
+        user_email=user_email,
+        db=db
+    )
+    
+    return result
+
+@api_router.get("/premium/status/{session_id}")
+async def get_premium_payment_status(session_id: str):
+    """Check payment status for a checkout session"""
+    from stripe_service import check_payment_status
+    return await check_payment_status(session_id, db)
+
+@api_router.get("/premium/me")
+async def get_my_premium_status(user: User = Depends(get_current_user)):
+    """Get current user's premium status"""
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "is_premium": 1, "premium_plan": 1, "premium_until": 1}
+    )
+    
+    if not user_doc:
+        return {"is_premium": False}
+    
+    return {
+        "is_premium": user_doc.get("is_premium", False),
+        "plan": user_doc.get("premium_plan"),
+        "until": user_doc.get("premium_until")
+    }
+
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhook events"""
+    from stripe_service import handle_stripe_webhook
+    
+    body = await request.body()
+    signature = request.headers.get("Stripe-Signature", "")
+    
+    result = await handle_stripe_webhook(body, signature, db)
+    return result
+
 # ============== ROOT ENDPOINT ==============
 
 @api_router.get("/")

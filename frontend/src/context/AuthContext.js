@@ -148,23 +148,35 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Supabase not configured');
     }
     
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    let signInData = null;
+    let signInError = null;
     
-    if (error) throw error;
+    try {
+      const result = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      signInData = result.data;
+      signInError = result.error;
+    } catch (err) {
+      console.error('Supabase signin error:', err);
+      throw new Error(err.message || 'Login failed. Please try again.');
+    }
     
-    // Sync user to MongoDB on sign in (ensures data is always fresh)
-    if (data.session) {
-      syncUserToBackend(data.session);
+    if (signInError) {
+      throw signInError;
+    }
+    
+    // Sync user to MongoDB on sign in
+    if (signInData?.session) {
+      syncUserToBackend(signInData.session);
     }
     
     // Return user data for welcome screen
     return {
-      user_id: data.user?.id,
-      email: data.user?.email,
-      name: data.user?.user_metadata?.name || data.user?.email?.split('@')[0]
+      user_id: signInData?.user?.id,
+      email: signInData?.user?.email,
+      name: signInData?.user?.user_metadata?.name || signInData?.user?.email?.split('@')[0]
     };
   };
 

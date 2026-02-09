@@ -2,9 +2,9 @@ import { cn } from "@/lib/utils";
 
 export const Logo = ({ className, size = "default", showText = true, showTagline = false }) => {
   const sizes = {
-    small: { icon: "w-7 h-7", gap: "gap-1.5", text: "text-lg", tagline: "text-[10px]" },
-    default: { icon: "w-8 h-8", gap: "gap-1.5", text: "text-xl", tagline: "text-xs" },
-    large: { icon: "w-12 h-12", gap: "gap-2", text: "text-3xl", tagline: "text-sm" }
+    small: { icon: "w-6 h-6", gap: "gap-1", text: "text-lg", tagline: "text-[10px]" },
+    default: { icon: "w-7 h-7", gap: "gap-1.5", text: "text-xl", tagline: "text-[11px]" },
+    large: { icon: "w-10 h-10", gap: "gap-1.5", text: "text-2xl", tagline: "text-xs" }
   };
 
   const { icon, gap, text, tagline } = sizes[size] || sizes.default;
@@ -32,7 +32,7 @@ export const Logo = ({ className, size = "default", showText = true, showTagline
         </svg>
       </div>
       {showText && (
-        <div className="flex flex-col gap-0">
+        <div className="flex flex-col text-left">
           <span className={cn("font-heading font-extrabold tracking-tight leading-none", text)}>
             Kvitt
           </span>

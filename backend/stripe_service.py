@@ -394,3 +394,184 @@ async def handle_stripe_webhook(
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return {"status": "error", "message": str(e)}
+
+
+
+# ============================================
+# DEBT SETTLEMENT PAYMENTS
+# ============================================
+
+class DebtPaymentRequest(BaseModel):
+    ledger_id: str
+    origin_url: str
+
+
+async def create_debt_payment_link(
+    ledger_id: str,
+    from_user_id: str,
+    from_user_email: str,
+    to_user_id: str,
+    to_user_name: str,
+    amount: float,
+    game_id: str,
+    origin_url: str,
+    db
+) -> Dict[str, Any]:
+    """Create a Stripe payment link for settling a debt between players"""
+    from emergentintegrations.payments.stripe.checkout import (
+        StripeCheckout, 
+        CheckoutSessionRequest,
+        CheckoutSessionResponse
+    )
+    
+    api_key = os.environ.get('STRIPE_API_KEY')
+    
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Payment service not configured")
+    
+    # Create Stripe checkout for the debt amount
+    webhook_url = f"{origin_url}/api/webhook/stripe-debt"
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
+    
+    # Build URLs
+    success_url = f"{origin_url}/games/{game_id}/settlement?payment=success&ledger_id={ledger_id}"
+    cancel_url = f"{origin_url}/games/{game_id}/settlement?payment=cancelled"
+    
+    # Create checkout request
+    checkout_request = CheckoutSessionRequest(
+        amount=float(amount),
+        currency="usd",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={
+            "type": "debt_settlement",
+            "ledger_id": ledger_id,
+            "from_user_id": from_user_id,
+            "to_user_id": to_user_id,
+            "to_user_name": to_user_name,
+            "game_id": game_id,
+            "amount": str(amount)
+        }
+    )
+    
+    # Create session
+    session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_request)
+    
+    # Create debt payment record
+    debt_payment = {
+        "payment_id": f"debt_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{ledger_id[:8]}",
+        "session_id": session.session_id,
+        "ledger_id": ledger_id,
+        "from_user_id": from_user_id,
+        "from_user_email": from_user_email,
+        "to_user_id": to_user_id,
+        "to_user_name": to_user_name,
+        "game_id": game_id,
+        "amount": amount,
+        "currency": "usd",
+        "status": "pending",
+        "payment_status": "initiated",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.debt_payments.insert_one(debt_payment)
+    
+    logger.info(f"Created debt payment session for ledger {ledger_id}, amount ${amount}")
+    
+    return {
+        "checkout_url": session.url,
+        "session_id": session.session_id,
+        "amount": amount,
+        "to_user_name": to_user_name
+    }
+
+
+async def handle_debt_payment_webhook(
+    request_body: bytes,
+    signature: str,
+    db
+) -> Dict[str, Any]:
+    """Handle Stripe webhook events for debt payments"""
+    from emergentintegrations.payments.stripe.checkout import StripeCheckout
+
+    api_key = os.environ.get('STRIPE_API_KEY')
+    if not api_key:
+        return {"status": "error", "message": "Not configured"}
+
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
+
+    try:
+        webhook_response = await stripe_checkout.handle_webhook(request_body, signature)
+        event_type = webhook_response.event_type
+
+        # Update debt payment based on webhook
+        if webhook_response.session_id:
+            debt_payment = await db.debt_payments.find_one(
+                {"session_id": webhook_response.session_id},
+                {"_id": 0}
+            )
+
+            if debt_payment:
+                await db.debt_payments.update_one(
+                    {"session_id": webhook_response.session_id},
+                    {"$set": {
+                        "status": webhook_response.event_type,
+                        "payment_status": webhook_response.payment_status,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+
+                # If payment successful, mark ledger entry as paid
+                if event_type == "checkout.session.completed" and webhook_response.payment_status == "paid":
+                    ledger_id = debt_payment.get("ledger_id")
+                    
+                    # Update ledger entry
+                    await db.ledger.update_one(
+                        {"ledger_id": ledger_id},
+                        {"$set": {
+                            "status": "paid",
+                            "paid_at": datetime.now(timezone.utc).isoformat(),
+                            "paid_via": "stripe",
+                            "stripe_session_id": webhook_response.session_id,
+                            "is_locked": True
+                        }}
+                    )
+                    
+                    # Update debt payment record
+                    await db.debt_payments.update_one(
+                        {"session_id": webhook_response.session_id},
+                        {"$set": {
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
+                    
+                    logger.info(f"Debt payment completed for ledger {ledger_id}")
+                    
+                    # Send notification to recipient
+                    from_user = await db.users.find_one(
+                        {"user_id": debt_payment["from_user_id"]},
+                        {"_id": 0, "name": 1}
+                    )
+                    
+                    notification = {
+                        "notification_id": f"notif_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+                        "user_id": debt_payment["to_user_id"],
+                        "type": "payment_received",
+                        "title": "Payment Received!",
+                        "message": f"{from_user.get('name', 'Someone')} paid you ${debt_payment['amount']:.2f} via Stripe",
+                        "data": {
+                            "ledger_id": ledger_id,
+                            "game_id": debt_payment["game_id"],
+                            "amount": debt_payment["amount"]
+                        },
+                        "read": False,
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }
+                    await db.notifications.insert_one(notification)
+
+        return {"status": "success", "event_id": webhook_response.event_id, "event_type": event_type}
+
+    except Exception as e:
+        logger.error(f"Debt webhook error: {e}")
+        return {"status": "error", "message": str(e)}

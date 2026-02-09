@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Check, X, Lock } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, X, Lock, CreditCard, Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -15,14 +15,29 @@ const API = process.env.REACT_APP_BACKEND_URL + "/api";
 export default function Settlement() {
   const { gameId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [game, setGame] = useState(null);
   const [settlements, setSettlements] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [payingLedgerId, setPayingLedgerId] = useState(null);
 
   useEffect(() => {
     fetchData();
-  }, [gameId]);
+    
+    // Check for payment status from URL params
+    const paymentStatus = searchParams.get('payment');
+    const ledgerId = searchParams.get('ledger_id');
+    
+    if (paymentStatus === 'success' && ledgerId) {
+      toast.success("Payment successful! The debt has been settled.");
+      // Clean up URL params
+      navigate(`/games/${gameId}/settlement`, { replace: true });
+    } else if (paymentStatus === 'cancelled') {
+      toast.info("Payment was cancelled");
+      navigate(`/games/${gameId}/settlement`, { replace: true });
+    }
+  }, [gameId, searchParams, navigate]);
 
   const fetchData = async () => {
     try {
@@ -47,6 +62,26 @@ export default function Settlement() {
       fetchData();
     } catch (error) {
       toast.error("Failed to update status");
+    }
+  };
+
+  const handlePayWithStripe = async (ledgerId) => {
+    setPayingLedgerId(ledgerId);
+    try {
+      const response = await axios.post(`${API}/settlements/${ledgerId}/pay`, {
+        origin_url: window.location.origin
+      });
+      
+      // Redirect to Stripe checkout
+      if (response.data.checkout_url) {
+        window.location.href = response.data.checkout_url;
+      } else {
+        toast.error("Could not create payment link");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to create payment");
+    } finally {
+      setPayingLedgerId(null);
     }
   };
 

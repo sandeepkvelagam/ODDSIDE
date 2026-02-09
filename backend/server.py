@@ -3324,6 +3324,64 @@ async def stripe_webhook(request: Request):
     result = await handle_stripe_webhook(body, signature, db)
     return result
 
+
+# ============== DEBT SETTLEMENT PAYMENTS ==============
+
+@api_router.post("/settlements/{ledger_id}/pay")
+async def create_debt_payment(ledger_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Create a Stripe payment link for settling a debt"""
+    from stripe_service import create_debt_payment_link
+    
+    # Get ledger entry
+    entry = await db.ledger.find_one({"ledger_id": ledger_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Ledger entry not found")
+    
+    # Verify the current user is the one who owes money
+    if entry["from_user_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Only the debtor can initiate payment")
+    
+    # Check if already paid
+    if entry.get("status") == "paid":
+        raise HTTPException(status_code=400, detail="This debt has already been paid")
+    
+    # Get recipient info
+    to_user = await db.users.find_one(
+        {"user_id": entry["to_user_id"]},
+        {"_id": 0, "name": 1}
+    )
+    
+    origin_url = data.get("origin_url", "")
+    if not origin_url:
+        raise HTTPException(status_code=400, detail="origin_url required")
+    
+    result = await create_debt_payment_link(
+        ledger_id=ledger_id,
+        from_user_id=user.user_id,
+        from_user_email=user.email,
+        to_user_id=entry["to_user_id"],
+        to_user_name=to_user.get("name", "Unknown"),
+        amount=entry["amount"],
+        game_id=entry["game_id"],
+        origin_url=origin_url,
+        db=db
+    )
+    
+    return result
+
+
+@api_router.post("/webhook/stripe-debt")
+async def stripe_debt_webhook(request: Request):
+    """Handle Stripe webhook events for debt payments"""
+    from stripe_service import handle_debt_payment_webhook
+    
+    body = await request.body()
+    signature = request.headers.get("Stripe-Signature", "")
+    
+    result = await handle_debt_payment_webhook(body, signature, db)
+    return result
+
+
 # ============== ROOT ENDPOINT ==============
 
 @api_router.get("/")

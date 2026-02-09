@@ -271,6 +271,9 @@ export default function Settlement() {
                       {isPaid && entry.paid_at && (
                         <p className="text-[10px] text-muted-foreground mt-1">
                           Settled {new Date(entry.paid_at).toLocaleDateString()}
+                          {entry.paid_via === 'stripe' && (
+                            <span className="ml-1 text-[#635bff]">• via Stripe</span>
+                          )}
                         </p>
                       )}
                     </div>

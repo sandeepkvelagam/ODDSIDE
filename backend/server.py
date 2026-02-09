@@ -14,6 +14,7 @@ import random
 from datetime import datetime, timezone, timedelta
 import httpx
 import jwt
+from jwt import PyJWKClient
 import socketio
 
 ROOT_DIR = Path(__file__).parent
@@ -46,6 +47,17 @@ db = client[os.environ['DB_NAME']]
 
 # Supabase config
 SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+
+# Initialize JWKS client for RS256 verification (new Supabase signing keys)
+jwks_client = None
+if SUPABASE_URL:
+    try:
+        jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/jwks"
+        jwks_client = PyJWKClient(jwks_url)
+        logger.info(f"✅ JWKS client initialized: {jwks_url}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize JWKS client: {e}")
 
 # Import WebSocket manager
 from websocket_manager import sio, emit_game_event, notify_player_joined, notify_buy_in, notify_cash_out, notify_chips_edited, notify_game_message, notify_game_state_change, emit_notification
@@ -327,23 +339,45 @@ class EditPlayerChipsRequest(BaseModel):
 # ============== AUTH HELPERS ==============
 
 async def verify_supabase_jwt(token: str) -> dict:
-    """Verify Supabase JWT token and return claims."""
-    if not SUPABASE_JWT_SECRET:
-        return None
-    
-    try:
-        payload = jwt.decode(
-            token,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            audience="authenticated"
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError as e:
-        logger.error(f"JWT verification failed: {e}")
-        return None
+    """
+    Verify Supabase JWT using either:
+    1. New JWKS method (RS256) - auto-fetches public keys
+    2. Legacy secret method (HS256) - uses shared secret
+    """
+    # Try new JWKS method first (RS256)
+    if jwks_client:
+        try:
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256"],
+                audience="authenticated"
+            )
+            logger.debug("JWT verified using JWKS (RS256)")
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except Exception as e:
+            logger.debug(f"JWKS verification failed: {e}")
+
+    # Fallback to legacy secret method (HS256)
+    if SUPABASE_JWT_SECRET:
+        try:
+            payload = jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated"
+            )
+            logger.debug("JWT verified using legacy secret (HS256)")
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except Exception as e:
+            logger.debug(f"Legacy secret verification failed: {e}")
+
+    return None
 
 async def get_current_user(request: Request) -> User:
     """Get current authenticated user from session token or Supabase JWT."""
@@ -351,9 +385,9 @@ async def get_current_user(request: Request) -> User:
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
-        
-        # Try Supabase JWT first
-        if SUPABASE_JWT_SECRET:
+
+        # Try Supabase JWT first (with JWKS or legacy secret)
+        if jwks_client or SUPABASE_JWT_SECRET:
             payload = await verify_supabase_jwt(token)
             if payload:
                 supabase_id = payload.get("sub")
@@ -3295,6 +3329,65 @@ async def stripe_webhook(request: Request):
 @api_router.get("/")
 async def root():
     return {"message": "PokerNight API v1.0"}
+
+@api_router.get("/debug/my-data")
+async def debug_my_data(user: User = Depends(get_current_user)):
+    """Debug endpoint to show all user data"""
+    # Current memberships
+    memberships = await db.group_members.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(100)
+
+    membership_groups = []
+    for m in memberships:
+        group = await db.groups.find_one({"group_id": m["group_id"]}, {"_id": 0})
+        membership_groups.append({
+            "group_id": m["group_id"],
+            "group_name": group["name"] if group else "Unknown",
+            "role": m["role"],
+            "joined_at": m.get("joined_at")
+        })
+
+    # All games played
+    players = await db.players.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(100)
+
+    games_by_group = {}
+    for p in players:
+        game = await db.game_nights.find_one(
+            {"game_id": p["game_id"]},
+            {"_id": 0, "game_id": 1, "group_id": 1, "status": 1, "created_at": 1}
+        )
+        if game:
+            group_id = game["group_id"]
+            if group_id not in games_by_group:
+                group = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
+                is_member = any(m["group_id"] == group_id for m in memberships)
+                games_by_group[group_id] = {
+                    "group_name": group["name"] if group else "Deleted Group",
+                    "is_current_member": is_member,
+                    "games": []
+                }
+            games_by_group[group_id]["games"].append({
+                "game_id": p["game_id"],
+                "net_result": p.get("net_result"),
+                "status": game["status"]
+            })
+
+    return {
+        "user": {
+            "user_id": user.user_id,
+            "email": user.email,
+            "name": user.name
+        },
+        "current_memberships": len(memberships),
+        "membership_details": membership_groups,
+        "total_games_played": len(players),
+        "groups_with_games": games_by_group
+    }
 
 # Include the router
 app.include_router(api_router)

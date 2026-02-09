@@ -34,12 +34,33 @@ export default function Dashboard() {
   const fetchData = async () => {
     try {
       const [statsRes, groupsRes, gamesRes, balancesRes] = await Promise.all([
-        axios.get(`${API}/stats/me`).catch(() => ({ data: {} })),
-        axios.get(`${API}/groups`).catch(() => ({ data: [] })),
-        axios.get(`${API}/games`).catch(() => ({ data: [] })),
-        axios.get(`${API}/ledger/balances`).catch(() => ({ data: {} }))
+        axios.get(`${API}/stats/me`).catch((err) => {
+          console.error('Stats API error:', err.response?.status, err.response?.data);
+          return { data: {} };
+        }),
+        axios.get(`${API}/groups`).catch((err) => {
+          console.error('Groups API error:', err.response?.status, err.response?.data);
+          if (err.response?.status === 401) {
+            toast.error("Session expired. Please log in again.");
+          }
+          return { data: [] };
+        }),
+        axios.get(`${API}/games`).catch((err) => {
+          console.error('Games API error:', err.response?.status, err.response?.data);
+          return { data: [] };
+        }),
+        axios.get(`${API}/ledger/balances`).catch((err) => {
+          console.error('Balances API error:', err.response?.status, err.response?.data);
+          return { data: {} };
+        })
       ]);
-      
+
+      console.log('Dashboard data loaded:', {
+        groupsCount: groupsRes.data?.length,
+        groups: groupsRes.data,
+        statsGames: statsRes.data?.total_games
+      });
+
       setStats(statsRes.data);
       setGroups(groupsRes.data || []);
       setActiveGames((gamesRes.data || []).filter(g => g.status === "active" || g.status === "scheduled"));

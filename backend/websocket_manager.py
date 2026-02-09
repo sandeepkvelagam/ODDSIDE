@@ -5,10 +5,27 @@ Uses Socket.IO for bidirectional communication
 
 import socketio
 import logging
+import jwt
+import os
 from datetime import datetime, timezone
 from typing import Optional
+from jwt import PyJWKClient
 
 logger = logging.getLogger(__name__)
+
+# Get Supabase configuration from environment
+SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+
+# Initialize JWKS client for RS256 verification (new Supabase signing keys)
+jwks_client = None
+if SUPABASE_URL:
+    try:
+        jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/jwks"
+        jwks_client = PyJWKClient(jwks_url)
+        logger.info(f"✅ JWKS client initialized: {jwks_url}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize JWKS client: {e}")
 
 # Create Socket.IO server with CORS
 sio = socketio.AsyncServer(
@@ -24,32 +41,116 @@ connected_users: dict[str, set[str]] = {}
 # Track game rooms: {game_id: set(user_id)}
 game_rooms: dict[str, set[str]] = {}
 
+# Track sid to user_id mapping
+sid_to_user: dict[str, str] = {}
+
+
+async def verify_supabase_jwt(token: str) -> Optional[dict]:
+    """
+    Verify Supabase JWT using either:
+    1. New JWKS method (RS256) - auto-fetches public keys
+    2. Legacy secret method (HS256) - uses shared secret
+    """
+    # Try new JWKS method first (RS256)
+    if jwks_client:
+        try:
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256"],
+                audience="authenticated"
+            )
+            logger.debug("JWT verified using JWKS (RS256)")
+            return payload
+        except Exception as e:
+            logger.debug(f"JWKS verification failed: {e}")
+
+    # Fallback to legacy secret method (HS256)
+    if SUPABASE_JWT_SECRET:
+        try:
+            payload = jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated"
+            )
+            logger.debug("JWT verified using legacy secret (HS256)")
+            return payload
+        except Exception as e:
+            logger.debug(f"Legacy secret verification failed: {e}")
+
+    return None
+
 
 @sio.event
 async def connect(sid, environ, auth):
-    """Handle new connection"""
-    user_id = auth.get('user_id') if auth else None
-    if user_id:
+    """Handle new connection with JWT verification"""
+    token = (auth or {}).get('token')
+
+    # If no token provided, reject connection
+    if not token:
+        logger.warning(f"Connection rejected - no token (sid: {sid})")
+        return False
+
+    # Check if we have any verification method configured
+    if not jwks_client and not SUPABASE_JWT_SECRET:
+        logger.warning(f"Connection rejected - no JWT verification method configured (sid: {sid})")
+        logger.warning("Set either SUPABASE_URL (for JWKS) or SUPABASE_JWT_SECRET (legacy)")
+        return False
+
+    try:
+        # Verify JWT token
+        payload = await verify_supabase_jwt(token)
+
+        if not payload:
+            logger.warning(f"Connection rejected - JWT verification failed (sid: {sid})")
+            return False
+
+        supabase_id = payload.get("sub")
+        if not supabase_id:
+            logger.warning(f"Connection rejected - no sub in token (sid: {sid})")
+            return False
+
+        # Store user_id (using supabase_id as the user identifier)
+        user_id = supabase_id
+
+        # Track connection
         if user_id not in connected_users:
             connected_users[user_id] = set()
         connected_users[user_id].add(sid)
-        await sio.save_session(sid, {'user_id': user_id})
-        logger.info(f"User {user_id} connected (sid: {sid})")
-    else:
-        logger.info(f"Anonymous connection (sid: {sid})")
+        sid_to_user[sid] = user_id
+
+        # Save session
+        await sio.save_session(sid, {'user_id': user_id, 'supabase_id': supabase_id})
+
+        logger.info(f"✅ User {user_id[:8]}... connected (sid: {sid})")
+        return True
+
+    except jwt.ExpiredSignatureError:
+        logger.warning(f"Connection rejected - token expired (sid: {sid})")
+        return False
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Connection rejected - invalid token (sid: {sid}): {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Connection error (sid: {sid}): {e}")
+        return False
 
 
 @sio.event
 async def disconnect(sid):
     """Handle disconnection"""
-    session = await sio.get_session(sid)
-    user_id = session.get('user_id') if session else None
-    
-    if user_id and user_id in connected_users:
-        connected_users[user_id].discard(sid)
-        if not connected_users[user_id]:
-            del connected_users[user_id]
-        
+    # Get user_id from sid mapping
+    user_id = sid_to_user.get(sid)
+
+    if user_id:
+        # Clean up connected_users tracking
+        if user_id in connected_users:
+            connected_users[user_id].discard(sid)
+            if not connected_users[user_id]:
+                del connected_users[user_id]
+
         # Leave all game rooms
         for game_id, users in list(game_rooms.items()):
             if user_id in users:
@@ -57,8 +158,13 @@ async def disconnect(sid):
                 await sio.leave_room(sid, f"game_{game_id}")
                 if not users:
                     del game_rooms[game_id]
-    
-    logger.info(f"Disconnected (sid: {sid})")
+
+        # Clean up sid mapping
+        del sid_to_user[sid]
+
+        logger.info(f"User {user_id} disconnected (sid: {sid})")
+    else:
+        logger.info(f"Disconnected (sid: {sid})")
 
 
 @sio.event

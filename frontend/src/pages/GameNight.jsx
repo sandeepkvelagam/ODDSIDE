@@ -477,7 +477,7 @@ export default function GameNight() {
             </SheetContent>
           </Sheet>
         </div>
-
+      </div> 
         {/* Game Header */}
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex items-start justify-between">

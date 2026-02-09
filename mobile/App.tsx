@@ -1,3 +1,4 @@
+import "./global.css";
 import { StatusBar } from "expo-status-bar";
 import RootNavigator from "./src/navigation/RootNavigator";
 

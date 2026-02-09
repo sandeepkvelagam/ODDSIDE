@@ -234,6 +234,23 @@ export default function Settlement() {
                           <span className="font-mono text-sm font-bold">
                             ${entry.amount.toFixed(0)}
                           </span>
+                          {/* Pay with Stripe button - only for the debtor */}
+                          {user?.user_id === entry.from_user_id && !isPaid && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handlePayWithStripe(entry.ledger_id)}
+                              disabled={payingLedgerId === entry.ledger_id}
+                              className="h-7 text-xs bg-[#635bff] hover:bg-[#5851db] text-white"
+                              data-testid={`pay-stripe-${entry.ledger_id}`}
+                            >
+                              {payingLedgerId === entry.ledger_id ? (
+                                <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Processing...</>
+                              ) : (
+                                <><CreditCard className="w-3 h-3 mr-1" /> Pay with Stripe</>
+                              )}
+                            </Button>
+                          )}
                           {canToggle && (
                             <Button
                               variant={isPaid ? "default" : "outline"}

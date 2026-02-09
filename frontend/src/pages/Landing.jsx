@@ -163,7 +163,7 @@ export default function Landing() {
             </div>
             
             <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out mb-6 sm:mb-8">
-              <Logo size="large" showTagline={true} className="justify-center" />
+              <Logo size="large" showTagline={false} className="justify-center" />
             </div>
             
             <h1 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-200 ease-out text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 text-foreground">

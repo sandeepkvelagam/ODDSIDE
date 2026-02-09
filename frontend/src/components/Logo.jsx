@@ -2,17 +2,17 @@ import { cn } from "@/lib/utils";
 
 export const Logo = ({ className, size = "default", showText = true, showTagline = false }) => {
   const sizes = {
-    small: { icon: "w-7 h-7", gap: "gap-1.5", text: "text-lg", tagline: "text-xs" },
-    default: { icon: "w-8 h-8", gap: "gap-2", text: "text-xl", tagline: "text-sm" },
-    large: { icon: "w-12 h-12", gap: "gap-2.5", text: "text-3xl", tagline: "text-base" }
+    small: { icon: "w-7 h-7", gap: "gap-1.5", text: "text-lg", tagline: "text-[10px]" },
+    default: { icon: "w-8 h-8", gap: "gap-1.5", text: "text-xl", tagline: "text-xs" },
+    large: { icon: "w-12 h-12", gap: "gap-2", text: "text-3xl", tagline: "text-sm" }
   };
 
   const { icon, gap, text, tagline } = sizes[size] || sizes.default;
 
   return (
-    <div className={cn("flex items-center", gap, className)}>
+    <div className={cn("inline-flex items-center", gap, className)}>
       {/* Kvitt Logo - Modern K mark */}
-      <div className={cn("relative flex-shrink-0", icon)}>
+      <div className={cn("relative flex-shrink-0 self-center", icon)}>
         <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           {/* Rounded square background */}
           <rect 
@@ -32,12 +32,12 @@ export const Logo = ({ className, size = "default", showText = true, showTagline
         </svg>
       </div>
       {showText && (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-0">
           <span className={cn("font-heading font-extrabold tracking-tight leading-none", text)}>
             Kvitt
           </span>
           {showTagline && (
-            <span className={cn("text-muted-foreground leading-tight", tagline)}>
+            <span className={cn("text-muted-foreground leading-none mt-0.5", tagline)}>
               Your side, <span className="text-primary font-medium">settled.</span>
             </span>
           )}

@@ -4,7 +4,16 @@
 Build **Kvitt** - a behavioral ledger app for home poker games.
 **Tagline: "Your side, settled."**
 
-## Latest Update: December 2025 (Session 3)
+## Latest Update: December 2025 (Session 4)
+
+### Current Session: Admin/Leave Group Flow Verification ✅
+- Verified DELETE `/api/groups/{group_id}/members/{member_id}` endpoint is working
+- Verified GroupHub.jsx has full UI implementation for:
+  - Admin removing members (with confirmation dialog)
+  - Members leaving groups (with confirmation dialog)  
+  - Protection for players in active games
+  - Proper role badges (Admin/Member)
+- Frontend compilation verified and working
 
 ### Phase 1: AI-Light Features ✅
 

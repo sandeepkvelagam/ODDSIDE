@@ -71,7 +71,6 @@ export default function RootNavigator() {
             backgroundColor: "#0B0B0F",
           },
           headerTintColor: "#fff",
-          headerShadowVisible: false,
         }}
       >
         {!session ? (

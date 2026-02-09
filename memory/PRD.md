@@ -299,8 +299,10 @@ Build **Kvitt** - a behavioral ledger app for home poker games.
 ---
 
 ## Known Issues / Technical Debt
-1. **Email Invites MOCKED**: Stored but no email sent
-2. **server.py Size**: 1700+ lines - refactor needed
+1. **Email Service**: Resend integration implemented but needs API key configuration for production
+2. **server.py Size**: 3000+ lines - critical refactor needed (split into routers)
+3. **GameNight.jsx Size**: 1370+ lines - should be split into smaller components
+4. **pytest Suite**: Authentication setup broken, needs fixing for CI
 
 ---
 

@@ -13,6 +13,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/types";
+import { friendlyAuthError } from "../utils/errors";
 
 type LoginScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, "Login">;
@@ -56,7 +57,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         // Navigation will happen automatically via auth state listener
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      const friendly = friendlyAuthError(error);
+      Alert.alert(friendly.title, friendly.detail);
     } finally {
       setLoading(false);
     }

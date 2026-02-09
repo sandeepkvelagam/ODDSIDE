@@ -17,13 +17,18 @@ logger = logging.getLogger(__name__)
 SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
 
+# JWKS client factory for clean refresh
+def make_jwks_client():
+    """Create JWKS client with 12-hour cache"""
+    jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/jwks"
+    return PyJWKClient(jwks_url, cache_keys=True, lifespan=43200)
+
 # Initialize JWKS client for RS256 verification (new Supabase signing keys)
 jwks_client = None
 if SUPABASE_URL:
     try:
-        jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/jwks"
-        jwks_client = PyJWKClient(jwks_url)
-        logger.info(f"✅ JWKS client initialized: {jwks_url}")
+        jwks_client = make_jwks_client()
+        logger.info(f"✅ JWKS client initialized (TTL: 12h)")
     except Exception as e:
         logger.warning(f"Failed to initialize JWKS client: {e}")
 
@@ -48,23 +53,39 @@ sid_to_user: dict[str, str] = {}
 async def verify_supabase_jwt(token: str) -> Optional[dict]:
     """
     Verify Supabase JWT using either:
-    1. New JWKS method (RS256) - auto-fetches public keys
+    1. New JWKS method (RS256) - auto-fetches public keys with retry on unknown kid
     2. Legacy secret method (HS256) - uses shared secret
     """
+    global jwks_client
+
     # Try new JWKS method first (RS256)
     if jwks_client:
-        try:
-            signing_key = jwks_client.get_signing_key_from_jwt(token)
-            payload = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=["RS256"],
-                audience="authenticated"
-            )
-            logger.debug("JWT verified using JWKS (RS256)")
-            return payload
-        except Exception as e:
-            logger.debug(f"JWKS verification failed: {e}")
+        for attempt in range(2):
+            try:
+                signing_key = jwks_client.get_signing_key_from_jwt(token)
+                payload = jwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=["RS256"],
+                    audience="authenticated"
+                )
+                logger.debug(f"JWT verified using JWKS (RS256)")
+                return payload
+            except jwt.exceptions.PyJWKClientError as e:
+                # Unknown kid - recreate client (clean refresh) and retry once
+                if attempt == 0 and "Unable to find" in str(e):
+                    logger.warning(f"Unknown kid, refreshing JWKS client (attempt {attempt + 1}/2)")
+                    try:
+                        jwks_client = make_jwks_client()
+                        continue
+                    except Exception as refresh_err:
+                        logger.error(f"Failed to refresh JWKS client: {refresh_err}")
+                        break
+                logger.debug(f"JWKS verification failed: {e}")
+                break
+            except Exception as e:
+                logger.debug(f"JWKS verification failed: {e}")
+                break
 
     # Fallback to legacy secret method (HS256)
     if SUPABASE_JWT_SECRET:
@@ -170,22 +191,68 @@ async def disconnect(sid):
 @sio.event
 async def join_game(sid, data):
     """User joins a game room for real-time updates"""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+
     session = await sio.get_session(sid)
     user_id = session.get('user_id') if session else None
     game_id = data.get('game_id')
-    
+
     if not user_id or not game_id:
+        logger.warning(f"join_game rejected - missing user_id or game_id (sid: {sid})")
         return {'error': 'Missing user_id or game_id'}
-    
-    room = f"game_{game_id}"
-    await sio.enter_room(sid, room)
-    
-    if game_id not in game_rooms:
-        game_rooms[game_id] = set()
-    game_rooms[game_id].add(user_id)
-    
-    logger.info(f"User {user_id} joined game room {game_id}")
-    return {'status': 'joined', 'room': room}
+
+    # AUTHORIZATION: Verify user has access to this game
+    try:
+        # Get database connection
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+        db_name = os.environ.get('DB_NAME', 'oddside')
+        client = AsyncIOMotorClient(mongo_url)
+        db = client[db_name]
+
+        # Check if user is in the game's group or is a player in the game
+        game = await db.game_nights.find_one({'_id': game_id})
+        if not game:
+            logger.warning(f"join_game rejected - game {game_id} not found (user: {user_id})")
+            return {'error': 'Game not found'}
+
+        group_id = game.get('group_id')
+        if not group_id:
+            logger.warning(f"join_game rejected - game {game_id} has no group_id")
+            return {'error': 'Invalid game'}
+
+        # Check if user is a member of the group
+        membership = await db.group_members.find_one({
+            'group_id': group_id,
+            'user_id': user_id,
+            'status': 'active'
+        })
+
+        if not membership:
+            # Also check if user is a player in this specific game (invited)
+            player = await db.players.find_one({
+                'game_id': game_id,
+                'user_id': user_id
+            })
+
+            if not player:
+                logger.warning(f"join_game rejected - user {user_id} not authorized for game {game_id}")
+                return {'error': 'Not authorized to join this game'}
+
+        # Authorization passed - join room
+        room = f"game_{game_id}"
+        await sio.enter_room(sid, room)
+
+        if game_id not in game_rooms:
+            game_rooms[game_id] = set()
+        game_rooms[game_id].add(user_id)
+
+        logger.info(f"✅ User {user_id} joined game room {game_id}")
+        return {'status': 'joined', 'room': room}
+
+    except Exception as e:
+        logger.error(f"join_game error for user {user_id}, game {game_id}: {e}")
+        return {'error': 'Authorization check failed'}
 
 
 @sio.event

@@ -4,9 +4,15 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { supabase } from "../lib/supabase";
 import LoginScreen from "../screens/LoginScreen";
 import TestScreen from "../screens/TestScreen";
-import { RootStackParamList } from "./types";
+import { MainStack } from "./MainStack";
 import { ActivityIndicator, View } from "react-native";
 import * as Linking from "expo-linking";
+
+type RootStackParamList = {
+  Login: undefined;
+  Test: undefined;
+  Main: undefined;
+};
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -38,13 +44,20 @@ export default function RootNavigator() {
       screens: {
         Login: "login",
         Test: "test",
+        Main: {
+          screens: {
+            Groups: "groups",
+            GroupHub: "group/:groupId",
+            GameNight: "game/:gameId",
+          },
+        },
       },
     },
   };
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0a0a0a" }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0B0B0F" }}>
         <ActivityIndicator size="large" color="#3b82f6" />
       </View>
     );
@@ -55,7 +68,7 @@ export default function RootNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerStyle: {
-            backgroundColor: "#0a0a0a",
+            backgroundColor: "#0B0B0F",
           },
           headerTintColor: "#fff",
           headerShadowVisible: false,
@@ -69,9 +82,9 @@ export default function RootNavigator() {
           />
         ) : (
           <Stack.Screen
-            name="Test"
-            component={TestScreen}
-            options={{ title: "Phase 0 Tests" }}
+            name="Main"
+            component={MainStack}
+            options={{ headerShown: false }}
           />
         )}
       </Stack.Navigator>

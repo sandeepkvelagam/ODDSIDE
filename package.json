@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "lodash.debounce": "^4.0.8"
+    "expo": "^54.0.33",
+    "lodash.debounce": "^4.0.8",
+    "react-dom": "19.1.0",
+    "react-native-web": "^0.21.0"
   }
 }

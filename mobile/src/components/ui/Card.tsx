@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, View, StyleSheet } from "react-native";
+import { Pressable, View } from "react-native";
 
 export function Card({
   children,
@@ -10,21 +10,18 @@ export function Card({
 }) {
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={styles.card}>
+      <Pressable
+        onPress={onPress}
+        className="bg-[#141421] border border-white/10 rounded-2xl p-4"
+      >
         {children}
       </Pressable>
     );
   }
 
-  return <View style={styles.card}>{children}</View>;
+  return (
+    <View className="bg-[#141421] border border-white/10 rounded-2xl p-4">
+      {children}
+    </View>
+  );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#141421",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 16,
-    padding: 16,
-  },
-});

@@ -1005,6 +1005,108 @@ async def remove_group_member(group_id: str, member_id: str, user: User = Depend
         
         return {"message": f"{member_name} has been removed from the group"}
 
+@api_router.put("/groups/{group_id}/transfer-admin")
+async def transfer_group_admin(group_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Transfer group admin role to another member (admin only)."""
+    group = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Validate current user is admin
+    current_membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not current_membership or current_membership.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only group admins can transfer ownership")
+
+    # Get target user ID from request
+    new_admin_id = data.get("new_admin_id")
+    if not new_admin_id:
+        raise HTTPException(status_code=400, detail="new_admin_id is required")
+
+    # Cannot transfer to self
+    if new_admin_id == user.user_id:
+        raise HTTPException(status_code=400, detail="Cannot transfer admin to yourself")
+
+    # Validate target user is a member
+    target_membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": new_admin_id},
+        {"_id": 0}
+    )
+    if not target_membership:
+        raise HTTPException(status_code=404, detail="Target user is not a member of this group")
+
+    # Check if target user is in active game (optional check for safety)
+    active_games = await db.game_nights.find(
+        {"group_id": group_id, "status": "active"},
+        {"_id": 0, "game_id": 1}
+    ).to_list(100)
+
+    for game in active_games:
+        player = await db.players.find_one(
+            {"game_id": game["game_id"], "user_id": new_admin_id, "cashed_out": {"$ne": True}},
+            {"_id": 0}
+        )
+        if player:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot transfer admin to a member who is currently in an active game"
+            )
+
+    # Update both memberships
+    await db.group_members.update_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"$set": {"role": "member"}}
+    )
+
+    await db.group_members.update_one(
+        {"group_id": group_id, "user_id": new_admin_id},
+        {"$set": {"role": "admin"}}
+    )
+
+    # Create audit log
+    audit = AuditLog(
+        entity_type="group",
+        entity_id=group_id,
+        action="transfer_admin",
+        old_value={"admin_id": user.user_id},
+        new_value={"admin_id": new_admin_id},
+        changed_by=user.user_id,
+        reason=f"Admin role transferred to {new_admin_id}"
+    )
+    audit_dict = audit.model_dump()
+    audit_dict["timestamp"] = audit_dict["timestamp"].isoformat()
+    await db.audit_logs.insert_one(audit_dict)
+
+    # Send notification to new admin
+    new_admin_user = await db.users.find_one({"user_id": new_admin_id}, {"_id": 0})
+    notification = Notification(
+        user_id=new_admin_id,
+        type="admin_transferred",
+        title="You're now a group admin!",
+        message=f"You've been promoted to admin of {group['name']}",
+        data={"group_id": group_id}
+    )
+    notif_dict = notification.model_dump()
+    notif_dict["created_at"] = notif_dict["created_at"].isoformat()
+    await db.notifications.insert_one(notif_dict)
+
+    # Emit real-time notification
+    await emit_notification(new_admin_id, {
+        "type": "admin_transferred",
+        "title": "You're now a group admin!",
+        "message": f"You've been promoted to admin of {group['name']}",
+        "group_id": group_id
+    })
+
+    logger.info(f"Admin transferred from {user.user_id} to {new_admin_id} in group {group_id}")
+
+    return {
+        "message": "Admin role transferred successfully",
+        "new_admin_name": new_admin_user.get("name", "Unknown") if new_admin_user else "Unknown"
+    }
+
 @api_router.get("/users/me/badges")
 async def get_my_badges(user: User = Depends(get_current_user)):
     """Get current user's badges and level progress."""

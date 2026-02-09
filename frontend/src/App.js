@@ -27,6 +27,32 @@ export const API = `${BACKEND_URL}/api`;
 // Configure axios defaults
 axios.defaults.withCredentials = true;
 
+// Setup axios interceptor to add auth token from Supabase
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+
+axios.interceptors.request.use(
+  async (config) => {
+    try {
+      // Only try to get session if Supabase is configured
+      if (isSupabaseConfigured() && supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        // Add auth token if available
+        if (session?.access_token) {
+          config.headers.Authorization = `Bearer ${session.access_token}`;
+        }
+      }
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Protected Route
 const ProtectedRoute = ({ children }) => {
   const { user, isLoading } = useAuth();

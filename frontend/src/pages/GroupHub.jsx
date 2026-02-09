@@ -30,6 +30,8 @@ export default function GroupHub() {
   const [stats, setStats] = useState(null);
   const [removeMemberDialog, setRemoveMemberDialog] = useState(null);
   const [leaveGroupDialog, setLeaveGroupDialog] = useState(false);
+  const [transferAdminDialog, setTransferAdminDialog] = useState(false);
+  const [selectedNewAdmin, setSelectedNewAdmin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [gameDialogOpen, setGameDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -131,6 +133,25 @@ export default function GroupHub() {
       navigate("/groups");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to leave group");
+    }
+  };
+
+  // Transfer admin (admin only)
+  const handleTransferAdmin = async () => {
+    if (!selectedNewAdmin) {
+      toast.error("Please select a new admin");
+      return;
+    }
+    try {
+      const response = await axios.put(`${API}/groups/${groupId}/transfer-admin`, {
+        new_admin_id: selectedNewAdmin
+      });
+      toast.success(response.data.message || "Admin role transferred successfully");
+      setTransferAdminDialog(false);
+      setSelectedNewAdmin(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to transfer admin");
     }
   };
 
@@ -318,28 +339,92 @@ export default function GroupHub() {
                   <Users className="w-4 h-4" />
                   MEMBERS ({group?.members?.length || 0})
                 </CardTitle>
-                {/* Leave Group Button (for non-admins) */}
-                {!isAdmin && (
-                  <Dialog open={leaveGroupDialog} onOpenChange={setLeaveGroupDialog}>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive">
-                        <LogOut className="w-3 h-3 mr-1" /> Leave
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-card border-border">
-                      <DialogHeader>
-                        <DialogTitle>Leave Group?</DialogTitle>
-                        <DialogDescription>
-                          Your game history and stats will be preserved, but you'll no longer have access to this group.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setLeaveGroupDialog(false)}>Cancel</Button>
-                        <Button variant="destructive" onClick={handleLeaveGroup}>Leave Group</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                )}
+                <div className="flex gap-2">
+                  {/* Transfer Admin Button (for admins) */}
+                  {isAdmin && group?.members?.length > 1 && (
+                    <Dialog open={transferAdminDialog} onOpenChange={setTransferAdminDialog}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-xs">
+                          <Shield className="w-3 h-3 mr-1" /> Transfer Admin
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-card border-border">
+                        <DialogHeader>
+                          <DialogTitle>Transfer Admin Role</DialogTitle>
+                          <DialogDescription>
+                            Select a member to promote to admin. You will become a regular member.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                          {group?.members
+                            ?.filter(m => m.user_id !== user?.user_id && m.role !== "admin")
+                            .map(member => {
+                              const inActiveGame = isMemberInActiveGame(member.user_id);
+                              return (
+                                <div
+                                  key={member.user_id}
+                                  className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                                    selectedNewAdmin === member.user_id
+                                      ? 'border-primary bg-primary/10'
+                                      : 'border-border bg-secondary/20 hover:border-primary/50'
+                                  } ${inActiveGame ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                  onClick={() => !inActiveGame && setSelectedNewAdmin(member.user_id)}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="w-8 h-8">
+                                      <AvatarImage src={member.user?.picture} />
+                                      <AvatarFallback>{member.user?.name?.[0] || '?'}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="text-sm font-medium">{member.user?.name || 'Unknown'}</p>
+                                      <p className="text-[10px] text-muted-foreground">{member.user?.email}</p>
+                                    </div>
+                                  </div>
+                                  {inActiveGame && (
+                                    <span className="text-[10px] text-yellow-500">In game</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => { setTransferAdminDialog(false); setSelectedNewAdmin(null); }}>
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleTransferAdmin}
+                            disabled={!selectedNewAdmin}
+                            className="bg-primary text-black hover:bg-primary/90"
+                          >
+                            Transfer Admin
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                  {/* Leave Group Button (for non-admins) */}
+                  {!isAdmin && (
+                    <Dialog open={leaveGroupDialog} onOpenChange={setLeaveGroupDialog}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive">
+                          <LogOut className="w-3 h-3 mr-1" /> Leave
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-card border-border">
+                        <DialogHeader>
+                          <DialogTitle>Leave Group?</DialogTitle>
+                          <DialogDescription>
+                            Your game history and stats will be preserved, but you'll no longer have access to this group.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setLeaveGroupDialog(false)}>Cancel</Button>
+                          <Button variant="destructive" onClick={handleLeaveGroup}>Leave Group</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-2">
                 {group?.members?.map(member => {

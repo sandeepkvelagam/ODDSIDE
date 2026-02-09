@@ -33,7 +33,7 @@ export default function RootNavigator() {
 
   // Deep linking configuration
   const linking = {
-    prefixes: ["oddside://"],
+    prefixes: ["kvitt://"],
     config: {
       screens: {
         Login: "login",

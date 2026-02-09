@@ -1,6 +1,6 @@
-# ODDSIDE Mobile - Phase 0
+# Kvitt Mobile - Phase 0
 
-React Native mobile app for ODDSIDE poker ledger.
+React Native mobile app for Kvitt game ledger (starting with poker, expanding to other games).
 
 ## Phase 0 Goals
 
@@ -10,7 +10,7 @@ This is a **de-risking** implementation to validate the mobile architecture befo
 2. ✅ Supabase login with SecureStore (session persistence)
 3. ✅ Authenticated API calls via axios interceptor
 4. ✅ Socket.IO connection with JWT auth
-5. ✅ Deep linking support (`oddside://`)
+5. ✅ Deep linking support (`kvitt://`)
 
 ## Setup
 
@@ -74,7 +74,7 @@ npm run web
    - ✅ Authentication: Shows your email
    - ✅ API Connection: Shows number of groups fetched
    - ✅ Socket.IO: Shows connection status and last event
-   - ✅ Deep Linking: Test with `oddside://test`
+   - ✅ Deep Linking: Test with `kvitt://test`
 
 ## Architecture
 
@@ -150,6 +150,6 @@ After Phase 0 validation:
 
 ### Deep links don't work
 
-1. For iOS simulator: `xcrun simctl openurl booted oddside://test`
-2. For Android: `adb shell am start -W -a android.intent.action.VIEW -d "oddside://test"`
-3. Verify `scheme: "oddside"` is in `app.json`
+1. For iOS simulator: `xcrun simctl openurl booted kvitt://test`
+2. For Android: `adb shell am start -W -a android.intent.action.VIEW -d "kvitt://test"`
+3. Verify `scheme: "kvitt"` is in `app.json`

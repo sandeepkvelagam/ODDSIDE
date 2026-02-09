@@ -68,8 +68,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>ODDSIDE</Text>
-        <Text style={styles.subtitle}>Poker Ledger</Text>
+        <Text style={styles.title}>Kvitt</Text>
+        <Text style={styles.subtitle}>Game Ledger</Text>
 
         <View style={styles.form}>
           <TextInput

@@ -185,7 +185,7 @@ export default function TestScreen() {
             <Text style={styles.label}>Status:</Text>
             <Text style={styles.value}>{deepLink}</Text>
           </View>
-          <Text style={styles.hint}>Test: oddside://test</Text>
+          <Text style={styles.hint}>Test: kvitt://test</Text>
         </View>
 
         {/* Actions */}

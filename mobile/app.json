@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "ODDSIDE Mobile",
-    "slug": "oddside-mobile",
+    "name": "Kvitt",
+    "slug": "kvitt-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "oddside",
+    "scheme": "kvitt",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",

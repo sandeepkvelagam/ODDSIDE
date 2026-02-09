@@ -273,18 +273,20 @@ Build **Kvitt** - a behavioral ledger app for home poker games.
 
 ## Prioritized Backlog
 
-### P0 - Critical (Completed This Session)
+### P0 - Critical (Completed)
 - [x] Auto buy-in on game start/join
 - [x] Host edit chips after cash-out with notification
 - [x] Notification navigation (View Game/Group buttons)
-- [x] Group admin controls (remove/leave members)
+- [x] Group admin controls (remove/leave members) ✅ Session 4
 
-### P1 - High Priority
-- [ ] Email notification service for invites (SendGrid/Resend)
-- [ ] Verify Supabase auth with actual login test
+### P1 - High Priority (In Progress)
+- [x] Email notification service (Resend integrated)
+- [x] WebSocket real-time updates
+- [x] AI Assistant (OpenAI GPT-5.2)
+- [x] Stripe premium subscriptions
+- [ ] Verify end-to-end testing with real users
 - [ ] Enhanced dashboard with charts
 - [ ] RSVP calendar for scheduled games
-- [ ] Push notifications (browser)
 
 ### P2 - Medium Priority
 - [ ] AI: Natural language session logging

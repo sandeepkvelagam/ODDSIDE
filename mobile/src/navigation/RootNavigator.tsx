@@ -6,7 +6,6 @@ import LoginScreen from "../screens/LoginScreen";
 import TestScreen from "../screens/TestScreen";
 import { MainStack } from "./MainStack";
 import { ActivityIndicator, View } from "react-native";
-import * as Linking from "expo-linking";
 
 type RootStackParamList = {
   Login: undefined;
@@ -37,24 +36,6 @@ export default function RootNavigator() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Deep linking configuration
-  const linking = {
-    prefixes: ["kvitt://"],
-    config: {
-      screens: {
-        Login: "login",
-        Test: "test",
-        Main: {
-          screens: {
-            Groups: "groups",
-            GroupHub: "group/:groupId",
-            GameNight: "game/:gameId",
-          },
-        },
-      },
-    },
-  };
-
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0B0B0F" }}>
@@ -64,13 +45,14 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer>
       <Stack.Navigator
         screenOptions={{
           headerStyle: {
             backgroundColor: "#0B0B0F",
           },
           headerTintColor: "#fff",
+          contentStyle: { backgroundColor: "#0B0B0F" },
         }}
       >
         {!session ? (

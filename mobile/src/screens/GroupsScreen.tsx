@@ -47,7 +47,7 @@ export function GroupsScreen() {
   }, [load]);
 
   return (
-    <View style={styles.container} data-testid="groups-screen">
+    <View style={styles.container} testID="groups-screen">
       {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
@@ -89,7 +89,7 @@ export function GroupsScreen() {
                 })
               }
               activeOpacity={0.7}
-              data-testid={`group-card-${item.group_id}`}
+              testID={`group-card-${item.group_id}`}
             >
               <View style={styles.groupAvatar}>
                 <Text style={styles.groupAvatarText}>

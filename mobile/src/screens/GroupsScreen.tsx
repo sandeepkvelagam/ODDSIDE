@@ -1,18 +1,24 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { FlatList, RefreshControl, Text, View, StyleSheet } from "react-native";
+import { FlatList, RefreshControl, Text, View, StyleSheet, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Screen } from "../components/ui/Screen";
-import { Card } from "../components/ui/Card";
-import { listGroups } from "../api/groups";
-import type { Group } from "../types";
-import type { MainStackParamList } from "../navigation/MainStack";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { api } from "../api/client";
+import type { RootStackParamList } from "../navigation/RootNavigator";
 
-type Nav = NativeStackNavigationProp<MainStackParamList, "Groups">;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+type GroupItem = {
+  group_id: string;
+  name: string;
+  member_count?: number;
+  role?: string;
+};
 
 export function GroupsScreen() {
   const navigation = useNavigation<Nav>();
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<GroupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,10 +26,11 @@ export function GroupsScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const data = await listGroups();
+      const res = await api.get("/groups");
+      const data = Array.isArray(res.data) ? res.data : [];
       setGroups(data);
     } catch (e: any) {
-      setError(e?.message ?? "Failed to load groups");
+      setError(e?.response?.data?.detail || e?.message || "Failed to load groups");
     } finally {
       setLoading(false);
     }
@@ -40,102 +47,146 @@ export function GroupsScreen() {
   }, [load]);
 
   return (
-    <Screen>
-      <View style={styles.header}>
-        <Text style={styles.title}>Groups</Text>
-        <Text style={styles.subtitle}>Pick a group to open games and members.</Text>
-      </View>
-
-      {error ? (
-        <View style={styles.errorContainer}>
+    <View style={styles.container} data-testid="groups-screen">
+      {error && (
+        <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
-      ) : null}
+      )}
 
       {loading && groups.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>Loading…</Text>
+          <Text style={styles.emptyText}>Loading groups...</Text>
         </View>
       ) : groups.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No groups yet.</Text>
-          <Text style={styles.emptySubtext}>Create one on web for now.</Text>
+          <Ionicons name="people-outline" size={40} color="#444" />
+          <Text style={styles.emptyTitle}>No Groups Yet</Text>
+          <Text style={styles.emptySubtext}>
+            Create a group on the web app to get started
+          </Text>
         </View>
       ) : (
         <FlatList
           data={groups}
-          keyExtractor={(g) => g._id}
-          contentContainerStyle={{ paddingBottom: 24 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          keyExtractor={(g) => g.group_id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#EF6E59"
+            />
+          }
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={({ item }) => (
-            <Card
+            <TouchableOpacity
+              style={styles.groupCard}
               onPress={() =>
-                navigation.navigate("GroupHub", { groupId: item._id, groupName: item.name })
+                navigation.navigate("GroupHub", {
+                  groupId: item.group_id,
+                  groupName: item.name,
+                })
               }
+              activeOpacity={0.7}
+              data-testid={`group-card-${item.group_id}`}
             >
-              <View style={styles.cardContent}>
-                <View>
-                  <Text style={styles.groupName}>{item.name}</Text>
-                  <Text style={styles.memberCount}>
-                    {item.member_count ?? "—"} members
-                  </Text>
-                </View>
-                <Text style={styles.arrow}>›</Text>
+              <View style={styles.groupAvatar}>
+                <Text style={styles.groupAvatarText}>
+                  {item.name?.[0]?.toUpperCase() || "G"}
+                </Text>
               </View>
-            </Card>
+              <View style={styles.groupInfo}>
+                <Text style={styles.groupName}>{item.name}</Text>
+                <Text style={styles.memberCount}>
+                  {item.member_count ?? 0} members
+                  {item.role ? ` · ${item.role}` : ""}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#555" />
+            </TouchableOpacity>
           )}
         />
       )}
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingVertical: 16,
+  container: {
+    flex: 1,
+    backgroundColor: "#0B0B0F",
   },
-  title: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "600",
+  listContent: {
+    padding: 16,
+    paddingBottom: 32,
   },
-  subtitle: {
-    color: "rgba(255,255,255,0.6)",
-    marginTop: 4,
-  },
-  errorContainer: {
-    marginBottom: 12,
+  errorBanner: {
+    margin: 16,
+    backgroundColor: "rgba(239,68,68,0.12)",
+    padding: 12,
+    borderRadius: 10,
   },
   errorText: {
-    color: "#f87171",
+    color: "#fca5a5",
+    fontSize: 13,
   },
   emptyContainer: {
-    marginTop: 40,
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  emptyTitle: {
+    color: "#888",
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 16,
   },
   emptyText: {
-    color: "rgba(255,255,255,0.7)",
+    color: "#888",
+    fontSize: 14,
   },
   emptySubtext: {
-    color: "rgba(255,255,255,0.4)",
+    color: "#555",
+    fontSize: 13,
     marginTop: 8,
+    textAlign: "center",
   },
-  cardContent: {
+  groupCard: {
+    backgroundColor: "#141421",
+    borderRadius: 14,
+    padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.04)",
+  },
+  groupAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(239,110,89,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  groupAvatarText: {
+    color: "#EF6E59",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  groupInfo: {
+    flex: 1,
   },
   groupName: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
   memberCount: {
-    color: "rgba(255,255,255,0.5)",
-    marginTop: 4,
-  },
-  arrow: {
-    color: "rgba(255,255,255,0.4)",
-    fontSize: 20,
+    color: "#777",
+    fontSize: 13,
+    marginTop: 3,
   },
 });

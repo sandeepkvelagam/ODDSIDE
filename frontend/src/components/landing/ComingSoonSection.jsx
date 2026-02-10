@@ -29,10 +29,10 @@ export default function ComingSoonSection() {
     <section className="py-20 sm:py-28 bg-secondary/30">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
+          <h2 className="scroll-animate text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
             What&apos;s <span className="text-[#EF6E59]">Next</span>
           </h2>
-          <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-muted-foreground max-w-lg mx-auto">
+          <p className="scroll-animate text-muted-foreground max-w-lg mx-auto" style={{ transitionDelay: '100ms' }}>
             We&apos;re building features to make your game nights even better.
           </p>
         </div>
@@ -41,7 +41,7 @@ export default function ComingSoonSection() {
           {items.map((item, i) => (
             <div
               key={i}
-              className="scroll-animate-scale transition-all duration-700 ease-out bg-white/60 backdrop-blur-sm rounded-2xl border border-border/30 p-5 sm:p-6 relative"
+              className="scroll-animate-scale bg-white/60 backdrop-blur-sm rounded-2xl border border-border/30 p-5 sm:p-6 relative"
               style={{ transitionDelay: `${i * 150}ms` }}
             >
               <div className="absolute top-3 right-3">

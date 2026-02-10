@@ -16,12 +16,12 @@ export default function ComparisonSection() {
     <section className="py-20 sm:py-28 bg-white">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
+          <h2 className="scroll-animate text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
             Why <span className="text-[#EF6E59]">Kvitt</span>?
           </h2>
         </div>
 
-        <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-200 ease-out">
+        <div className="scroll-animate-scale" style={{ transitionDelay: '200ms' }}>
           <div className="bg-white border border-border/30 rounded-2xl overflow-hidden shadow-card">
             <div className="grid grid-cols-3 p-3 sm:p-4 bg-secondary/50">
               <div className="font-bold text-foreground text-xs sm:text-sm">

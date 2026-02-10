@@ -63,6 +63,10 @@ export default function StickyHeader() {
             </div>
           </div>
         </div>
+        {/* Orange gradient separator on dark hero */}
+        {!scrolled && (
+          <div className="h-[1px] bg-gradient-to-r from-transparent via-[#EF6E59]/30 to-transparent" />
+        )}
       </header>
 
       {/* Mobile header */}

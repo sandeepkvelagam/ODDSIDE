@@ -13,21 +13,25 @@ export default function CTASection() {
       />
 
       <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <Logo size="large" showTagline={false} dark className="justify-center mb-6" />
-        <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">
+        <div className="scroll-animate">
+          <Logo size="large" showTagline={false} dark className="justify-center mb-6" />
+        </div>
+        <h2 className="scroll-animate text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight" style={{ transitionDelay: '100ms' }}>
           Ready to up your game?
         </h2>
-        <p className="text-gray-400 text-base sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed">
+        <p className="scroll-animate text-gray-400 text-base sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed" style={{ transitionDelay: '200ms' }}>
           Join players who&apos;ve ditched spreadsheets for Kvitt. Track,
           settle, play — all in one place.
         </p>
-        <Link to="/login">
-          <Button className="bg-[#EF6E59] hover:bg-[#e85d47] text-white h-12 sm:h-14 px-8 sm:px-10 rounded-full font-semibold text-base transition-all hover:scale-105">
-            Start Tracking Free
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
-        </Link>
-        <p className="text-gray-500 text-sm mt-4">No credit card required</p>
+        <div className="scroll-animate" style={{ transitionDelay: '300ms' }}>
+          <Link to="/login">
+            <Button className="bg-[#EF6E59] hover:bg-[#e85d47] text-white h-12 sm:h-14 px-8 sm:px-10 rounded-full font-semibold text-base transition-all hover:scale-105">
+              Start Tracking Free
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </Link>
+          <p className="text-gray-500 text-sm mt-4">No credit card required</p>
+        </div>
       </div>
     </section>
   );

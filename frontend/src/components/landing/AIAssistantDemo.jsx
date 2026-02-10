@@ -114,7 +114,7 @@ export default function AIAssistantDemo() {
         <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
           {/* Text */}
           <div className="order-2 md:order-1">
-            <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out">
+            <div className="scroll-animate-left">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#EF6E59]/10 text-[#EF6E59] text-sm font-medium mb-4">
                 <Brain className="w-4 h-4" />
                 AI Poker Assistant
@@ -139,7 +139,7 @@ export default function AIAssistantDemo() {
           </div>
 
           {/* Demo card */}
-          <div className="order-1 md:order-2 scroll-animate-scale transition-all duration-700 ease-out">
+          <div className="order-1 md:order-2 scroll-animate-scale">
             <div className="relative rounded-2xl border-2 border-dashed border-border/50 shadow-card overflow-hidden bg-white/80 backdrop-blur-sm">
               {/* Coming Soon badge */}
               <div className="absolute top-3 right-3 z-20">

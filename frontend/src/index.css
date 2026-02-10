@@ -193,7 +193,15 @@ code {
    Landing page scroll-reveal animations
    ============================================ */
 
-/* Base scroll-animate reveal (moved from inline style in Landing.jsx) */
+/* Base scroll-animate — fade up (dramatic 40px travel) */
+.scroll-animate {
+    opacity: 0;
+    transform: translateY(40px);
+    transition-property: opacity, transform;
+    transition-duration: 0.9s;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .scroll-animate.animate-in {
     opacity: 1 !important;
     transform: translateY(0) !important;
@@ -202,22 +210,28 @@ code {
 /* Fade in from left */
 .scroll-animate-left {
     opacity: 0;
-    transform: translateX(-30px);
-    transition: all 0.7s ease-out;
+    transform: translateX(-60px);
+    transition-property: opacity, transform;
+    transition-duration: 0.9s;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Fade in from right */
 .scroll-animate-right {
     opacity: 0;
-    transform: translateX(30px);
-    transition: all 0.7s ease-out;
+    transform: translateX(60px);
+    transition-property: opacity, transform;
+    transition-duration: 0.9s;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Scale up */
 .scroll-animate-scale {
     opacity: 0;
-    transform: scale(0.92);
-    transition: all 0.7s ease-out;
+    transform: scale(0.82);
+    transition-property: opacity, transform;
+    transition-duration: 0.9s;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .scroll-animate-left.animate-in,
@@ -226,6 +240,15 @@ code {
     opacity: 1 !important;
     transform: none !important;
 }
+
+/* Staggered children — auto-delay each child */
+.stagger-children > *:nth-child(1) { transition-delay: 0ms; }
+.stagger-children > *:nth-child(2) { transition-delay: 120ms; }
+.stagger-children > *:nth-child(3) { transition-delay: 240ms; }
+.stagger-children > *:nth-child(4) { transition-delay: 360ms; }
+.stagger-children > *:nth-child(5) { transition-delay: 480ms; }
+.stagger-children > *:nth-child(6) { transition-delay: 600ms; }
+.stagger-children > *:nth-child(7) { transition-delay: 720ms; }
 
 /* Gradient line decoration */
 .gradient-line {

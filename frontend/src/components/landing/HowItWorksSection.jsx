@@ -29,10 +29,10 @@ export default function HowItWorksSection() {
     <section id="how-it-works" className="py-20 sm:py-28 bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
+          <h2 className="scroll-animate text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
             How <span className="text-[#EF6E59]">Kvitt</span> Works
           </h2>
-          <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-muted-foreground max-w-xl mx-auto">
+          <p className="scroll-animate text-muted-foreground max-w-xl mx-auto" style={{ transitionDelay: '100ms' }}>
             From group creation to settlement in three simple steps.
           </p>
         </div>
@@ -41,7 +41,7 @@ export default function HowItWorksSection() {
           {cards.map((card, i) => (
             <div
               key={i}
-              className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out relative text-center p-6 sm:p-8 rounded-2xl bg-secondary/30 border border-border/30"
+              className="scroll-animate relative text-center p-6 sm:p-8 rounded-2xl bg-secondary/30 border border-border/30"
               style={{ transitionDelay: `${i * 150}ms` }}
             >
               <span

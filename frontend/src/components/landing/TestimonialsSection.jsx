@@ -52,10 +52,10 @@ export default function TestimonialsSection() {
     <section className="py-20 sm:py-28 bg-secondary/30 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
+          <h2 className="scroll-animate text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
             Trusted by Players
           </h2>
-          <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-muted-foreground">
+          <p className="scroll-animate text-muted-foreground" style={{ transitionDelay: '100ms' }}>
             Real stories from hosts who run better game nights.
           </p>
         </div>

@@ -48,20 +48,20 @@ export default function FAQSection() {
     <section id="faq" className="py-20 sm:py-28 bg-white">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
+          <h2 className="scroll-animate text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
             Frequently Asked Questions
           </h2>
-          <p className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 delay-100 ease-out text-muted-foreground">
+          <p className="scroll-animate text-muted-foreground" style={{ transitionDelay: '100ms' }}>
             Everything you need to know about Kvitt.
           </p>
         </div>
 
-        <Accordion type="single" collapsible className="space-y-2">
+        <Accordion type="single" collapsible className="space-y-2 stagger-children">
           {faqs.map((faq, i) => (
             <AccordionItem
               key={i}
               value={`faq-${i}`}
-              className="border border-border/30 rounded-xl px-4 data-[state=open]:bg-secondary/30 transition-colors"
+              className="scroll-animate border border-border/30 rounded-xl px-4 data-[state=open]:bg-secondary/30 transition-colors"
             >
               <AccordionTrigger className="text-sm sm:text-base font-semibold hover:no-underline text-left">
                 {faq.question}

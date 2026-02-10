@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
-  Play, ArrowRight, Shield, Check, X, Music,
+  Play, ArrowRight, Shield, Check, X, Music, LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,9 @@ export default function LiveGameDemo() {
   const [chipBank, setChipBank] = useState(0);
   const [showRequest, setShowRequest] = useState(false);
   const [requestHandled, setRequestHandled] = useState(false);
+  const [showCashout, setShowCashout] = useState(false);
+  const [cashoutChips, setCashoutChips] = useState("");
+  const [cashoutSubmitted, setCashoutSubmitted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef(null);
   const timeoutsRef = useRef([]);
@@ -59,8 +62,11 @@ export default function LiveGameDemo() {
       setChipBank(0);
       setShowRequest(false);
       setRequestHandled(false);
+      setShowCashout(false);
+      setCashoutChips("");
+      setCashoutSubmitted(false);
 
-      // Phase 1: Players join (0-3s)
+      // Phase 1: Players join (0-3.5s)
       playerData.forEach((p, i) => {
         const t = setTimeout(() => {
           setPlayers((prev) => [
@@ -72,7 +78,7 @@ export default function LiveGameDemo() {
         timeoutsRef.current.push(t);
       });
 
-      // Phase 2: Game running (3-8s) - timer starts
+      // Phase 2: Game running (3.5s) - timer starts
       const startTimer = setTimeout(() => {
         setPhase(1);
         timerRef.current = setInterval(
@@ -82,13 +88,13 @@ export default function LiveGameDemo() {
       }, 3500);
       timeoutsRef.current.push(startTimer);
 
-      // Phase 3: Buy-in request (5s)
+      // Phase 3: Buy-in request (5.5s)
       const requestTime = setTimeout(() => {
         setShowRequest(true);
       }, 5500);
       timeoutsRef.current.push(requestTime);
 
-      // Auto-approve request (7s)
+      // Auto-approve request (7.5s)
       const approveTime = setTimeout(() => {
         setRequestHandled(true);
         setShowRequest(false);
@@ -101,23 +107,65 @@ export default function LiveGameDemo() {
       }, 7500);
       timeoutsRef.current.push(approveTime);
 
-      // Phase 4: Cash-outs (9-12s)
+      // Phase 5 (NEW): Sarah self-cashout (8.5s) — show cashout popup
+      const cashoutShow = setTimeout(() => {
+        setShowCashout(true);
+      }, 8500);
+      timeoutsRef.current.push(cashoutShow);
+
+      // Simulate typing "2" at 9s
+      const typeDigit1 = setTimeout(() => {
+        setCashoutChips("2");
+      }, 9000);
+      timeoutsRef.current.push(typeDigit1);
+
+      // Simulate typing "28" at 9.5s
+      const typeDigit2 = setTimeout(() => {
+        setCashoutChips("28");
+      }, 9500);
+      timeoutsRef.current.push(typeDigit2);
+
+      // Auto-click submit at 10.5s
+      const cashoutSubmit = setTimeout(() => {
+        setCashoutSubmitted(true);
+        setShowCashout(false);
+        // Update Sarah's row to show (out) with chips: 28
+        setPlayers((prev) =>
+          prev.map((p) =>
+            p.name === "Sarah K."
+              ? { ...p, chips: 28, status: "cashed_out" }
+              : p
+          )
+        );
+      }, 10500);
+      timeoutsRef.current.push(cashoutSubmit);
+
+      // Phase 6: Remaining players cash out (12s)
       const cashOut = setTimeout(() => {
         setPhase(2);
         if (timerRef.current) clearInterval(timerRef.current);
         setPlayers((prev) =>
-          prev.map((p) => ({
-            ...p,
-            chips: p.finalChips,
-            profit: p.finalChips - p.buyIn,
-            status: "cashed_out",
-          }))
+          prev.map((p) => {
+            // Sarah already cashed out
+            if (p.name === "Sarah K.") {
+              return {
+                ...p,
+                profit: p.chips - p.buyIn,
+              };
+            }
+            return {
+              ...p,
+              chips: p.finalChips,
+              profit: p.finalChips - p.buyIn,
+              status: "cashed_out",
+            };
+          })
         );
-      }, 10000);
+      }, 12000);
       timeoutsRef.current.push(cashOut);
 
-      // Reset
-      const reset = setTimeout(runDemo, 16000);
+      // Reset (18s)
+      const reset = setTimeout(runDemo, 18000);
       timeoutsRef.current.push(reset);
     };
 
@@ -224,6 +272,41 @@ export default function LiveGameDemo() {
                 )}
               </div>
 
+              {/* Cashout popup - fixed height to prevent layout shift */}
+              <div className="h-[56px]">
+                {showCashout && !cashoutSubmitted && (
+                  <div className="mx-4 p-3 rounded-xl bg-violet-50 border border-violet-200 animate-fade-in-up">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <LogOut className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-violet-800">
+                            Cash Out
+                          </p>
+                          <p className="text-[10px] text-violet-600">
+                            Sarah K. — chips:{" "}
+                            <span className="font-mono font-bold">
+                              {cashoutChips}
+                              <span className="inline-block w-px h-3 bg-violet-400 ml-px animate-pulse align-middle" />
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        className={cn(
+                          "text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors",
+                          cashoutChips === "28"
+                            ? "bg-violet-600 text-white"
+                            : "bg-violet-200 text-violet-400"
+                        )}
+                      >
+                        Submit Cash Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Music bar - Coming Soon */}
               <div className="px-4 pb-3">
                 <div className="relative rounded-xl bg-secondary/50 border border-border/20 p-2.5 overflow-hidden">
@@ -248,7 +331,7 @@ export default function LiveGameDemo() {
 
           {/* Text */}
           <div>
-            <div className="scroll-animate opacity-0 translate-y-4 transition-all duration-700 ease-out">
+            <div className="scroll-animate-right">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#EF6E59]/10 text-[#EF6E59] text-sm font-medium mb-4">
                 <Play className="w-4 h-4" />
                 Live Game Mode

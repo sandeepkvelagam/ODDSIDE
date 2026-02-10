@@ -9,9 +9,13 @@ import {
   ScrollView,
   Pressable,
 } from "react-native";
+import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDrawer } from "../context/DrawerContext";
+import { ProfileChip } from "./ProfileChip";
+import { FloatingActionButton } from "./FloatingActionButton";
+import { COLORS, BLUR_INTENSITY } from "../styles/glass";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.82;
@@ -86,27 +90,58 @@ export function AppDrawer({
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={isOpen ? "auto" : "none"}>
-      {/* Overlay */}
+      {/* Overlay with blur */}
       <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
+        <BlurView intensity={12} tint="dark" style={StyleSheet.absoluteFill} />
         <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} />
       </Animated.View>
 
-      {/* Drawer */}
+      {/* Drawer with glass styling */}
       <Animated.View
         style={[
           styles.drawer,
           {
             width: DRAWER_WIDTH,
-            paddingTop: insets.top + 12,
-            paddingBottom: insets.bottom + 12,
+            paddingTop: insets.top + 16,
+            paddingBottom: insets.bottom + 16,
             transform: [{ translateX }],
           },
         ]}
       >
+        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>Kvitt</Text>
         </View>
+
+        {/* Recents Section - "All chats" style */}
+        {recentItems.length > 0 && (
+          <View style={styles.recentsSection}>
+            <TouchableOpacity style={styles.recentsHeader} activeOpacity={0.7}>
+              <Text style={styles.recentsTitle}>All games</Text>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            <ScrollView style={styles.recentsList} showsVerticalScrollIndicator={false}>
+              {recentItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.recentItem}
+                  onPress={() => {
+                    item.onPress();
+                    closeDrawer();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.recentTitle} numberOfLines={1}>{item.title}</Text>
+                  {item.subtitle && (
+                    <Text style={styles.recentSubtitle} numberOfLines={1}>{item.subtitle}</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
@@ -120,7 +155,9 @@ export function AppDrawer({
               }}
               activeOpacity={0.7}
             >
-              <Ionicons name={item.icon} size={22} color="#fff" style={styles.menuIcon} />
+              <View style={styles.menuIconBox}>
+                <Ionicons name={item.icon} size={20} color={COLORS.textPrimary} />
+              </View>
               <Text style={styles.menuLabel}>{item.label}</Text>
               {item.badge && item.badge > 0 && (
                 <View style={styles.badge}>
@@ -131,60 +168,20 @@ export function AppDrawer({
           ))}
         </View>
 
-        {/* Recents Section */}
-        {recentItems.length > 0 && (
-          <View style={styles.recentsSection}>
-            <Text style={styles.recentsTitle}>Recents</Text>
-            <ScrollView style={styles.recentsList} showsVerticalScrollIndicator={false}>
-              {recentItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.recentItem}
-                  onPress={() => {
-                    item.onPress();
-                    closeDrawer();
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.recentTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  {item.subtitle && (
-                    <Text style={styles.recentSubtitle} numberOfLines={1}>
-                      {item.subtitle}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
         {/* Spacer */}
         <View style={{ flex: 1 }} />
 
-        {/* Bottom Profile Bar */}
+        {/* Bottom Profile Bar - Glass style */}
         <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.profileButton}
+          <ProfileChip 
+            name={userName} 
             onPress={onProfilePress}
-            activeOpacity={0.7}
-          >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{userName[0]?.toUpperCase() || "?"}</Text>
-            </View>
-            <Text style={styles.profileName} numberOfLines={1}>
-              {userName}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.newButton}
+            testID="drawer-profile-chip"
+          />
+          <FloatingActionButton 
             onPress={onNewPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add-circle" size={28} color="#f97316" />
-          </TouchableOpacity>
+            testID="drawer-fab"
+          />
         </View>
       </Animated.View>
     </View>
@@ -194,25 +191,64 @@ export function AppDrawer({
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
   drawer: {
     position: "absolute",
     top: 0,
     left: 0,
     bottom: 0,
-    backgroundColor: "#0f0f0f",
+    backgroundColor: "rgba(20,20,20,0.85)",
     borderRightWidth: 1,
-    borderRightColor: "rgba(255,255,255,0.08)",
+    borderRightColor: COLORS.border,
+    overflow: "hidden",
   },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   logo: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#fff",
+    color: COLORS.textPrimary,
+    zIndex: 1,
+  },
+  recentsSection: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  recentsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 4,
+  },
+  recentsTitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
+  },
+  recentsList: {
+    maxHeight: 160,
+  },
+  recentItem: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  recentTitle: {
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    fontWeight: "500",
+  },
+  recentSubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   menuSection: {
     paddingHorizontal: 12,
@@ -220,25 +256,33 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 10,
+    zIndex: 1,
   },
-  menuIcon: {
-    marginRight: 14,
-    opacity: 0.9,
+  menuIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   menuLabel: {
     fontSize: 16,
-    color: "#fff",
+    color: COLORS.textPrimary,
     fontWeight: "500",
     flex: 1,
   },
   badge: {
-    backgroundColor: "#f97316",
+    backgroundColor: COLORS.orange,
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 22,
+    height: 22,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 6,
@@ -246,78 +290,16 @@ const styles = StyleSheet.create({
   badgeText: {
     color: "#fff",
     fontSize: 11,
-    fontWeight: "600",
-  },
-  recentsSection: {
-    marginTop: 24,
-    paddingHorizontal: 12,
-    flex: 1,
-    maxHeight: 280,
-  },
-  recentsTitle: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.5)",
-    fontWeight: "500",
-    marginBottom: 12,
-    paddingHorizontal: 12,
-  },
-  recentsList: {
-    flex: 1,
-  },
-  recentItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  recentTitle: {
-    fontSize: 15,
-    color: "#fff",
-    fontWeight: "400",
-  },
-  recentSubtitle: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.4)",
-    marginTop: 2,
+    fontWeight: "700",
   },
   bottomBar: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.08)",
-  },
-  profileButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginRight: 12,
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#3b82f6",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  avatarText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  profileName: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
-    flex: 1,
-  },
-  newButton: {
-    padding: 4,
+    borderTopColor: COLORS.borderLight,
+    zIndex: 1,
   },
 });

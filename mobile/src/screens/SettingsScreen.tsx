@@ -7,21 +7,21 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  Switch,
 } from "react-native";
+import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
+import { COLORS, BLUR_INTENSITY, glassStyles } from "../styles/glass";
 
 export function SettingsScreen() {
   const { user, signOut } = useAuth();
+  const [hapticEnabled, setHapticEnabled] = React.useState(true);
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: signOut,
-      },
+      { text: "Sign Out", style: "destructive", onPress: signOut },
     ]);
   };
 
@@ -31,84 +31,156 @@ export function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Profile Card */}
-      <View style={styles.profileCard}>
-        <View style={styles.profileAvatar}>
-          <Text style={styles.profileAvatarText}>
-            {(user?.name || user?.email || "?")[0].toUpperCase()}
-          </Text>
-        </View>
-        <Text style={styles.profileName}>{user?.name || "Player"}</Text>
-        <Text style={styles.profileEmail}>{user?.email || ""}</Text>
+      {/* Email Banner */}
+      <View style={styles.emailBanner}>
+        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+        <Text style={styles.emailText}>{user?.email || ""}</Text>
       </View>
 
-      {/* Account Section */}
-      <Text style={styles.sectionTitle}>ACCOUNT</Text>
+      {/* Profile Section */}
       <View style={styles.card}>
-        <TouchableOpacity style={styles.menuItem} onPress={openWebApp}>
-          <View style={[styles.menuIconBox, { backgroundColor: "rgba(59,130,246,0.12)" }]}>
-            <Ionicons name="person-outline" size={20} color="#3b82f6" />
+        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={openWebApp} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="person-outline" size={20} color={COLORS.textPrimary} />
           </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>Edit Profile</Text>
-            <Text style={styles.menuSubtext}>Manage on web app</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#444" />
+          <Text style={styles.menuLabel}>Profile</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
         </TouchableOpacity>
-
+        
         <View style={styles.divider} />
-
-        <TouchableOpacity style={styles.menuItem} onPress={openWebApp}>
-          <View style={[styles.menuIconBox, { backgroundColor: "rgba(245,158,11,0.12)" }]}>
-            <Ionicons name="star-outline" size={20} color="#f59e0b" />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={openWebApp} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="card-outline" size={20} color={COLORS.textPrimary} />
           </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>Premium</Text>
-            <Text style={styles.menuSubtext}>Upgrade for more features</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#444" />
+          <Text style={styles.menuLabel}>Billing</Text>
+          <Text style={styles.menuRightText}>Free plan</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
         </TouchableOpacity>
       </View>
 
-      {/* App Section */}
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>APP</Text>
-      <View style={styles.card}>
-        <TouchableOpacity style={styles.menuItem} onPress={openWebApp}>
-          <View style={[styles.menuIconBox, { backgroundColor: "rgba(34,197,94,0.12)" }]}>
-            <Ionicons name="globe-outline" size={20} color="#22c55e" />
+      {/* Capabilities Section */}
+      <View style={[styles.card, { marginTop: 16 }]}>
+        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="options-outline" size={20} color={COLORS.textPrimary} />
           </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>Open Web App</Text>
-            <Text style={styles.menuSubtext}>Full features on web</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#444" />
+          <Text style={styles.menuLabel}>Capabilities</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
         </TouchableOpacity>
-
+        
         <View style={styles.divider} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="extension-puzzle-outline" size={20} color={COLORS.textPrimary} />
+          </View>
+          <Text style={styles.menuLabel}>Connectors</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+        
+        <View style={styles.divider} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="people-outline" size={20} color={COLORS.textPrimary} />
+          </View>
+          <Text style={styles.menuLabel}>Permissions</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+      </View>
 
+      {/* App Settings Section */}
+      <View style={[styles.card, { marginTop: 16 }]}>
+        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="moon-outline" size={20} color={COLORS.textPrimary} />
+          </View>
+          <Text style={styles.menuLabel}>Appearance</Text>
+          <Text style={styles.menuRightText}>System</Text>
+          <Ionicons name="chevron-expand" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+        
+        <View style={styles.divider} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="globe-outline" size={20} color={COLORS.textPrimary} />
+          </View>
+          <Text style={styles.menuLabel}>Speech language</Text>
+          <Text style={styles.menuRightText}>EN</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+        
+        <View style={styles.divider} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="notifications-outline" size={20} color={COLORS.textPrimary} />
+          </View>
+          <Text style={styles.menuLabel}>Notifications</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+        
+        <View style={styles.divider} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="shield-outline" size={20} color={COLORS.textPrimary} />
+          </View>
+          <Text style={styles.menuLabel}>Privacy</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+        
+        <View style={styles.divider} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={openWebApp} activeOpacity={0.7}>
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="link-outline" size={20} color={COLORS.textPrimary} />
+          </View>
+          <Text style={styles.menuLabel}>Shared links</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Haptic Feedback Toggle */}
+      <View style={[styles.card, { marginTop: 16 }]}>
+        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+        
         <View style={styles.menuItem}>
-          <View style={[styles.menuIconBox, { backgroundColor: "rgba(255,255,255,0.06)" }]}>
-            <Ionicons name="information-circle-outline" size={20} color="#888" />
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="phone-portrait-outline" size={20} color={COLORS.textPrimary} />
           </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>Version</Text>
-            <Text style={styles.menuSubtext}>0.4.0 (Mobile Beta)</Text>
-          </View>
+          <Text style={styles.menuLabel}>Haptic feedback</Text>
+          <Switch
+            value={hapticEnabled}
+            onValueChange={setHapticEnabled}
+            trackColor={{ false: "rgba(255,255,255,0.1)", true: "#3b82f6" }}
+            thumbColor="#fff"
+          />
         </View>
       </View>
 
       {/* Sign Out */}
-      <TouchableOpacity
-        style={styles.signOutButton}
-        onPress={handleSignOut}
-        data-testid="sign-out-button"
-      >
-        <Ionicons name="log-out-outline" size={18} color="#ef4444" />
-        <Text style={styles.signOutText}>Sign Out</Text>
-      </TouchableOpacity>
+      <View style={[styles.card, { marginTop: 16 }]}>
+        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+        
+        <TouchableOpacity style={styles.menuItem} onPress={handleSignOut} activeOpacity={0.7} data-testid="sign-out-button">
+          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+            <Ionicons name="log-out-outline" size={20} color={COLORS.textPrimary} />
+          </View>
+          <Text style={styles.menuLabel}>Log out</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Kvitt - Your side, settled.</Text>
+        <Text style={styles.footerText}>Kvitt v0.4.0</Text>
       </View>
     </ScrollView>
   );
@@ -117,111 +189,73 @@ export function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B0B0F",
+    backgroundColor: "#141414",
   },
   content: {
     padding: 16,
     paddingBottom: 40,
   },
-  profileCard: {
-    backgroundColor: "#141421",
+  emailBanner: {
+    backgroundColor: COLORS.surface,
     borderRadius: 14,
-    padding: 24,
-    alignItems: "center",
-    marginBottom: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.04)",
+    borderColor: COLORS.border,
+    overflow: "hidden",
   },
-  profileAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: "rgba(239,110,89,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  profileAvatarText: {
-    color: "#EF6E59",
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  profileName: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  profileEmail: {
-    color: "#777",
-    fontSize: 13,
-    marginTop: 4,
-  },
-  sectionTitle: {
-    color: "#666",
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 1,
-    marginBottom: 10,
+  emailText: {
+    color: COLORS.textPrimary,
+    fontSize: 15,
+    fontWeight: "500",
+    zIndex: 1,
   },
   card: {
-    backgroundColor: "#141421",
-    borderRadius: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.04)",
+    borderColor: COLORS.border,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    zIndex: 1,
   },
-  menuIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    justifyContent: "center",
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
-  menuContent: {
-    flex: 1,
-  },
   menuLabel: {
-    color: "#fff",
-    fontSize: 15,
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: 16,
     fontWeight: "500",
   },
-  menuSubtext: {
-    color: "#666",
-    fontSize: 12,
-    marginTop: 2,
+  menuRightText: {
+    color: COLORS.textSecondary,
+    fontSize: 15,
+    fontWeight: "500",
+    marginRight: 8,
   },
   divider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: COLORS.borderLight,
     marginLeft: 60,
-  },
-  signOutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(239,68,68,0.08)",
-    padding: 14,
-    borderRadius: 12,
-    marginTop: 28,
-    gap: 8,
-  },
-  signOutText: {
-    color: "#ef4444",
-    fontSize: 15,
-    fontWeight: "600",
   },
   footer: {
     alignItems: "center",
     marginTop: 32,
   },
   footerText: {
-    color: "#444",
+    color: COLORS.textMuted,
     fontSize: 13,
   },
 });

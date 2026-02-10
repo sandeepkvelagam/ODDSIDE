@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { FlatList, RefreshControl, Text, View } from "react-native";
+import { FlatList, RefreshControl, Text, View, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Screen } from "../components/ui/Screen";
@@ -41,47 +41,47 @@ export function GroupsScreen() {
 
   return (
     <Screen>
-      <View className="py-4">
-        <Text className="text-white text-2xl font-semibold">Groups</Text>
-        <Text className="text-white/60 mt-1">Pick a group to open games and members.</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Groups</Text>
+        <Text style={styles.subtitle}>Pick a group to open games and members.</Text>
       </View>
 
       {error ? (
-        <View className="mb-3">
-          <Text className="text-red-400">{error}</Text>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : null}
 
       {loading && groups.length === 0 ? (
-        <View className="mt-10">
-          <Text className="text-white/70">Loading…</Text>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Loading…</Text>
         </View>
       ) : groups.length === 0 ? (
-        <View className="mt-10">
-          <Text className="text-white/70">No groups yet.</Text>
-          <Text className="text-white/40 mt-2">Create one on web for now.</Text>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No groups yet.</Text>
+          <Text style={styles.emptySubtext}>Create one on web for now.</Text>
         </View>
       ) : (
         <FlatList
           data={groups}
           keyExtractor={(g) => g._id}
           contentContainerStyle={{ paddingBottom: 24 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ItemSeparatorComponent={() => <View className="h-3" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           renderItem={({ item }) => (
             <Card
               onPress={() =>
                 navigation.navigate("GroupHub", { groupId: item._id, groupName: item.name })
               }
             >
-              <View className="flex-row items-center justify-between">
+              <View style={styles.cardContent}>
                 <View>
-                  <Text className="text-white text-lg font-semibold">{item.name}</Text>
-                  <Text className="text-white/50 mt-1">
+                  <Text style={styles.groupName}>{item.name}</Text>
+                  <Text style={styles.memberCount}>
                     {item.member_count ?? "—"} members
                   </Text>
                 </View>
-                <Text className="text-white/40">›</Text>
+                <Text style={styles.arrow}>›</Text>
               </View>
             </Card>
           )}
@@ -90,3 +90,52 @@ export function GroupsScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    paddingVertical: 16,
+  },
+  title: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "600",
+  },
+  subtitle: {
+    color: "rgba(255,255,255,0.6)",
+    marginTop: 4,
+  },
+  errorContainer: {
+    marginBottom: 12,
+  },
+  errorText: {
+    color: "#f87171",
+  },
+  emptyContainer: {
+    marginTop: 40,
+  },
+  emptyText: {
+    color: "rgba(255,255,255,0.7)",
+  },
+  emptySubtext: {
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 8,
+  },
+  cardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  groupName: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  memberCount: {
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 4,
+  },
+  arrow: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 20,
+  },
+});

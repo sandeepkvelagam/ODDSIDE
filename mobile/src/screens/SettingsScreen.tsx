@@ -171,7 +171,7 @@ export function SettingsScreen() {
       <View style={[styles.card, { marginTop: 16 }]}>
         <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
         
-        <TouchableOpacity style={styles.menuItem} onPress={handleSignOut} activeOpacity={0.7} data-testid="sign-out-button">
+        <TouchableOpacity style={styles.menuItem} onPress={handleSignOut} activeOpacity={0.7} testID="sign-out-button">
           <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
             <Ionicons name="log-out-outline" size={20} color={COLORS.textPrimary} />
           </View>

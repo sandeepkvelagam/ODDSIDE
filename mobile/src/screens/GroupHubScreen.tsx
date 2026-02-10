@@ -1,16 +1,13 @@
-import React, { useEffect, useState } from "react";
-import { ScrollView, Text, View, StyleSheet } from "react-native";
+import React, { useEffect, useState, useCallback } from "react";
+import { ScrollView, Text, View, StyleSheet, TouchableOpacity, RefreshControl } from "react-native";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Screen } from "../components/ui/Screen";
-import { Card } from "../components/ui/Card";
-import { getGroup } from "../api/groups";
-import { listGroupGames } from "../api/games";
-import type { Game } from "../types";
-import type { MainStackParamList } from "../navigation/MainStack";
+import { Ionicons } from "@expo/vector-icons";
+import { api } from "../api/client";
+import type { RootStackParamList } from "../navigation/RootNavigator";
 
-type R = RouteProp<MainStackParamList, "GroupHub">;
-type Nav = NativeStackNavigationProp<MainStackParamList, "GroupHub">;
+type R = RouteProp<RootStackParamList, "GroupHub">;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function GroupHubScreen() {
   const route = useRoute<R>();
@@ -18,122 +15,246 @@ export function GroupHubScreen() {
   const { groupId } = route.params;
 
   const [group, setGroup] = useState<any>(null);
-  const [games, setGames] = useState<Game[]>([]);
+  const [games, setGames] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setError(null);
-        const g = await getGroup(groupId);
-        setGroup(g);
-        const gs = await listGroupGames(groupId);
-        setGames(gs);
-      } catch (e: any) {
-        setError(e?.message ?? "Failed to load group");
-      }
-    })();
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      const [groupRes, gamesRes] = await Promise.all([
+        api.get(`/groups/${groupId}`),
+        api.get(`/games?group_id=${groupId}`),
+      ]);
+      setGroup(groupRes.data);
+      const g = Array.isArray(gamesRes.data) ? gamesRes.data : [];
+      setGames(g);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || e?.message || "Failed to load group");
+    }
   }, [groupId]);
 
-  const members = group?.members ?? group?.data?.members ?? [];
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  const members = group?.members || [];
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{group?.name ?? "Group"}</Text>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#EF6E59" />
+      }
+    >
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
         </View>
+      )}
 
-        <Text style={styles.sectionTitle}>Members</Text>
-        <Card>
-          {Array.isArray(members) && members.length > 0 ? (
-            members.slice(0, 10).map((m: any, idx: number) => (
-              <View key={m?._id ?? m?.id ?? idx} style={styles.memberItem}>
-                <Text style={styles.memberName}>{m?.name ?? m?.email ?? "Member"}</Text>
-                {idx < Math.min(members.length, 10) - 1 ? (
-                  <View style={styles.divider} />
-                ) : null}
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No members data found.</Text>
-          )}
-        </Card>
-
-        <View style={{ height: 20 }} />
-
-        <Text style={styles.sectionTitle}>Games</Text>
-        {games.length === 0 ? (
-          <Card>
-            <Text style={styles.emptyText}>No games yet.</Text>
-          </Card>
-        ) : (
-          <View style={{ gap: 12 }}>
-            {games.map((g) => (
-              <Card key={g._id} onPress={() => navigation.navigate("GameNight", { gameId: g._id })}>
-                <View style={styles.gameRow}>
-                  <View>
-                    <Text style={styles.gameName}>Game</Text>
-                    <Text style={styles.gameStatus}>Status: {g.status}</Text>
-                  </View>
-                  <Text style={styles.arrow}>›</Text>
+      {/* Members Section */}
+      <View style={styles.sectionHeader}>
+        <Ionicons name="people" size={18} color="#EF6E59" />
+        <Text style={styles.sectionTitle}>Members ({members.length})</Text>
+      </View>
+      <View style={styles.card}>
+        {members.length > 0 ? (
+          members.map((m: any, idx: number) => (
+            <View key={m?.user_id || idx}>
+              <View style={styles.memberRow}>
+                <View style={styles.memberAvatar}>
+                  <Text style={styles.memberAvatarText}>
+                    {(m?.name || m?.email || "?")[0].toUpperCase()}
+                  </Text>
                 </View>
-              </Card>
-            ))}
-          </View>
+                <View style={styles.memberInfo}>
+                  <Text style={styles.memberName}>{m?.name || m?.email || "Member"}</Text>
+                  {m?.role && (
+                    <Text style={styles.memberRole}>{m.role}</Text>
+                  )}
+                </View>
+              </View>
+              {idx < members.length - 1 && <View style={styles.divider} />}
+            </View>
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No members data</Text>
         )}
-      </ScrollView>
-    </Screen>
+      </View>
+
+      {/* Games Section */}
+      <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+        <Ionicons name="game-controller" size={18} color="#3b82f6" />
+        <Text style={styles.sectionTitle}>Games ({games.length})</Text>
+      </View>
+      {games.length === 0 ? (
+        <View style={styles.card}>
+          <Text style={styles.emptyText}>No games in this group yet</Text>
+        </View>
+      ) : (
+        games.map((g: any) => (
+          <TouchableOpacity
+            key={g.game_id || g._id}
+            style={styles.gameCard}
+            onPress={() => navigation.navigate("GameNight", { gameId: g.game_id || g._id })}
+            activeOpacity={0.7}
+          >
+            <View style={styles.gameInfo}>
+              <Text style={styles.gameName}>{g.title || "Game Night"}</Text>
+              <Text style={styles.gameSubtext}>
+                {g.player_count || 0} players
+                {g.total_pot ? ` · $${g.total_pot} pot` : ""}
+              </Text>
+            </View>
+            <View style={[
+              styles.statusBadge,
+              g.status === "active" ? styles.statusActive : styles.statusEnded,
+            ]}>
+              <Text style={[
+                styles.statusText,
+                g.status === "active" ? styles.statusActiveText : styles.statusEndedText,
+              ]}>
+                {g.status === "active" ? "Live" : "Ended"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingVertical: 16,
+  container: {
+    flex: 1,
+    backgroundColor: "#0B0B0F",
   },
-  title: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "600",
+  content: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  errorBanner: {
+    backgroundColor: "rgba(239,68,68,0.12)",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 16,
   },
   errorText: {
-    color: "#f87171",
-    marginTop: 8,
+    color: "#fca5a5",
+    fontSize: 13,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
   },
   sectionTitle: {
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: 8,
+    color: "#999",
+    fontSize: 14,
+    fontWeight: "600",
   },
-  memberItem: {
+  card: {
+    backgroundColor: "#141421",
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.04)",
+  },
+  memberRow: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
+  },
+  memberAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(59,130,246,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  memberAvatarText: {
+    color: "#3b82f6",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  memberInfo: {
+    flex: 1,
   },
   memberName: {
     color: "#fff",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  memberRole: {
+    color: "#EF6E59",
+    fontSize: 12,
+    marginTop: 2,
+    textTransform: "capitalize",
   },
   divider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    marginTop: 8,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    marginLeft: 48,
   },
   emptyText: {
-    color: "rgba(255,255,255,0.5)",
+    color: "#666",
+    fontSize: 14,
   },
-  gameRow: {
+  gameCard: {
+    backgroundColor: "#141421",
+    borderRadius: 14,
+    padding: 16,
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.04)",
+  },
+  gameInfo: {
+    flex: 1,
   },
   gameName: {
     color: "#fff",
+    fontSize: 15,
     fontWeight: "600",
   },
-  gameStatus: {
-    color: "rgba(255,255,255,0.5)",
-    marginTop: 4,
+  gameSubtext: {
+    color: "#777",
+    fontSize: 12,
+    marginTop: 3,
   },
-  arrow: {
-    color: "rgba(255,255,255,0.4)",
-    fontSize: 20,
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginLeft: 12,
+  },
+  statusActive: {
+    backgroundColor: "rgba(34,197,94,0.15)",
+  },
+  statusEnded: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  statusActiveText: {
+    color: "#22c55e",
+  },
+  statusEndedText: {
+    color: "#777",
   },
 });

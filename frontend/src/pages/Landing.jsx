@@ -433,8 +433,8 @@ export default function Landing() {
               </ul>
             </div>
           </div>
-          <div className="border-t border-border/30 mt-6 pt-4 flex items-center justify-center">
-            <p className="text-xs text-muted-foreground">©{new Date().getFullYear()} Kvitt. All rights reserved.</p>
+          <div className="border-t border-border/30 mt-6 pt-3">
+            <p className="text-[11px] text-muted-foreground">©{new Date().getFullYear()} Kvitt. All rights reserved.</p>
           </div>
         </div>
       </footer>

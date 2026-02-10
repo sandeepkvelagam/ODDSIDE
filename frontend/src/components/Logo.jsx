@@ -10,20 +10,20 @@ export const Logo = ({ className, size = "default", showText = true, showTagline
   const { icon, gap, text, tagline } = sizes[size] || sizes.default;
 
   return (
-    <div className={cn("inline-flex items-center", gap, className)}>
+    <div className={cn("inline-flex items-center", gap, showTagline && "pb-4", className)}>
       {/* Kvitt Logo - Modern K mark */}
-      <div className={cn("relative flex-shrink-0 self-center", icon)}>
+      <div className={cn("relative flex-shrink-0", icon)}>
         <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           {/* Rounded square background */}
-          <rect 
-            x="2" y="2" 
-            width="36" height="36" 
-            rx="8" 
+          <rect
+            x="2" y="2"
+            width="36" height="36"
+            rx="8"
             fill="#262626"
           />
           {/* K letter stylized */}
-          <path 
-            d="M12 10V30M12 20L24 10M12 20L24 30" 
+          <path
+            d="M12 10V30M12 20L24 10M12 20L24 30"
             stroke="#EF6E59"
             strokeWidth="4"
             strokeLinecap="round"
@@ -32,12 +32,12 @@ export const Logo = ({ className, size = "default", showText = true, showTagline
         </svg>
       </div>
       {showText && (
-        <div className="flex flex-col text-left">
+        <div className="relative text-left">
           <span className={cn("font-heading font-extrabold tracking-tight leading-none", text)}>
             Kvitt
           </span>
           {showTagline && (
-            <span className={cn("text-muted-foreground leading-none mt-0.5", tagline)}>
+            <span className={cn("absolute left-0 top-full mt-0.5 whitespace-nowrap text-muted-foreground leading-none", tagline)}>
               Your side, <span className="text-primary font-medium">settled.</span>
             </span>
           )}

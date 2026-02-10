@@ -11,6 +11,7 @@ import { GroupsScreen } from "../screens/GroupsScreen";
 import { GroupHubScreen } from "../screens/GroupHubScreen";
 import { GameNightScreen } from "../screens/GameNightScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
+import { AIAssistantScreen } from "../screens/AIAssistantScreen";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -19,6 +20,7 @@ export type RootStackParamList = {
   GroupHub: { groupId: string; groupName?: string };
   GameNight: { gameId: string };
   Settings: undefined;
+  AIAssistant: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -125,6 +127,14 @@ export default function RootNavigator() {
                 name="Settings"
                 component={SettingsScreen}
                 options={{ title: "Settings", headerBackTitle: "Back" }}
+              />
+              <Stack.Screen
+                name="AIAssistant"
+                component={AIAssistantScreen}
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_bottom",
+                }}
               />
             </>
           )}

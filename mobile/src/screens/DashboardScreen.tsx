@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -19,21 +19,24 @@ import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// Glass design colors
+// Claude-style warm dark theme colors
 const COLORS = {
-  background: "#141414",
-  surface: "rgba(255,255,255,0.08)",
-  textPrimary: "rgba(255,255,255,0.92)",
-  textSecondary: "rgba(255,255,255,0.55)",
-  textMuted: "rgba(255,255,255,0.35)",
-  border: "rgba(255,255,255,0.14)",
-  orange: "#D77A42",
+  navBg: "#1a1816",
+  contentBg: "#252320",
+  textPrimary: "#ffffff",
+  textSecondary: "#9a9a9a",
+  textMuted: "#666666",
+  border: "rgba(255, 255, 255, 0.06)",
+  glassBg: "rgba(255, 255, 255, 0.05)",
+  glassBorder: "rgba(255, 255, 255, 0.08)",
+  orange: "#e8845c",
 };
 
 export function DashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { user, signOut } = useAuth();
   const { toggleDrawer } = useDrawer();
+  const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<any>(null);
   const [recentGames, setRecentGames] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -90,163 +93,216 @@ export function DashboardScreen() {
   const userInitial = userName[0]?.toUpperCase() || "?";
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Glass Header */}
-      <View style={styles.header}>
-        {/* Glass Hamburger Button */}
-        <TouchableOpacity style={styles.glassIconBtn} onPress={toggleDrawer} activeOpacity={0.7}>
-          <View style={styles.hamburgerContainer}>
-            <View style={[styles.hamburgerBar, { width: 20 }]} />
-            <View style={[styles.hamburgerBar, { width: 14 }]} />
-            <View style={[styles.hamburgerBar, { width: 20 }]} />
-          </View>
-        </TouchableOpacity>
-        
-        <View style={styles.headerCenter}>
-          <Text style={styles.logoText}>Kvitt</Text>
-          <Text style={styles.logoSubtext}>Ledger</Text>
-        </View>
-        
-        {/* Glass Notification Button */}
-        <TouchableOpacity style={styles.glassIconBtn} onPress={() => {}} activeOpacity={0.7}>
-          <Ionicons name="notifications-outline" size={24} color={COLORS.textPrimary} />
-          {notifications.length > 0 && <View style={styles.notifBadge} />}
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.orange} />
-        }
-      >
-        {/* Profile Chip & FAB Row */}
-        <View style={styles.profileRow}>
-          {/* Profile Chip */}
-          <TouchableOpacity 
-            style={styles.profileChip} 
-            onPress={() => navigation.navigate("Settings")}
+    <AppDrawer
+      menuItems={menuItems}
+      recentItems={recentDrawerItems}
+      userName={user?.name || user?.email || "Player"}
+      userEmail={user?.email}
+      onProfilePress={() => navigation.navigate("Settings")}
+      onNewPress={() => navigation.navigate("AIAssistant")}
+    >
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Header Bar */}
+        <View style={styles.header}>
+          {/* Hamburger Button - Glass style */}
+          <TouchableOpacity
+            style={styles.glassButton}
+            onPress={toggleDrawer}
             activeOpacity={0.7}
           >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{userInitial}</Text>
+            <View style={styles.hamburgerLines}>
+              <View style={styles.hamburgerLine} />
+              <View style={styles.hamburgerLine} />
+              <View style={styles.hamburgerLine} />
             </View>
-            <Text style={styles.profileName}>{userName}</Text>
           </TouchableOpacity>
 
-          {/* FAB */}
-          <TouchableOpacity 
-            style={styles.fab} 
-            onPress={() => navigation.navigate("Groups")}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={28} color="#fff" />
+          {/* Center - Logo */}
+          <View style={styles.headerCenter}>
+            <Text style={styles.logoText}>Kvitt</Text>
+            <Text style={styles.logoSubtext}>Ledger</Text>
+          </View>
+
+          {/* Notification Button - Glass style */}
+          <TouchableOpacity style={styles.glassButton} activeOpacity={0.7}>
+            <Ionicons
+              name="notifications-outline"
+              size={22}
+              color={COLORS.textSecondary}
+            />
+            {notifications.length > 0 && <View style={styles.notifDot} />}
           </TouchableOpacity>
         </View>
 
-        {error && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={16} color="#fca5a5" />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {/* Stats Cards - Glass Style */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{stats?.total_games || 0}</Text>
-            <Text style={styles.statLabel}>Games</Text>
-          </View>
-          <View style={[styles.statCard, styles.statCardAccent]}>
-            <Text style={styles.statValue}>
-              ${stats?.net_profit ? Math.abs(stats.net_profit).toFixed(0) : "0"}
-            </Text>
-            <Text style={styles.statLabel}>
-              {(stats?.net_profit || 0) >= 0 ? "Profit" : "Loss"}
-            </Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>
-              {stats?.win_rate ? `${stats.win_rate.toFixed(0)}%` : "0%"}
-            </Text>
-            <Text style={styles.statLabel}>Win Rate</Text>
-          </View>
-        </View>
-
-        {/* Recent Games */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Games</Text>
-          {recentGames.length > 0 && (
-            <TouchableOpacity onPress={() => navigation.navigate("Groups")}>
-              <Text style={styles.seeAll}>See all</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {recentGames.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="game-controller-outline" size={32} color="rgba(255,255,255,0.3)" />
-            <Text style={styles.emptyText}>No games yet</Text>
-            <Text style={styles.emptySubtext}>Join a group and start playing</Text>
-          </View>
-        ) : (
-          recentGames.map((game: any) => (
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.orange}
+            />
+          }
+        >
+          {/* Profile Chip Row */}
+          <View style={styles.profileRow}>
             <TouchableOpacity
-              key={game.game_id || game._id}
-              style={styles.gameCard}
-              onPress={() => navigation.navigate("GameNight", { gameId: game.game_id || game._id })}
+              style={styles.profileChip}
+              onPress={() => navigation.navigate("Settings")}
               activeOpacity={0.7}
             >
-              <View style={styles.gameInfo}>
-                <Text style={styles.gameTitle}>{game.title || game.group_name || "Game Night"}</Text>
-                <Text style={styles.gameSubtext}>
-                  {game.player_count || 0} players{game.total_pot ? ` · $${game.total_pot} pot` : ""}
-                </Text>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{userInitial}</Text>
               </View>
-              <View style={[styles.statusBadge, game.status === "active" ? styles.statusActive : styles.statusEnded]}>
-                <Text style={[styles.statusText, game.status === "active" ? styles.statusActiveText : styles.statusEndedText]}>
-                  {game.status === "active" ? "Live" : "Ended"}
-                </Text>
-              </View>
+              <Text style={styles.profileName}>{userName}</Text>
             </TouchableOpacity>
-          ))
-        )}
+          </View>
 
-        {/* Quick Actions */}
-        <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Quick Actions</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Groups")} activeOpacity={0.7}>
-            <View style={[styles.actionIconBox, { backgroundColor: "rgba(215,122,66,0.15)" }]}>
-              <Ionicons name="people" size={24} color={COLORS.orange} />
+          {error && (
+            <View style={styles.errorBanner}>
+              <Ionicons name="alert-circle" size={16} color="#fca5a5" />
+              <Text style={styles.errorText}>{error}</Text>
             </View>
-            <Text style={styles.actionText}>My Groups</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Settings")} activeOpacity={0.7}>
-            <View style={[styles.actionIconBox, { backgroundColor: "rgba(59,130,246,0.15)" }]}>
-              <Ionicons name="settings" size={24} color="#3b82f6" />
-            </View>
-            <Text style={styles.actionText}>Settings</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+          )}
 
-      {/* Drawer overlay */}
-      <AppDrawer
-        menuItems={menuItems}
-        recentItems={recentDrawerItems}
-        userName={user?.name || user?.email || "Player"}
-        userEmail={user?.email}
-        onProfilePress={() => navigation.navigate("Settings")}
-        onNewPress={() => navigation.navigate("Groups")}
-      />
-    </SafeAreaView>
+          {/* Stats Cards */}
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{stats?.total_games || 0}</Text>
+              <Text style={styles.statLabel}>Games</Text>
+            </View>
+            <View style={[styles.statCard, styles.statCardAccent]}>
+              <Text style={styles.statValue}>
+                ${stats?.net_profit ? Math.abs(stats.net_profit).toFixed(0) : "0"}
+              </Text>
+              <Text style={styles.statLabel}>
+                {(stats?.net_profit || 0) >= 0 ? "Profit" : "Loss"}
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>
+                {stats?.win_rate ? `${stats.win_rate.toFixed(0)}%` : "0%"}
+              </Text>
+              <Text style={styles.statLabel}>Win Rate</Text>
+            </View>
+          </View>
+
+          {/* Recent Games */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Games</Text>
+            {recentGames.length > 0 && (
+              <TouchableOpacity onPress={() => navigation.navigate("Groups")}>
+                <Text style={styles.seeAll}>See all</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {recentGames.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons
+                name="game-controller-outline"
+                size={32}
+                color={COLORS.textMuted}
+              />
+              <Text style={styles.emptyText}>No games yet</Text>
+              <Text style={styles.emptySubtext}>
+                Join a group and start playing
+              </Text>
+            </View>
+          ) : (
+            recentGames.map((game: any) => (
+              <TouchableOpacity
+                key={game.game_id || game._id}
+                style={styles.gameCard}
+                onPress={() =>
+                  navigation.navigate("GameNight", {
+                    gameId: game.game_id || game._id,
+                  })
+                }
+                activeOpacity={0.7}
+              >
+                <View style={styles.gameInfo}>
+                  <Text style={styles.gameTitle}>
+                    {game.title || game.group_name || "Game Night"}
+                  </Text>
+                  <Text style={styles.gameSubtext}>
+                    {game.player_count || 0} players
+                    {game.total_pot ? ` · $${game.total_pot} pot` : ""}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    game.status === "active"
+                      ? styles.statusActive
+                      : styles.statusEnded,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      game.status === "active"
+                        ? styles.statusActiveText
+                        : styles.statusEndedText,
+                    ]}
+                  >
+                    {game.status === "active" ? "Live" : "Ended"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+
+          {/* Quick Actions */}
+          <Text style={[styles.sectionTitle, { marginTop: 28 }]}>
+            Quick Actions
+          </Text>
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate("Groups")}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.actionIconBox,
+                  { backgroundColor: "rgba(232,132,92,0.15)" },
+                ]}
+              >
+                <Ionicons name="people" size={24} color={COLORS.orange} />
+              </View>
+              <Text style={styles.actionText}>My Groups</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate("Settings")}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.actionIconBox,
+                  { backgroundColor: "rgba(59,130,246,0.15)" },
+                ]}
+              >
+                <Ionicons name="settings" size={24} color="#3b82f6" />
+              </View>
+              <Text style={styles.actionText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Bottom spacing for FAB */}
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </View>
+    </AppDrawer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.contentBg,
   },
   header: {
     flexDirection: "row",
@@ -255,59 +311,53 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  glassButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hamburgerLines: {
+    gap: 5,
+    alignItems: "center",
+  },
+  hamburgerLine: {
+    width: 18,
+    height: 1.5,
+    borderRadius: 1,
+    backgroundColor: COLORS.textSecondary,
+  },
   headerCenter: {
     alignItems: "center",
   },
   logoText: {
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "500",
     color: COLORS.textPrimary,
   },
   logoSubtext: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: COLORS.textSecondary,
-    marginTop: -2,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: -1,
   },
-  glassIconBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  hamburgerContainer: {
-    gap: 5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  hamburgerBar: {
-    height: 2,
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.85)",
-  },
-  notifBadge: {
+  notifDot: {
     position: "absolute",
-    top: 10,
-    right: 10,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    top: 14,
+    right: 14,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: COLORS.orange,
-    borderWidth: 2,
-    borderColor: COLORS.background,
   },
   content: {
     padding: 16,
     paddingBottom: 32,
   },
   profileRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 24,
   },
   profileChip: {
@@ -317,35 +367,28 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.glassBg,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
+    alignSelf: "flex-start",
   },
   avatar: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "#000",
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
-    color: COLORS.textPrimary,
-    fontWeight: "700",
+    color: "#fff",
+    fontWeight: "600",
     fontSize: 14,
   },
   profileName: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontWeight: "600",
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.orange,
-    alignItems: "center",
-    justifyContent: "center",
+    fontWeight: "500",
   },
   errorBanner: {
     flexDirection: "row",
@@ -370,15 +413,15 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.glassBg,
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
   },
   statCardAccent: {
-    borderColor: "rgba(215,122,66,0.3)",
+    borderColor: "rgba(232,132,92,0.3)",
   },
   statValue: {
     color: COLORS.textPrimary,
@@ -412,12 +455,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   emptyCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.glassBg,
     borderRadius: 16,
     padding: 32,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
   },
   emptyText: {
     color: COLORS.textSecondary,
@@ -430,7 +473,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   gameCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.glassBg,
     borderRadius: 16,
     padding: 16,
     flexDirection: "row",
@@ -438,7 +481,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
   },
   gameInfo: {
     flex: 1,
@@ -463,7 +506,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(34,197,94,0.15)",
   },
   statusEnded: {
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: COLORS.glassBg,
   },
   statusText: {
     fontSize: 12,
@@ -481,12 +524,12 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.glassBg,
     borderRadius: 16,
     padding: 20,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.glassBorder,
   },
   actionIconBox: {
     width: 48,

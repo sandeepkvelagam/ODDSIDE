@@ -1,6 +1,5 @@
 import React from "react";
 import { TouchableOpacity, StyleSheet, View } from "react-native";
-import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useDrawer } from "../context/DrawerContext";
 

@@ -17,6 +17,10 @@ import jwt
 from jwt import PyJWKClient
 import socketio
 
+# Setup logging early
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 ROOT_DIR = Path(__file__).parent
 
 # Fun poker-themed default names

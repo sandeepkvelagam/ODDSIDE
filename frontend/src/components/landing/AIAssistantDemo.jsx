@@ -139,7 +139,7 @@ export default function AIAssistantDemo() {
           </div>
 
           {/* Demo card */}
-          <div className="order-1 md:order-2">
+          <div className="order-1 md:order-2 scroll-animate-scale transition-all duration-700 ease-out">
             <div className="relative rounded-2xl border-2 border-dashed border-border/50 shadow-card overflow-hidden bg-white/80 backdrop-blur-sm">
               {/* Coming Soon badge */}
               <div className="absolute top-3 right-3 z-20">
@@ -197,7 +197,7 @@ export default function AIAssistantDemo() {
                 </div>
 
                 {/* AI suggestion */}
-                <div className="min-h-[80px]">
+                <div className="h-[80px] overflow-hidden">
                   {phase === "thinking" && (
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/50">
                       <Sparkles className="w-4 h-4 text-[#EF6E59] animate-pulse" />

@@ -267,10 +267,15 @@ code {
 }
 
 .demo-section {
-    min-height: 80vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
+}
+
+@media (min-width: 768px) {
+    .demo-section {
+        min-height: 80vh;
+    }
 }
 
 @keyframes live-dot-pulse {

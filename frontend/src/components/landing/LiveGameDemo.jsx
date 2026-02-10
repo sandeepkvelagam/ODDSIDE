@@ -130,7 +130,7 @@ export default function LiveGameDemo() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
           {/* Demo card */}
-          <div>
+          <div className="scroll-animate-scale transition-all duration-700 ease-out">
             <div className="bg-white rounded-2xl border border-border/30 shadow-card overflow-hidden">
               {/* Game header */}
               <div className="px-4 py-3 border-b border-border/20 flex items-center justify-between">
@@ -154,7 +154,7 @@ export default function LiveGameDemo() {
               </div>
 
               {/* Player list */}
-              <div className="p-4 space-y-2 min-h-[200px]">
+              <div className="p-4 space-y-2 h-[200px] overflow-hidden">
                 {players.map((player, i) => (
                   <div
                     key={i}
@@ -198,29 +198,31 @@ export default function LiveGameDemo() {
                 ))}
               </div>
 
-              {/* Buy-in request popup */}
-              {showRequest && !requestHandled && (
-                <div className="mx-4 mb-3 p-3 rounded-xl bg-amber-50 border border-amber-200 animate-fade-in-up">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-amber-800">
-                        Buy-in Request
-                      </p>
-                      <p className="text-[10px] text-amber-600">
-                        Mike T. requests $20 re-buy
-                      </p>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button className="w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+              {/* Buy-in request popup - fixed height to prevent layout shift */}
+              <div className="h-[56px]">
+                {showRequest && !requestHandled && (
+                  <div className="mx-4 p-3 rounded-xl bg-amber-50 border border-amber-200 animate-fade-in-up">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-amber-800">
+                          Buy-in Request
+                        </p>
+                        <p className="text-[10px] text-amber-600">
+                          Mike T. requests $20 re-buy
+                        </p>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button className="w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Music bar - Coming Soon */}
               <div className="px-4 pb-3">

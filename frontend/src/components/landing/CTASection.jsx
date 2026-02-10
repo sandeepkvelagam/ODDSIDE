@@ -13,7 +13,7 @@ export default function CTASection() {
       />
 
       <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <Logo size="large" showTagline={false} className="justify-center mb-6" />
+        <Logo size="large" showTagline={false} dark className="justify-center mb-6" />
         <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">
           Ready to up your game?
         </h2>

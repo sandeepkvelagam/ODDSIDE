@@ -27,7 +27,7 @@ export default function HeroSection() {
       <div className="relative z-10 max-w-5xl mx-auto px-4 text-center py-24 sm:py-32 w-full">
         {/* Logo */}
         <div className="mb-8">
-          <Logo size="large" showTagline={false} className="justify-center" />
+          <Logo size="large" showTagline={false} dark className="justify-center" />
         </div>
 
         {/* Main headline */}

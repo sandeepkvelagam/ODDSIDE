@@ -102,7 +102,7 @@ export default function SettlementDemo() {
           </div>
 
           {/* Demo card */}
-          <div className="order-1 md:order-2">
+          <div className="order-1 md:order-2 scroll-animate-scale transition-all duration-700 ease-out">
             <div className="bg-white rounded-2xl border border-border/30 shadow-card overflow-hidden">
               {/* Header */}
               <div className="px-4 py-3 border-b border-border/20 flex items-center justify-between">
@@ -130,7 +130,7 @@ export default function SettlementDemo() {
               </div>
 
               {/* Debts list */}
-              <div className="p-4 min-h-[280px]">
+              <div className="p-4 h-[340px] overflow-hidden">
                 {phase === "calculating" ? (
                   <div className="flex flex-col items-center justify-center h-[250px] gap-3">
                     <div className="w-10 h-10 border-[3px] border-[#EF6E59] border-t-transparent rounded-full animate-spin" />

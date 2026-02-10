@@ -118,7 +118,7 @@ export default function GroupDemo() {
           </div>
 
           {/* Demo card */}
-          <div className="order-1 md:order-2">
+          <div className="order-1 md:order-2 scroll-animate-scale transition-all duration-700 ease-out">
             <div className="bg-white rounded-2xl border border-border/30 shadow-card overflow-hidden">
               {/* Group header */}
               <div className="p-4 border-b border-border/20">

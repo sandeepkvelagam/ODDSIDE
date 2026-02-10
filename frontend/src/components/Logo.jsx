@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export const Logo = ({ className, size = "default", showText = true, showTagline = false }) => {
+export const Logo = ({ className, size = "default", showText = true, showTagline = false, dark = false }) => {
   const sizes = {
     small: { icon: "w-6 h-6", gap: "gap-1", text: "text-lg", tagline: "text-[10px]" },
     default: { icon: "w-7 h-7", gap: "gap-1.5", text: "text-xl", tagline: "text-[11px]" },
@@ -33,7 +33,7 @@ export const Logo = ({ className, size = "default", showText = true, showTagline
       </div>
       {showText && (
         <div className="relative text-left">
-          <span className={cn("font-heading font-extrabold tracking-tight leading-none", text)}>
+          <span className={cn("font-heading font-extrabold tracking-tight leading-none", text, dark && "text-white")}>
             Kvitt
           </span>
           {showTagline && (

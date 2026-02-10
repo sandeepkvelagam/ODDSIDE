@@ -4,11 +4,11 @@ import { RouteProp, useRoute } from "@react-navigation/native";
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
 import { getGame } from "../api/games";
-import type { MainStackParamList } from "../navigation/MainStack";
+import type { RootStackParamList } from "../navigation/RootNavigator";
 import type { Socket } from "socket.io-client";
 import { createSocket } from "../lib/socket";
 
-type R = RouteProp<MainStackParamList, "GameNight">;
+type R = RouteProp<RootStackParamList, "GameNight">;
 
 export function GameNightScreen() {
   const route = useRoute<R>();

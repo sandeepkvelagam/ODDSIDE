@@ -10,20 +10,25 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useDrawer } from "../context/DrawerContext";
 import { AppDrawer } from "../components/AppDrawer";
-import { GlassHamburger } from "../components/GlassHamburger";
-import { GlassIconButton } from "../components/GlassIconButton";
-import { ProfileChip } from "../components/ProfileChip";
-import { FloatingActionButton } from "../components/FloatingActionButton";
-import { COLORS, BLUR_INTENSITY } from "../styles/glass";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+// Glass design colors
+const COLORS = {
+  background: "#141414",
+  surface: "rgba(255,255,255,0.08)",
+  textPrimary: "rgba(255,255,255,0.92)",
+  textSecondary: "rgba(255,255,255,0.55)",
+  textMuted: "rgba(255,255,255,0.35)",
+  border: "rgba(255,255,255,0.14)",
+  orange: "#D77A42",
+};
 
 export function DashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -81,25 +86,32 @@ export function DashboardScreen() {
     onPress: () => navigation.navigate("GameNight", { gameId: game.game_id || game._id }),
   }));
 
+  const userName = user?.name || user?.email?.split("@")[0] || "Player";
+  const userInitial = userName[0]?.toUpperCase() || "?";
+
   return (
-    <SafeAreaView style={styles.container} edges={["top"]} testID="dashboard-screen">
+    <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Glass Header */}
       <View style={styles.header}>
-        <GlassHamburger onPress={toggleDrawer} testID="hamburger-menu-button" />
+        {/* Glass Hamburger Button */}
+        <TouchableOpacity style={styles.glassIconBtn} onPress={toggleDrawer} activeOpacity={0.7}>
+          <View style={styles.hamburgerContainer}>
+            <View style={[styles.hamburgerBar, { width: 20 }]} />
+            <View style={[styles.hamburgerBar, { width: 14 }]} />
+            <View style={[styles.hamburgerBar, { width: 20 }]} />
+          </View>
+        </TouchableOpacity>
         
         <View style={styles.headerCenter}>
           <Text style={styles.logoText}>Kvitt</Text>
           <Text style={styles.logoSubtext}>Ledger</Text>
         </View>
         
-        <View>
-          <GlassIconButton 
-            icon="notifications-outline" 
-            onPress={() => {}}
-            testID="notifications-button"
-          />
+        {/* Glass Notification Button */}
+        <TouchableOpacity style={styles.glassIconBtn} onPress={() => {}} activeOpacity={0.7}>
+          <Ionicons name="notifications-outline" size={24} color={COLORS.textPrimary} />
           {notifications.length > 0 && <View style={styles.notifBadge} />}
-        </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -110,20 +122,30 @@ export function DashboardScreen() {
       >
         {/* Profile Chip & FAB Row */}
         <View style={styles.profileRow}>
-          <ProfileChip 
-            name={user?.name || user?.email?.split("@")[0] || "Player"} 
+          {/* Profile Chip */}
+          <TouchableOpacity 
+            style={styles.profileChip} 
             onPress={() => navigation.navigate("Settings")}
-            testID="profile-chip"
-          />
-          <FloatingActionButton 
-            onPress={() => navigation.navigate("Groups")} 
-            testID="fab-new"
-          />
+            activeOpacity={0.7}
+          >
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{userInitial}</Text>
+            </View>
+            <Text style={styles.profileName}>{userName}</Text>
+          </TouchableOpacity>
+
+          {/* FAB */}
+          <TouchableOpacity 
+            style={styles.fab} 
+            onPress={() => navigation.navigate("Groups")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={28} color="#fff" />
+          </TouchableOpacity>
         </View>
 
         {error && (
           <View style={styles.errorBanner}>
-            <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
             <Ionicons name="alert-circle" size={16} color="#fca5a5" />
             <Text style={styles.errorText}>{error}</Text>
           </View>
@@ -132,12 +154,10 @@ export function DashboardScreen() {
         {/* Stats Cards - Glass Style */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
             <Text style={styles.statValue}>{stats?.total_games || 0}</Text>
             <Text style={styles.statLabel}>Games</Text>
           </View>
           <View style={[styles.statCard, styles.statCardAccent]}>
-            <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
             <Text style={styles.statValue}>
               ${stats?.net_profit ? Math.abs(stats.net_profit).toFixed(0) : "0"}
             </Text>
@@ -146,7 +166,6 @@ export function DashboardScreen() {
             </Text>
           </View>
           <View style={styles.statCard}>
-            <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
             <Text style={styles.statValue}>
               {stats?.win_rate ? `${stats.win_rate.toFixed(0)}%` : "0%"}
             </Text>
@@ -154,7 +173,7 @@ export function DashboardScreen() {
           </View>
         </View>
 
-        {/* Recent Games - Glass Cards */}
+        {/* Recent Games */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Games</Text>
           {recentGames.length > 0 && (
@@ -166,7 +185,6 @@ export function DashboardScreen() {
 
         {recentGames.length === 0 ? (
           <View style={styles.emptyCard}>
-            <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
             <Ionicons name="game-controller-outline" size={32} color="rgba(255,255,255,0.3)" />
             <Text style={styles.emptyText}>No games yet</Text>
             <Text style={styles.emptySubtext}>Join a group and start playing</Text>
@@ -178,9 +196,7 @@ export function DashboardScreen() {
               style={styles.gameCard}
               onPress={() => navigation.navigate("GameNight", { gameId: game.game_id || game._id })}
               activeOpacity={0.7}
-              testID={`game-card-${game.game_id || game._id}`}
             >
-              <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
               <View style={styles.gameInfo}>
                 <Text style={styles.gameTitle}>{game.title || game.group_name || "Game Night"}</Text>
                 <Text style={styles.gameSubtext}>
@@ -196,18 +212,16 @@ export function DashboardScreen() {
           ))
         )}
 
-        {/* Quick Actions - Glass Style */}
+        {/* Quick Actions */}
         <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Quick Actions</Text>
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Groups")} activeOpacity={0.7} testID="action-groups">
-            <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Groups")} activeOpacity={0.7}>
             <View style={[styles.actionIconBox, { backgroundColor: "rgba(215,122,66,0.15)" }]}>
               <Ionicons name="people" size={24} color={COLORS.orange} />
             </View>
             <Text style={styles.actionText}>My Groups</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Settings")} activeOpacity={0.7} testID="action-settings">
-            <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Settings")} activeOpacity={0.7}>
             <View style={[styles.actionIconBox, { backgroundColor: "rgba(59,130,246,0.15)" }]}>
               <Ionicons name="settings" size={24} color="#3b82f6" />
             </View>
@@ -232,7 +246,7 @@ export function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#141414",
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: "row",
@@ -255,16 +269,36 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: -2,
   },
+  glassIconBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hamburgerContainer: {
+    gap: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hamburgerBar: {
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.85)",
+  },
   notifBadge: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
     width: 10,
     height: 10,
     borderRadius: 5,
     backgroundColor: COLORS.orange,
     borderWidth: 2,
-    borderColor: "#141414",
+    borderColor: COLORS.background,
   },
   content: {
     padding: 16,
@@ -276,6 +310,43 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 24,
   },
+  profileChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: COLORS.textPrimary,
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  profileName: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.orange,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -284,7 +355,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginBottom: 16,
     gap: 8,
-    overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(239,68,68,0.2)",
   },
@@ -306,7 +376,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: "hidden",
   },
   statCardAccent: {
     borderColor: "rgba(215,122,66,0.3)",
@@ -315,7 +384,6 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 24,
     fontWeight: "700",
-    zIndex: 1,
   },
   statLabel: {
     color: COLORS.textSecondary,
@@ -324,7 +392,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    zIndex: 1,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -351,19 +418,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: "hidden",
   },
   emptyText: {
     color: COLORS.textSecondary,
     fontSize: 15,
     marginTop: 12,
-    zIndex: 1,
   },
   emptySubtext: {
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 4,
-    zIndex: 1,
   },
   gameCard: {
     backgroundColor: COLORS.surface,
@@ -375,11 +439,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: "hidden",
   },
   gameInfo: {
     flex: 1,
-    zIndex: 1,
   },
   gameTitle: {
     color: COLORS.textPrimary,
@@ -396,7 +458,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 12,
     marginLeft: 12,
-    zIndex: 1,
   },
   statusActive: {
     backgroundColor: "rgba(34,197,94,0.15)",
@@ -426,7 +487,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: "hidden",
   },
   actionIconBox: {
     width: 48,
@@ -435,12 +495,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
-    zIndex: 1,
   },
   actionText: {
     color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: "500",
-    zIndex: 1,
   },
 });

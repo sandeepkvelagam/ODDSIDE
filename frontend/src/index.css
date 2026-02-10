@@ -233,10 +233,63 @@ code {
     background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
 }
 
+/* ============================================
+   Landing page v2 - Dark hero & demo sections
+   ============================================ */
+
+.bg-dark-hero {
+    background: linear-gradient(180deg, #1a1a1a 0%, #262626 40%, #1f1f1f 100%);
+}
+
+.bg-dark-cta {
+    background: linear-gradient(180deg, #1f1f1f 0%, #262626 50%, #1a1a1a 100%);
+}
+
+.glow-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+}
+
+.typewriter-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background-color: #EF6E59;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: typewriter-blink 0.7s step-end infinite;
+}
+
+.train-scroll:hover .train-track {
+    animation-play-state: paused;
+}
+
+.demo-section {
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+@keyframes live-dot-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+}
+
+.live-dot {
+    animation: live-dot-pulse 1.5s ease-in-out infinite;
+}
+
 /* Accessibility: respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
     .animate-float,
-    .animate-pulse-glow {
+    .animate-pulse-glow,
+    .animate-glow-pulse,
+    .animate-scroll-train,
+    .animate-typewriter-blink,
+    .live-dot {
         animation: none !important;
     }
     .scroll-animate,

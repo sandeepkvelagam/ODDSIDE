@@ -85,10 +85,8 @@ export function AppDrawer({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={StyleSheet.absoluteFill} pointerEvents={isOpen ? "auto" : "none"}>
       {/* Overlay */}
       <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} />

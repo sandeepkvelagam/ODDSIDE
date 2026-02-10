@@ -82,7 +82,7 @@ export function DashboardScreen() {
   }));
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]} data-testid="dashboard-screen">
+    <SafeAreaView style={styles.container} edges={["top"]} testID="dashboard-screen">
       {/* Glass Header */}
       <View style={styles.header}>
         <GlassHamburger onPress={toggleDrawer} testID="hamburger-menu-button" />
@@ -178,7 +178,7 @@ export function DashboardScreen() {
               style={styles.gameCard}
               onPress={() => navigation.navigate("GameNight", { gameId: game.game_id || game._id })}
               activeOpacity={0.7}
-              data-testid={`game-card-${game.game_id || game._id}`}
+              testID={`game-card-${game.game_id || game._id}`}
             >
               <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
               <View style={styles.gameInfo}>
@@ -199,14 +199,14 @@ export function DashboardScreen() {
         {/* Quick Actions - Glass Style */}
         <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Quick Actions</Text>
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Groups")} activeOpacity={0.7} data-testid="action-groups">
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Groups")} activeOpacity={0.7} testID="action-groups">
             <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
             <View style={[styles.actionIconBox, { backgroundColor: "rgba(215,122,66,0.15)" }]}>
               <Ionicons name="people" size={24} color={COLORS.orange} />
             </View>
             <Text style={styles.actionText}>My Groups</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Settings")} activeOpacity={0.7} data-testid="action-settings">
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate("Settings")} activeOpacity={0.7} testID="action-settings">
             <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
             <View style={[styles.actionIconBox, { backgroundColor: "rgba(59,130,246,0.15)" }]}>
               <Ionicons name="settings" size={24} color="#3b82f6" />

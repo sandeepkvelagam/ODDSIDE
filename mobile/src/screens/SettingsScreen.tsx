@@ -31,7 +31,7 @@ export function SettingsScreen() {
   };
 
   const openWebApp = () => {
-    Linking.openURL("https://kvitt-ledger.preview.emergentagent.com");
+    Linking.openURL("https://kvitt-poker-app.preview.emergentagent.com");
   };
 
   return (

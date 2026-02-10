@@ -1,257 +1,205 @@
 <analysis>**original_problem_statement:**
-The user wants to finalize and fix their poker ledger application, Kvitt.
-
-Initial requests involved a major UI/UX overhaul of the landing page, login page, and dashboard to match provided screenshots, focusing on mobile responsiveness and a cleaner design.
-
-Subsequent, more complex requests and bug reports include:
-1.  **Login/Signup:** Users are unable to sign up, receiving a body is locked or disturbed error. The Supabase email confirmation link was also broken (fixed, but requires user config). The sync between Supabase Auth and the app's MongoDB database is unreliable.
-2.  **Core Game Logic:**
-    *   The request buy-in feature is broken; hosts do not receive requests to approve.
-    *   When a game starts or a player joins, the default buy-in amount and chips are not automatically added. The host has to do it manually.
-    *   Players are auto-joining games without host approval.
-    *   The Add Player feature should allow searching for any user on the platform by email, not just existing group members.
-3.  **Data Display & Persistence:**
-    *   The My Groups list doesn't show all groups a user is a member of.
-    *   The group member list shows  avatars instead of names (this was fixed).
-    *   The leaderboard shows numbers instead of player names.
-    *   Group chat history should persist even after a game has ended.
-4.  **Notifications:** Notifications are being generated but are not actionable (i.e., clicking them does not navigate to the relevant page/request) and don't work for buy-in approvals.
-5.  **User Roles & Permissions:**
-    *   Group admins should be able to edit/remove group members.
-    *   Players should be able to leave a group without their historical game stats being deleted.
-    *   Hosts should have extended permissions to edit game details (like cash-outs) after a game has ended, with notifications sent to players.
-6.  **UI/UX:**
-    *   Add a Request to Join button on the main games list component.
-    *   The Payments component needs font size reduction and layout adjustments.
-    *   A 3-second welcome/loading screen should appear *only* for first-time users after login, not on every page load.
-7.  **Platform Issues:**
-    *   User wants to change the preview URL subdomain.
-    *   User is unable to connect to their Git repository.
+The user wants to finalize and enhance their poker ledger application, Kvitt. The initial scope was to fix bugs and overhaul the UI, but it has expanded to include:
+1.  **Core Logic Fixes & Data Sync:** Resolve issues with user signup, broken flows, and incorrect data display. The user is concerned that data from their production app (groups, games) is not appearing in the preview environment, and that real-time updates via WebSockets are not working as expected.
+2.  **Permissions & Controls:** Implement and verify admin/host controls.
+3.  **UI/UX Overhaul:** Replicate the web app's functionality and a specific, user-provided design for the mobile app, including a glassmorphism-style drawer navigation instead of a bottom tab bar.
+4.  **Real-Time Updates:** Ensure WebSockets provide live updates on both web and mobile platforms.
+5.  **AI-Powered Assistance:** Integrate an AI assistant for guidance and smart defaults.
+6.  **Notifications:** Implement email notifications for key events.
+7.  **Monetization:** Integrate Stripe for premium subscriptions and, more recently, for settling player-to-player debts.
+8.  **Mobile App Development:** Build a functional and stable React Native mobile app that mirrors the web application's features and design. This is the current primary focus and has been plagued by technical issues.
 
 **User's preferred language**: en
 
 **what currently exists?**
-The project is a full-stack Kvitt poker ledger application using React, FastAPI, and MongoDB. User authentication is handled by Supabase, while the application data (groups, games, players, etc.) is stored in a MongoDB database named . A sync mechanism is in place to copy user data from Supabase to MongoDB upon login/signup, but it has proven to be unreliable. The application has basic functionality for creating groups, starting games, and handling buy-ins/cash-outs, but many of the core features are currently buggy.
+The project is a full-stack application with a React frontend, a FastAPI backend, and MongoDB. The web application is feature-rich, with implementations for WebSockets, an AI assistant, Resend for emails, and Stripe for premium subscriptions.
+
+A React Native mobile application exists in the  directory. However, it is highly unstable and not fully functional. The agent has spent considerable time debugging a series of build, render, and runtime errors related to React Native's new architecture (Fabric), UI library incompatibilities (NativeWind), and package version mismatches.
+
+The backend has been updated to support Stripe for player-to-player debt settlement, and the web frontend has been modified to include this feature.
 
 **Last working item**:
-- Last item agent was working: The agent was attempting to fix the issue where players who join a game do not automatically receive the default buy-in amount. It started by editing the backend  endpoint in  to automatically create a buy-in transaction when a host approves a join request.
+- Last item agent was working: The agent was implementing a new mobile app UI based on user-provided screenshots. The user requested a collapsible, glassmorphism-style drawer navigation instead of a bottom tab bar. The agent started by creating a  and an  component to build this new navigation structure.
 - Status: IN PROGRESS
 - Agent Testing Done: N
-- Which testing method agent to use? backend testing agent
+- Which testing method agent to use? manual testing by user
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-- Issue 1: Users cannot sign up due to a body disturbed or locked error. (P0 - BLOCKER)
-- Issue 2: The Request Buy-in flow is completely broken. Players can send requests, but hosts do not receive actionable notifications to approve them. (P1)
-- Issue 3: The user search feature was not working correctly due to a data issue (user not in DB) and a technical issue (conflicting API endpoints). The technical issue was fixed, but the root data sync problem persists. (P1)
-- Issue 4: Notifications are not actionable. Clicking a notification does not navigate the user to the relevant context (e.g., a game or a request). (P2)
-- Issue 5: The Leaderboard page does not display player names, only numerical data. (P2)
-- Issue 6: My Groups list is incomplete for some users, likely due to issues in the group invite/acceptance flow. (P2)
+-   Issue 1: Mobile App: Unauthorized request error after login (P0 - BLOCKER)
+-   Issue 2: Mobile App: Recurring render errors (P1 - RECURRING)
+-   Issue 3: Data Discrepancy & Sync Issues (P2)
 
 Issues Detail:
-- Issue 1:
-- Attempted fixes: An initial attempt to fix this by modifying the Supabase client configuration and error handling in  failed and was reverted at the user's request. The problem seems related to how the Supabase client or  handles the request/response body stream.
-- Next debug checklist:
-    1.  Inspect the browser's network tab during a failed signup attempt to get the exact error and see the request payload.
-    2.  Re-examine the  function in .
-    3.  Simplify the  function to its most basic form to see if the error persists, then incrementally add back functionality like the MongoDB sync.
-    4.  Consider that the  call immediately after  might be causing a race condition or an issue with the auth session.
-- Why fix this issue and what will be achieved with the fix?: This is a critical blocker. Without a working signup, the application cannot acquire new users.
-- Status: NOT STARTED
-- Is recurring issue? Y
-- Should Test frontend/backend/both after fix? both
-- Blocked on other issue: none
+-   Issue 1:
+    -   **Description:** After a successful login on the mobile app, the user sees an Unauthorized request - token may be expired error toast, and API calls fail with a 520 error or 401 Unauthorized. This prevents any data from being loaded.
+    -   **Attempted fixes:** The agent confirmed the backend was running and that the API URL in the mobile app's  file was correct. The agent suspected a token sync issue but was sidetracked by UI requests.
+    -   **Next debug checklist:**
+        1.  In , add logging to inspect the auth token being sent with API requests.
+        2.  Verify the  endpoint in  is being called successfully from the mobile app after login.
+        3.  Check for discrepancies between how the web app and mobile app handle Supabase session tokens and attach them to API requests.
+    -   **Why fix this issue and what will be achieved with the fix?** The mobile app is unusable without resolving this authentication/API communication failure.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on other issue:** None
 
-- Issue 2:
-- Attempted fixes: The agent has investigated the notification endpoints in the backend but has not yet fully implemented a working fix. Polling was added to the frontend Navbar, but the approval logic itself is missing.
-- Next debug checklist:
-    1.  Verify the  endpoint in  correctly creates a notification with type  and includes  and .
-    2.  Implement backend endpoints  and . The  endpoint must add chips to the player and create a transaction record.
-    3.  In , ensure notifications of this type are rendered with Approve and Reject buttons.
-    4.  Implement the  handlers for these buttons to call the new backend endpoints.
-- Why fix this issue and what will be achieved with the fix?: This is a core gameplay feature. The game is unplayable if players cannot buy back in.
-- Status: NOT STARTED
-- Is recurring issue? Y
-- Should Test frontend/backend/both after fix? both
-- Blocked on other issue: none
+-   Issue 2:
+    -   **Description:** The mobile app has been plagued by a series of fatal render errors, most recently expected dynamic type boolean, but had type string. These errors seem to stem from incompatibilities with React Native's new architecture (Fabric).
+    -   **Attempted fixes:**
+        -   Removed NativeWind CSS and converted components to .
+        -   Disabled Fabric () in .
+        -   Downgraded  from  to , which seemed to be the most effective fix.
+        -   Repeatedly simplified and then restored the navigation structure, causing user frustration.
+    -   **Next debug checklist:** The issue seemed resolved after downgrading , but the history of instability suggests it could return. The agent should avoid making drastic architectural changes (like removing navigation) and focus on isolating any new component that causes a crash.
+    -   **Why fix this issue and what will be achieved with the fix?** Ensures the mobile app is stable enough to build upon.
+    -   **Status:** TESTING PENDING
+    -   **Is recurring issue?** Y
+    -   **Should Test frontend/backend/both after fix?** frontend
+    -   **Blocked on other issue:** Blocked by Issue 1, as the app is not fully testable without API access.
 
-- Issue 3:
-- Attempted fixes: The agent fixed a conflicting API route and manually synced a missing user to the DB. However, the root cause is that users from Supabase are not reliably synced to MongoDB on signup/login. A fix was added to the  function in , but its effectiveness is unknown due to the signup blocker.
-- Next debug checklist:
-    1.  Once the signup issue is resolved, perform a test signup to see if the new user appears in MongoDB and is searchable.
-    2.  Review the  listener in  to ensure it reliably triggers the sync.
-- Why fix this issue and what will be achieved with the fix?: Users need to be able to find and add each other to games. This is essential for the app's social functionality.
-- Status: BLOCKED
-- Is recurring issue? Y
-- Should Test frontend/backend/both after fix? both
-- Blocked on other issue: Issue 1: Users cannot sign up
-
-- Issue 4:
-- Attempted fixes: The agent added polling to the Navbar but did not implement the navigation logic.
-- Next debug checklist:
-    1.  In , wrap each notification item in a  or add an  handler that uses .
-    2.  Ensure notifications in the backend include enough context in their payload (e.g., , ) to build the correct navigation path.
-    3.  Modify the frontend to use this context to navigate to the correct page (e.g., ).
-- Why fix this issue and what will be achieved with the fix?: Makes the app more intuitive and usable by allowing users to quickly respond to events.
-- Status: NOT STARTED
-- Is recurring issue? N
-- Should Test frontend/backend/both after fix? frontend
-- Blocked on other issue: none
-
-- Issue 5:
-- Attempted fixes: None.
-- Next debug checklist:
-    1.  Examine the leaderboard API endpoint in . It's likely not joining with the  collection to get user names.
-    2.  Modify the endpoint to perform an aggregation or lookup to include user details (, ) alongside the stats.
-    3.  Update the leaderboard frontend page to display the user names.
-- Why fix this issue and what will be achieved with the fix?: A leaderboard without names is useless. This is key for user engagement.
-- Status: NOT STARTED
-- Is recurring issue? N
-- Should Test frontend/backend/both after fix? both
-- Blocked on other issue: none
-
-- Issue 6:
-- Attempted fixes: The agent investigated the  endpoint and fixed the Supabase  URL, which may be related.
-- Next debug checklist:
-    1.  Trace the entire user invite flow: Host invites -> User receives email/notification -> User accepts.
-    2.  Verify that when a user accepts an invite, a  record is correctly created in the MongoDB  database.
-    3.  Check the  endpoint in  to ensure its query correctly fetches all groups where the current user's ID is in the  collection.
-- Why fix this issue and what will be achieved with the fix?: Users need to be able to see and access all the groups they are a part of.
-- Status: NOT STARTED
-- Is recurring issue? Y
-- Should Test frontend/backend/both after fix? both
-- Blocked on other issue: none
+-   Issue 3:
+    -   **Description:** The user reported that their production data (groups, games) is missing in the preview environment. The agent identified that the preview environment uses a local, ephemeral MongoDB instance (), not the production database. The user accepted this but remains concerned about the reliability of the Supabase-to-MongoDB data sync and WebSocket updates.
+    -   **Attempted fixes:** The agent explained the database separation to the user.
+    -   **Next debug checklist:**
+        1.  Manually create a user and several groups/games in the local environment to provide a consistent dataset for testing.
+        2.  Thoroughly test the WebSocket implementation on both web and mobile to ensure real-time events (e.g., player joining a game) are reflected correctly.
+        3.  Review the  function in  for potential race conditions or silent failures.
+    -   **Why fix this issue and what will be achieved with the fix?** Provides a stable and predictable development environment and builds confidence in the core data synchronization logic.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** Y
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on other issue:** None
 
 **In progress Task List**:
-- Task 1: Implement automatic buy-in on game start/join.
-- Where to resume: The agent has modified the  endpoint in . This change needs to be tested. The logic also needs to be added for when a game is first created ( endpoint) to distribute chips to all initial players.
-- What will be achieved with this?: This will streamline the game setup process, a key user request.
-- Status: IN PROGRESS
-- Should Test frontend/backend/both after fix? backend
-- Blocked on something: none
+-   Task 1: Implement Drawer Navigation for Mobile App (P0)
+    -   **Where to resume:** The agent has created  and . The next step is to integrate these into the main application layout, likely within  or , to create the slide-out menu.
+    -   **What will be achieved with this?** This will build the primary navigation structure for the mobile app according to the user's specific design request.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** frontend
+    -   **Blocked on something:** Blocked by **Issue 1 (Unauthorized error)**. The navigation can be built, but it cannot be tested with real data.
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-    - (P1) Add a Request to Join button on the main games list component in the frontend.
-    - (P2) Implement role-based controls for group admins to edit/remove members in  and the corresponding backend API.
-    - (P2) Create a feature for players to leave a group, which removes them from  but preserves their game history.
-    - (P2) Restyle the Payments component to reduce font size and improve layout.
+  - (P1) **Build All Mobile Screens:**
+    - Replicate all web app pages in the mobile app using the new drawer navigation: Dashboard, Groups, Game History, Profile, Settings, etc.
+    - Ensure all API calls and WebSocket connections are correctly hooked up for each screen.
+  - (P2) **Test Stripe Debt Settlement:**
+    - Although the code is implemented, the full end-to-end flow for a user paying a settlement debt via a Stripe payment link has not been tested.
+  - (P3) **Fix Mobile Create Account Flow:**
+    - The user noted that account creation is not working on mobile. This needs to be debugged. It may be related to Supabase email confirmation settings.
 - **Future Tasks:**
-    - (P3) Allow group chat history to persist and be viewable after a game ends.
-    - (P3) Grant hosts extended permissions to edit game data post-game.
-    - (P3) Address user platform issues (Git connection, subdomain change) by guiding them to contact support again if needed.
+  - Implement a landing/marketing page for the mobile app, considering if it's necessary or how it should differ from the web version.
+  - Implement Phase 2 & 3 AI features (analytics, revenue AI).
+  - Implement Stripe Webhooks for managing subscription statuses automatically.
 
 **Completed work in this session**
-- **UI/UX Redesign:**
-  - Landing Page: Updated layout for mobile, fixed logo spacing (, ).
-  - Login Page: Simplified to email-only login, removing non-functional social logins ().
-  - Header/Navbar: Removed clutter, moved theme toggle to profile ().
-  - Dashboard: Implemented new layout for active games and cards ().
-- **Feature Implementation:**
-  - Added poker-themed default names for new groups and games ().
-  - Implemented a user search feature for adding players to games (, ).
-  - Added a welcome/loading screen for new user logins (, ).
-- **Bug Fixes:**
-  - Removed the Made with Emergent badge ().
-  - Fixed display of member names in  by correcting the data access pattern.
-  - Addressed the Supabase email confirmation link by adding a  URL in .
-  - Resolved a critical database desync issue by enhancing the user sync logic in  and manually adding missing users to the database.
+- **Web App:**
+  - **Fixed :** Resolved the critical frontend compilation error, making the web app usable again.
+  - **Implemented Stripe Debt Settlement:**
+    - Added a  function to .
+    - Added a  endpoint to .
+    - Updated  to include Pay with Stripe buttons and handle the payment flow.
+  - **Fixed Backend Crash:** Resolved a  crash in  by moving the logger definition.
+- **Mobile App (Debugging & Setup):**
+  - **Set up Expo Tunneling:** Configured  to provide an accessible tunnel for the user to test on their device via Expo Go.
+  - **Generated QR Codes:** Created and served QR code images for easy access.
+  - **Identified Root Cause of Render Errors:** Traced the recurring render error to an incompatibility between  and React Native's new architecture, fixing it by downgrading the package.
+- **PRD Update:** Updated the  file.
 
 **Earlier issues found/mentioned but not fixed**
-- Issue 1: body disturbed or locked error on user signup.
-- Debug checklist: See 'All Pending/In progress Issue list' -> Issue 1.
-- Why to solve this issue and what will be achieved with this?: Critical P0 blocker preventing new user registration.
-- Should Test frontend/backend/both after fix: both
-- Is recurring issue? Y
+-   **Issue 1:** The fundamental reliability of the Supabase-to-MongoDB user data sync mechanism remains a concern. The agent identified the separate dev DB issue but has not stress-tested or improved the sync logic itself.
+    -   **Debug checklist:** See Issue 3 in the pending list.
+    -   **Why to solve this issue and what will be achieved with this?** A reliable data sync is critical for the application's core functionality and user trust.
+    -   **Should Test frontend/backend/both after fix:** both
+    -   **Is recurring issue?** Y
 
 **Known issue recurrence from previous fork**
-- N/A
+-   **Mobile App Instability:** The mobile app has been consistently unstable throughout this session, with recurring build and render errors. The agent tried multiple fixes, including removing NativeWind, disabling the new architecture, and downgrading packages. This indicates a fragile setup.
+-   **Recurrence count:** High (at least 4-5 major debugging cycles on the same class of errors).
+-   **Status:** IN PROGRESS (a fix was applied, but the app is still not fully functional due to the auth error).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Stack:** FastAPI (Python) backend, React (JavaScript) frontend, MongoDB database.
-- **Authentication:** Handled by Supabase. There is a critical separation between the Supabase auth users and the application's user profiles stored in MongoDB.
-- **Data Sync:** A custom sync process in  is responsible for creating/updating user profiles in MongoDB when a user signs in or signs up via Supabase. This has been a major source of bugs.
-- **Real-time (Polling):** The notification system uses basic polling (setInterval) in the frontend to fetch updates from the backend.
-- **Database:** MongoDB, accessed via  async driver in the backend. The database name is , configured in .
+- **Stack:** React, FastAPI, MongoDB, React Native, Expo
+- **Authentication:** Supabase
+- **Real-time:** WebSockets (, )
+- **Payments:** Stripe (for both subscriptions and player-to-player debt settlement)
+- **Email:** Resend
+- **AI:** OpenAI via 
 
 **key DB schema**
-- **users:** 
-- **groups:** 
-- **group_members:** 
-- **game_nights:** 
-- **players:** 
-- **notifications:** 
+- No changes made to the database schema.
 
 **changes in tech stack**
-- None.
+- Added React Native and Expo for mobile development.
+- Downgraded  to  to fix compatibility issues.
+- Removed  from the mobile app's dependencies and configuration.
 
 **All files of reference**
-- : Manages auth state, Supabase client, and the critical Supabase-to-MongoDB user sync logic. Has been modified multiple times to fix signup and sync issues.
-- : The single, large file containing all FastAPI endpoints, database logic, and application models. Heavily modified to add features and fix bugs.
-- : A very large and complex component for the main game screen. Handles host/player views, game actions, and player management.
-- : Handles displaying and interacting with notifications.
-- : Handles the user login and signup forms.
-- : Displays group details and member lists.
-- : A crucial debugging script used to interact with the MongoDB database directly from the command line.
+- **Mobile App Core:** , , .
+- **Mobile Auth/API:** .
+- **New Mobile UI:** , .
+- **Backend Stripe Logic:** , .
+- **Web Stripe UI:** .
 
 **Areas that need refactoring**:
--  is a monolithic file exceeding 2400 lines. It should be broken down into multiple files by concern (e.g., , , ) to improve maintainability.
--  is extremely large and complex. It should be broken down into smaller, more manageable components (e.g., , , , ).
+- The mobile app codebase () has undergone significant churn with multiple approaches to fixing render errors. It needs a thorough review to ensure stability and remove any leftover code from failed experiments.
+-  remains a monolithic file and is a prime candidate for being broken down into separate routers for better maintainability.
 
 **key api endpoints**
-- : Syncs user from Supabase to MongoDB.
-- , 
-- 
-- 
--  (new, needs approval flow)
--  (new)
-- 
-- 
-- 
-- 
+- : **NEW**. Creates a Stripe payment link for a specific debt.
+- : To remove a group member.
+- : For a user to leave a group.
+- : Critical for syncing Supabase user data to MongoDB.
 
 **Critical Info for New Agent**
-- **The Database is , NOT **. This was a major point of confusion. All database debugging must target the  database. The name is set in .
-- **Supabase is the source of truth for AUTH, MongoDB for DATA.** Users can exist in Supabase but not in MongoDB if the sync fails. The signup process is currently broken, which is the highest priority issue.
-- **Supabase Email Redirect:** The  URL must be configured in the Supabase dashboard's auth settings to match the application's URL for email confirmation to work.
-- Do not trust that social logins (Google/Apple) work; they are not configured. The UI has been simplified to email/password only for now.
-- The user is frustrated with the signup issue. Reverting the last failed attempt was the correct move. A new, careful approach is needed.
+- **The mobile app is the absolute top priority.** Do not proceed with other features until it is stable and functional.
+- **Fix the Unauthorized request error (Issue 1) first.** No UI work can be properly tested until the mobile app can communicate with the backend API.
+- **Do not make major architectural changes to the mobile app unless necessary.** The user was frustrated when the agent removed the navigation structure to debug. The current setup (with  downgraded and Fabric disabled) is the most stable it has been. Build upon it carefully.
+- **Follow the user's UI design from the screenshots.** They want a specific slide-out drawer menu with a glassmorphism effect, not a bottom tab navigator.
+- The data discrepancy is because the preview environment uses a **local, ephemeral MongoDB**. Do not attempt to connect to a production database. The user understands this separation but is still concerned about the underlying sync logic.
 
 **documents and test reports created in this job**
-- 
-- 
+-  was updated.
+- Multiple QR code images (e.g., ) were generated and served for Expo Go testing.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Signup is broken, body disturbed or locked.
-2.  **Agent:** Tries to fix it by reconfiguring Supabase client in .
-3.  **User:** Still getting the same error. Revert the fix. Also provides a huge new list of bugs.
-4.  **Agent:** Apologizes, reverts the change, and acknowledges the new list of bugs.
-5.  **Agent:** Starts working on the auto buy-in on join feature by editing the backend.
-6.  **User:** Complains that the Git connection is still not working.
-7.  **(Agent has not responded to the Git issue yet)**.
+1.  **User:** Reports mobile app render error with screenshot (expected dynamic type boolean but had type string).
+2.  **Agent:** Identifies the error is due to React Native's new architecture and proposes a fix.
+3.  **User:** Expresses frustration with recurring issues and asks the agent to fix it once and for all.
+4.  **Agent:** Oversimplifies the mobile app by removing all navigation to isolate the error.
+5.  **User:** Reacts negatively, stating they don't want a dummy shit app and asks the agent to revert the changes and debug properly.
+6.  **Agent:** Apologizes, reverts the code from git, and correctly identifies the root cause as a  version incompatibility.
+7.  **Agent:** Fixes the version, and the app loads.
+8.  **User:** Confirms login works but reports a new API error (520) and asks for the mobile navigation to match the web app's functionality (loading screen, bottom/top navigation).
+9.  **Agent:** Fixes a backend crash that was causing the API error and begins planning the mobile UI.
+10. **User:** Provides detailed UI instructions with 5 screenshots, requesting a specific glassmorphism drawer navigation and outlining the desired page structure. Reports seeing an Unauthorized request error after login.
 
 **Project Health Check:**
-- Broken:
-  - User Signup ()
-- Mocked:
-  - None
+-   **Broken**:
+    -   : The mobile application is critically broken. It fails to authenticate with the backend API after login, rendering it unusable. It also has a history of severe instability and render errors.
+-   **Mocked**:
+    -   None.
 
 **3rd Party Integrations**
-- Supabase (Authentication): Used for user email/password login and user management. Requires  and  to be set in .
+-   **Supabase (Authentication):** User login and session management.
+-   **OpenAI GPT-4o:** Powers the AI Assistant via Emergent LLM Key.
+-   **Resend (Email):** Sends transactional emails.
+-   **Stripe (Payments):** Manages premium subscriptions and player-to-player debt settlement.
+-   **React Native / Expo:** For mobile application development.
 
 **Testing status**
-- Testing agent used after significant changes: YES (backend testing agent was used multiple times).
-- Troubleshoot agent used after agent stuck in loop: NO
-- Test files created: None.
-- Known regressions: User signup was working, but is now broken.
+-   Testing agent used after significant changes: NO
+-   Troubleshoot agent used after agent stuck in loop: NO
+-   Test files created: None.
+-   Known regressions: The mobile app is in a worse state of functionality than at the beginning of the session, as it's now plagued by a critical auth error.
 
 **Credentials to test flow:**
-- User has provided credentials in the past like  and , which exist in the database. New signups are currently not possible.
+- User creation and login for both web and mobile is handled via the application UI, which connects to Supabase. The local MongoDB instance will be populated as users and groups are created.
 
 **What agent forgot to execute**
-- The agent has not tested its last code change (modifying the  endpoint).
-- The agent has not addressed the user's repeated complaint about the Git connection not working after being asked. The next agent should remind the user of the support steps provided earlier.
-- A full, end-to-end test of the notification system (creation, display, action, navigation) has not been performed.</analysis>
+- The agent did not systematically debug the mobile Unauthorized error. It acknowledged the problem but immediately pivoted to building the new UI as requested by the user, leaving the critical blocker unresolved.
+- The agent got stuck in a loop of making drastic changes to the mobile app (removing navigation) instead of performing a more careful, incremental root cause analysis, which frustrated the user.</analysis>

@@ -9,10 +9,19 @@ import {
   Linking,
   Switch,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
-import { COLORS, BLUR_INTENSITY, glassStyles } from "../styles/glass";
+
+// Glass design colors
+const COLORS = {
+  background: "#141414",
+  surface: "rgba(255,255,255,0.08)",
+  textPrimary: "rgba(255,255,255,0.92)",
+  textSecondary: "rgba(255,255,255,0.55)",
+  textMuted: "rgba(255,255,255,0.35)",
+  border: "rgba(255,255,255,0.14)",
+  borderLight: "rgba(255,255,255,0.08)",
+};
 
 export function SettingsScreen() {
   const { user, signOut } = useAuth();
@@ -33,16 +42,13 @@ export function SettingsScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Email Banner */}
       <View style={styles.emailBanner}>
-        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
         <Text style={styles.emailText}>{user?.email || ""}</Text>
       </View>
 
       {/* Profile Section */}
       <View style={styles.card}>
-        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
-        
         <TouchableOpacity style={styles.menuItem} onPress={openWebApp} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="person-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Profile</Text>
@@ -52,7 +58,7 @@ export function SettingsScreen() {
         <View style={styles.divider} />
         
         <TouchableOpacity style={styles.menuItem} onPress={openWebApp} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="card-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Billing</Text>
@@ -62,11 +68,9 @@ export function SettingsScreen() {
       </View>
 
       {/* Capabilities Section */}
-      <View style={[styles.card, { marginTop: 16 }]}>
-        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
-        
+      <View style={[styles.card, styles.cardMargin]}>
         <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="options-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Capabilities</Text>
@@ -76,7 +80,7 @@ export function SettingsScreen() {
         <View style={styles.divider} />
         
         <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="extension-puzzle-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Connectors</Text>
@@ -86,7 +90,7 @@ export function SettingsScreen() {
         <View style={styles.divider} />
         
         <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="people-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Permissions</Text>
@@ -95,11 +99,9 @@ export function SettingsScreen() {
       </View>
 
       {/* App Settings Section */}
-      <View style={[styles.card, { marginTop: 16 }]}>
-        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
-        
+      <View style={[styles.card, styles.cardMargin]}>
         <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="moon-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Appearance</Text>
@@ -110,7 +112,7 @@ export function SettingsScreen() {
         <View style={styles.divider} />
         
         <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="globe-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Speech language</Text>
@@ -121,7 +123,7 @@ export function SettingsScreen() {
         <View style={styles.divider} />
         
         <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="notifications-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Notifications</Text>
@@ -131,7 +133,7 @@ export function SettingsScreen() {
         <View style={styles.divider} />
         
         <TouchableOpacity style={styles.menuItem} onPress={() => {}} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="shield-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Privacy</Text>
@@ -141,7 +143,7 @@ export function SettingsScreen() {
         <View style={styles.divider} />
         
         <TouchableOpacity style={styles.menuItem} onPress={openWebApp} activeOpacity={0.7}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="link-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Shared links</Text>
@@ -150,11 +152,9 @@ export function SettingsScreen() {
       </View>
 
       {/* Haptic Feedback Toggle */}
-      <View style={[styles.card, { marginTop: 16 }]}>
-        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
-        
+      <View style={[styles.card, styles.cardMargin]}>
         <View style={styles.menuItem}>
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+          <View style={styles.iconCircle}>
             <Ionicons name="phone-portrait-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Haptic feedback</Text>
@@ -168,11 +168,9 @@ export function SettingsScreen() {
       </View>
 
       {/* Sign Out */}
-      <View style={[styles.card, { marginTop: 16 }]}>
-        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
-        
-        <TouchableOpacity style={styles.menuItem} onPress={handleSignOut} activeOpacity={0.7} testID="sign-out-button">
-          <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
+      <View style={[styles.card, styles.cardMargin]}>
+        <TouchableOpacity style={styles.menuItem} onPress={handleSignOut} activeOpacity={0.7}>
+          <View style={styles.iconCircle}>
             <Ionicons name="log-out-outline" size={20} color={COLORS.textPrimary} />
           </View>
           <Text style={styles.menuLabel}>Log out</Text>
@@ -189,7 +187,7 @@ export function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#141414",
+    backgroundColor: COLORS.background,
   },
   content: {
     padding: 16,
@@ -203,13 +201,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: "hidden",
   },
   emailText: {
     color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: "500",
-    zIndex: 1,
   },
   card: {
     backgroundColor: COLORS.surface,
@@ -218,17 +214,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  cardMargin: {
+    marginTop: 16,
+  },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
     paddingHorizontal: 16,
-    zIndex: 1,
   },
   iconCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,

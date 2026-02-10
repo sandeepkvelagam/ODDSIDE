@@ -11,23 +11,21 @@ import {
   Platform,
 } from "react-native";
 import { supabase } from "../lib/supabase";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../navigation/types";
-import { friendlyAuthError } from "../utils/errors";
 
-type LoginScreenProps = {
-  navigation: NativeStackNavigationProp<RootStackParamList, "Login">;
-};
-
-export default function LoginScreen({ navigation }: LoginScreenProps) {
+export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
 
   async function handleAuth() {
-    if (!email || !password) {
-      Alert.alert("Error", "Please enter email and password");
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Validation Error", "Please enter both email and password");
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert("Validation Error", "Password must be at least 6 characters");
       return;
     }
 
@@ -35,7 +33,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             data: {
@@ -45,20 +43,32 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         });
         if (error) throw error;
         Alert.alert(
-          "Success",
-          "Sign up successful! Please check your email to confirm your account."
+          "Account Created",
+          "Please check your email to confirm your account, then sign in."
         );
+        setIsSignUp(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
         if (error) throw error;
-        // Navigation will happen automatically via auth state listener
+        // Navigation happens automatically via auth state listener
       }
     } catch (error: any) {
-      const friendly = friendlyAuthError(error);
-      Alert.alert(friendly.title, friendly.detail);
+      const title = isSignUp ? "Sign Up Failed" : "Sign In Failed";
+      let message = error.message || "An unexpected error occurred";
+      
+      // User-friendly error messages
+      if (message.includes("Invalid login credentials")) {
+        message = "Invalid email or password. Please try again.";
+      } else if (message.includes("Email not confirmed")) {
+        message = "Please confirm your email address before signing in.";
+      } else if (message.includes("User already registered")) {
+        message = "An account with this email already exists. Please sign in.";
+      }
+      
+      Alert.alert(title, message);
     } finally {
       setLoading(false);
     }
@@ -71,27 +81,30 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     >
       <View style={styles.content}>
         <Text style={styles.title}>Kvitt</Text>
-        <Text style={styles.subtitle}>Game Ledger</Text>
+        <Text style={styles.subtitle}>Poker Game Ledger</Text>
 
         <View style={styles.form}>
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#999"
+            placeholderTextColor="#666"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
+            autoCorrect={false}
             keyboardType="email-address"
+            textContentType="emailAddress"
             editable={!loading}
           />
 
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#999"
+            placeholderTextColor="#666"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            textContentType={isSignUp ? "newPassword" : "password"}
             editable={!loading}
           />
 
@@ -99,12 +112,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleAuth}
             disabled={loading}
+            activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>
-                {isSignUp ? "Sign Up" : "Sign In"}
+                {isSignUp ? "Create Account" : "Sign In"}
               </Text>
             )}
           </TouchableOpacity>
@@ -117,12 +131,15 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             <Text style={styles.linkText}>
               {isSignUp
                 ? "Already have an account? Sign In"
-                : "Don't have an account? Sign Up"}
+                : "Don't have an account? Create One"}
             </Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.phase}>Phase 0 - Auth Test</Text>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Secure authentication via Supabase</Text>
+          <Text style={styles.versionText}>v0.2.0</Text>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -152,23 +169,24 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   form: {
-    gap: 16,
+    gap: 12,
   },
   input: {
     backgroundColor: "#1a1a1a",
     borderWidth: 1,
     borderColor: "#333",
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 16,
     fontSize: 16,
     color: "#fff",
+    marginBottom: 4,
   },
   button: {
     backgroundColor: "#3b82f6",
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 12,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -179,17 +197,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   linkButton: {
-    padding: 8,
+    padding: 12,
     alignItems: "center",
   },
   linkText: {
     color: "#3b82f6",
     fontSize: 14,
   },
-  phase: {
+  footer: {
     marginTop: 48,
-    textAlign: "center",
+    alignItems: "center",
+  },
+  footerText: {
     color: "#666",
     fontSize: 12,
+  },
+  versionText: {
+    color: "#444",
+    fontSize: 10,
+    marginTop: 4,
   },
 });

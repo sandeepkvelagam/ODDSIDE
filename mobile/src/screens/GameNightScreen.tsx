@@ -1,110 +1,131 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Text, View, ScrollView, AppState, AppStateStatus, StyleSheet } from "react-native";
+import {
+  Text,
+  View,
+  ScrollView,
+  StyleSheet,
+  AppState,
+  AppStateStatus,
+  RefreshControl,
+  ActivityIndicator,
+} from "react-native";
 import { RouteProp, useRoute } from "@react-navigation/native";
-import { Screen } from "../components/ui/Screen";
-import { Card } from "../components/ui/Card";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { getGame } from "../api/games";
-import type { MainStackParamList } from "../navigation/MainStack";
+import type { RootStackParamList } from "../navigation/RootNavigator";
 import type { Socket } from "socket.io-client";
-import { createSocket } from "../lib/socket";
+import { createSocket, disconnectSocket } from "../lib/socket";
 
-type R = RouteProp<MainStackParamList, "GameNight">;
+type RouteProps = RouteProp<RootStackParamList, "GameNight">;
 
 export function GameNightScreen() {
-  const route = useRoute<R>();
+  const route = useRoute<RouteProps>();
   const { gameId } = route.params;
 
+  // Socket reference
   const socketRef = useRef<Socket | null>(null);
-  const [snapshot, setSnapshot] = useState<any>(null);
-  const [connected, setConnected] = useState(false);
-  const [reconnecting, setReconnecting] = useState(false);
-  const [lastEvent, setLastEvent] = useState<string>("None");
+
+  // UI State
+  const [gameData, setGameData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Resync state: in-flight lock + throttle + last-write wins
+  // Connection state
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<string>("None");
+
+  // Resync throttling
   const resyncInFlight = useRef(false);
   const pendingResync = useRef(false);
-  const lastReqId = useRef(0);
   const lastResyncAt = useRef(0);
 
-  // Resync game state from REST API (throttled + deduped)
-  const resyncGameState = useCallback(async () => {
+  // Fetch game data from REST API (with throttling)
+  const fetchGameData = useCallback(async (force = false) => {
     const now = Date.now();
 
-    // In-flight lock
-    if (resyncInFlight.current) {
-      pendingResync.current = true;
-      return;
-    }
-
-    // Throttle: max once per 750ms
-    if (now - lastResyncAt.current < 750) {
-      pendingResync.current = true;
-      return;
+    // Throttle unless forced
+    if (!force) {
+      if (resyncInFlight.current) {
+        pendingResync.current = true;
+        return;
+      }
+      if (now - lastResyncAt.current < 750) {
+        pendingResync.current = true;
+        return;
+      }
     }
 
     resyncInFlight.current = true;
     lastResyncAt.current = now;
-    const reqId = ++lastReqId.current;
 
     try {
       const data = await getGame(gameId);
-      // Last-write wins: only apply if this is still the latest request
-      if (reqId === lastReqId.current) {
-        setSnapshot(data);
-        setError(null);
-      }
+      setGameData(data);
+      setError(null);
     } catch (e: any) {
-      if (reqId === lastReqId.current) {
-        setError(e?.message ?? "Failed to sync game state");
-      }
+      const message = e?.response?.data?.detail || e?.message || "Failed to load game";
+      setError(message);
+      console.error("Error fetching game:", e);
     } finally {
+      setLoading(false);
       resyncInFlight.current = false;
 
-      // Process pending resync if any
+      // Process pending resync
       if (pendingResync.current) {
         pendingResync.current = false;
-        setTimeout(() => resyncGameState(), 0);
+        setTimeout(() => fetchGameData(), 100);
       }
     }
   }, [gameId]);
 
-  // Setup socket connection
+  // Setup WebSocket connection
   const setupSocket = useCallback(async () => {
     try {
-      const s = await createSocket();
-      socketRef.current = s;
+      const socket = await createSocket();
+      socketRef.current = socket;
 
-      s.on("connect", async () => {
-        setConnected(true);
+      socket.on("connect", () => {
+        console.log("✅ Socket connected for game:", gameId);
+        setSocketConnected(true);
         setReconnecting(false);
-        // Resync state after reconnection to ensure correctness
-        await resyncGameState();
+        // Resync data on reconnect
+        fetchGameData(true);
       });
 
-      s.on("disconnect", () => {
-        setConnected(false);
+      socket.on("disconnect", (reason) => {
+        console.log("❌ Socket disconnected:", reason);
+        setSocketConnected(false);
         setReconnecting(true);
       });
 
-      s.on("game_update", (payload: any) => {
-        setLastEvent(`game_update: ${payload.type ?? "unknown"}`);
-        // v1: re-sync entire snapshot for correctness
-        // v2 will use reducer for optimistic updates
-        resyncGameState();
+      socket.on("connect_error", (err) => {
+        console.error("Socket connection error:", err.message);
+        setError("Real-time connection failed");
       });
 
-      s.emit("join_game", { game_id: gameId }, (ack: any) => {
+      // Listen for game updates
+      socket.on("game_update", (payload: any) => {
+        console.log("📡 Game update received:", payload.type);
+        setLastUpdate(payload.type || "update");
+        // Resync entire state for correctness
+        fetchGameData();
+      });
+
+      // Join the game room
+      socket.emit("join_game", { game_id: gameId }, (ack: any) => {
         if (ack?.error) {
-          setError(`join_game failed: ${ack.error}`);
+          console.error("Failed to join game room:", ack.error);
         } else {
-          setLastEvent(`join_game: ${ack?.status ?? "ok"}`);
+          console.log("✅ Joined game room");
         }
       });
     } catch (e: any) {
-      setError(e?.message ?? "Failed to connect socket");
+      console.error("Socket setup error:", e);
+      setError("Failed to connect to real-time updates");
     }
-  }, [gameId, resyncGameState]);
+  }, [gameId, fetchGameData]);
 
   // Initial load
   useEffect(() => {
@@ -113,150 +134,350 @@ export function GameNightScreen() {
     (async () => {
       if (!mounted) return;
 
-      // 1. Load initial snapshot
-      await resyncGameState();
+      // 1. Load initial data
+      await fetchGameData(true);
 
-      // 2. Setup socket connection
+      // 2. Setup socket
       await setupSocket();
     })();
 
     return () => {
       mounted = false;
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      disconnectSocket();
     };
-  }, [gameId, resyncGameState, setupSocket]);
+  }, [gameId, fetchGameData, setupSocket]);
 
-  // Handle app background/foreground transitions
+  // Handle app foreground/background
   useEffect(() => {
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (nextAppState === "active") {
-        // App came to foreground - resync state (throttled)
-        resyncGameState();
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "active") {
+        // App came to foreground
+        fetchGameData(true);
 
-        // Reconnect socket if disconnected
+        // Reconnect socket if needed
         if (socketRef.current && !socketRef.current.connected) {
           setReconnecting(true);
-          // Socket.IO client will auto-reconnect
         }
       }
     };
 
     const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => subscription.remove();
+  }, [fetchGameData]);
 
-    return () => {
-      subscription.remove();
-    };
-  }, [resyncGameState]);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchGameData(true);
+    setRefreshing(false);
+  }, [fetchGameData]);
 
-  const players = snapshot?.players ?? [];
+  const players = gameData?.players || [];
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Game</Text>
-          <Text style={styles.socketStatus}>
-            Socket: {connected ? "✅ Connected" : reconnecting ? "⏳ Reconnecting..." : "❌ Disconnected"} • Last: {lastEvent}
-          </Text>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#3b82f6"
+          />
+        }
+      >
+        {/* Connection Status */}
+        <View style={styles.statusBar}>
+          <View style={styles.statusRow}>
+            <View
+              style={[
+                styles.statusDot,
+                socketConnected ? styles.statusConnected : styles.statusDisconnected,
+              ]}
+            />
+            <Text style={styles.statusText}>
+              {socketConnected
+                ? "Real-time connected"
+                : reconnecting
+                ? "Reconnecting..."
+                : "Disconnected"}
+            </Text>
+          </View>
+          <Text style={styles.lastUpdateText}>Last: {lastUpdate}</Text>
         </View>
 
-        {reconnecting && (
-          <View style={styles.reconnectBanner}>
-            <Text style={styles.reconnectText}>Reconnecting...</Text>
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
-        <Card>
-          <Text style={styles.sectionTitle}>Players</Text>
-          <View style={{ marginTop: 12 }}>
-            {players.length === 0 ? (
-              <Text style={styles.emptyText}>No players found.</Text>
-            ) : (
-              players.map((p: any, idx: number) => (
-                <View key={p?._id ?? p?.id ?? idx} style={styles.playerItem}>
-                  <Text style={styles.playerName}>{p?.name ?? p?.email ?? "Player"}</Text>
-                  <Text style={styles.playerStats}>
-                    Chips: {p?.chips ?? 0} • Buy-in: ${p?.total_buy_in ?? 0}
-                  </Text>
-                  {idx < players.length - 1 ? <View style={styles.divider} /> : null}
-                </View>
-              ))
-            )}
+        {reconnecting && (
+          <View style={styles.reconnectBanner}>
+            <Text style={styles.reconnectText}>
+              ⏳ Reconnecting to live updates...
+            </Text>
           </View>
-        </Card>
+        )}
 
-        <View style={{ height: 16 }} />
+        {/* Game Info Card */}
+        <View style={styles.card}>
+          <Text style={styles.gameTitle}>{gameData?.title || "Game"}</Text>
+          <View style={styles.gameStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Status</Text>
+              <Text
+                style={[
+                  styles.statValue,
+                  gameData?.status === "active"
+                    ? styles.statusActive
+                    : styles.statusEnded,
+                ]}
+              >
+                {gameData?.status === "active" ? "🟢 Active" : "⚫ Ended"}
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Buy-in</Text>
+              <Text style={styles.statValue}>${gameData?.buy_in_amount || 0}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Chips/Buy-in</Text>
+              <Text style={styles.statValue}>{gameData?.chips_per_buy_in || 0}</Text>
+            </View>
+          </View>
+        </View>
 
-        <Card>
-          <Text style={styles.sectionTitle}>Read-only v1</Text>
-          <Text style={styles.infoText}>
-            Hardened: Reconnect + resync on foreground ✅
-          </Text>
-          <Text style={styles.infoText}>
-            Next: buy-in/cash-out actions + role checks
-          </Text>
-        </Card>
+        {/* Players Section */}
+        <Text style={styles.sectionTitle}>PLAYERS ({players.length})</Text>
+        <View style={styles.card}>
+          {players.length === 0 ? (
+            <Text style={styles.emptyText}>No players in this game</Text>
+          ) : (
+            players.map((player: any, index: number) => (
+              <View key={player.player_id || index}>
+                <View style={styles.playerRow}>
+                  <View style={styles.playerInfo}>
+                    <Text style={styles.playerName}>
+                      {player.name || player.email || "Player"}
+                    </Text>
+                    <Text style={styles.playerRole}>
+                      {player.role === "host" ? "👑 Host" : "Player"}
+                    </Text>
+                  </View>
+                  <View style={styles.playerStats}>
+                    <Text style={styles.chipsValue}>{player.chips || 0}</Text>
+                    <Text style={styles.chipsLabel}>chips</Text>
+                  </View>
+                </View>
+                <View style={styles.playerMeta}>
+                  <Text style={styles.metaText}>
+                    Buy-in: ${player.total_buy_in || 0}
+                  </Text>
+                  {player.cash_out > 0 && (
+                    <Text style={styles.metaText}>
+                      Cash-out: ${player.cash_out}
+                    </Text>
+                  )}
+                </View>
+                {index < players.length - 1 && <View style={styles.divider} />}
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* Version Info */}
+        <View style={[styles.card, styles.infoCard]}>
+          <Text style={styles.infoTitle}>📱 Mobile v0.2</Text>
+          <Text style={styles.infoText}>✅ Real-time WebSocket updates</Text>
+          <Text style={styles.infoText}>✅ SecureStore token storage</Text>
+          <Text style={styles.infoText}>✅ Auto-reconnect on foreground</Text>
+          <Text style={styles.infoText}>🚧 Buy-in/cash-out actions coming</Text>
+        </View>
       </ScrollView>
-    </Screen>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingVertical: 16,
+  container: {
+    flex: 1,
+    backgroundColor: "#0B0B0F",
   },
-  title: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#0B0B0F",
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  statusBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusConnected: {
+    backgroundColor: "#22c55e",
+  },
+  statusDisconnected: {
+    backgroundColor: "#ef4444",
+  },
+  statusText: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 13,
+  },
+  lastUpdateText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 12,
+  },
+  card: {
+    backgroundColor: "#141421",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  gameTitle: {
     color: "#fff",
-    fontSize: 24,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 16,
+  },
+  gameStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  statItem: {
+    alignItems: "center",
+  },
+  statLabel: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  statValue: {
+    color: "#fff",
+    fontSize: 16,
     fontWeight: "600",
   },
-  socketStatus: {
+  statusActive: {
+    color: "#22c55e",
+  },
+  statusEnded: {
     color: "rgba(255,255,255,0.5)",
-    marginTop: 4,
-  },
-  errorText: {
-    color: "#f87171",
-    marginTop: 8,
-  },
-  reconnectBanner: {
-    marginBottom: 12,
-    backgroundColor: "rgba(161, 98, 7, 0.3)",
-    borderWidth: 1,
-    borderColor: "rgba(234, 179, 8, 0.5)",
-    borderRadius: 8,
-    padding: 12,
-  },
-  reconnectText: {
-    color: "#fef08a",
-    fontSize: 14,
   },
   sectionTitle: {
-    color: "rgba(255,255,255,0.7)",
-  },
-  emptyText: {
     color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 1,
+    marginBottom: 12,
   },
-  playerItem: {
-    paddingVertical: 8,
+  playerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+  },
+  playerInfo: {
+    flex: 1,
   },
   playerName: {
     color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  playerRole: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 13,
+    marginTop: 2,
   },
   playerStats: {
+    alignItems: "flex-end",
+  },
+  chipsValue: {
+    color: "#22c55e",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  chipsLabel: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 11,
+  },
+  playerMeta: {
+    flexDirection: "row",
+    gap: 16,
+    paddingBottom: 8,
+  },
+  metaText: {
     color: "rgba(255,255,255,0.5)",
-    fontSize: 14,
+    fontSize: 13,
   },
   divider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  emptyText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 14,
+    textAlign: "center",
+    paddingVertical: 20,
+  },
+  errorBanner: {
+    backgroundColor: "rgba(239,68,68,0.15)",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: "#fca5a5",
+    fontSize: 14,
+  },
+  reconnectBanner: {
+    backgroundColor: "rgba(234,179,8,0.15)",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  reconnectText: {
+    color: "#fef08a",
+    fontSize: 13,
+  },
+  infoCard: {
     marginTop: 8,
   },
+  infoTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
   infoText: {
-    color: "rgba(255,255,255,0.5)",
-    marginTop: 8,
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 14,
+    marginTop: 4,
   },
 });

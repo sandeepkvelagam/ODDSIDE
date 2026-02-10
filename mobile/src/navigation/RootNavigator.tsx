@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { View, Text, StyleSheet, Animated, Easing } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "../lib/supabase";
-import { Session } from "@supabase/supabase-js";
+import { View, Text, StyleSheet, Animated } from "react-native";
+import { useAuth } from "../context/AuthContext";
 
 // Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -15,200 +12,128 @@ import { GroupHubScreen } from "../screens/GroupHubScreen";
 import { GameNightScreen } from "../screens/GameNightScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 
-// Type definitions
 export type RootStackParamList = {
   Login: undefined;
-  Splash: undefined;
-  Main: undefined;
-  GroupHub: { groupId: string; groupName?: string };
-  GameNight: { gameId: string };
-};
-
-export type MainTabParamList = {
   Dashboard: undefined;
   Groups: undefined;
+  GroupHub: { groupId: string; groupName?: string };
+  GameNight: { gameId: string };
   Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// Splash Screen Component
-function SplashScreen({ onFinish }: { onFinish: () => void }) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+function SplashOverlay({ onFinish }: { onFinish: () => void }) {
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
-    // Animate in
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
 
-    // Auto transition after 2 seconds
     const timer = setTimeout(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
       }).start(() => onFinish());
-    }, 2000);
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, []);
 
   return (
-    <View style={styles.splashContainer}>
-      <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
-        <Text style={styles.splashLogo}>♠️</Text>
-        <Text style={styles.splashTitle}>Kvitt</Text>
-        <Text style={styles.splashSubtitle}>Poker Game Ledger</Text>
-      </Animated.View>
-    </View>
-  );
-}
-
-// Main Tab Navigator
-function MainTabs() {
-  return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: "#3b82f6",
-        tabBarInactiveTintColor: "#666",
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = "home";
-          
-          if (route.name === "Dashboard") {
-            iconName = focused ? "home" : "home-outline";
-          } else if (route.name === "Groups") {
-            iconName = focused ? "people" : "people-outline";
-          } else if (route.name === "Settings") {
-            iconName = focused ? "settings" : "settings-outline";
-          }
-          
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-      })}
+    <Animated.View
+      style={[styles.splashContainer, { opacity: fadeAnim }]}
+      pointerEvents="none"
     >
-      <Tab.Screen 
-        name="Dashboard" 
-        component={DashboardScreen}
-        options={{ tabBarLabel: "Home" }}
-      />
-      <Tab.Screen 
-        name="Groups" 
-        component={GroupsScreen}
-        options={{ tabBarLabel: "Groups" }}
-      />
-      <Tab.Screen 
-        name="Settings" 
-        component={SettingsScreen}
-        options={{ tabBarLabel: "Settings" }}
-      />
-    </Tab.Navigator>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Text style={styles.splashTitle}>Kvitt</Text>
+        <Text style={styles.splashSubtitle}>Your side, settled.</Text>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
 export default function RootNavigator() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showSplash, setShowSplash] = useState(false);
+  const { session, isLoading } = useAuth();
+  const [showSplash, setShowSplash] = React.useState(false);
+  const prevSession = useRef(session);
 
   useEffect(() => {
-    // Check for existing session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        setShowSplash(true); // Show splash on auto-login
-      }
-      setIsLoading(false);
-    });
+    if (!prevSession.current && session) {
+      setShowSplash(true);
+    }
+    prevSession.current = session;
+  }, [session]);
 
-    // Subscribe to auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        const wasLoggedOut = !session;
-        const justLoggedIn = session && !wasLoggedOut;
-        
-        if (justLoggedIn && _event === 'SIGNED_IN') {
-          setShowSplash(true);
-        }
-        setSession(session);
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // Initial loading
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <Text style={styles.loadingLogo}>Kvitt</Text>
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
 
-  // Show splash after login
-  if (showSplash && session) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
-  }
-
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: "#0B0B0F" },
-          headerTintColor: "#fff",
-          headerTitleStyle: { fontWeight: "600" },
-          contentStyle: { backgroundColor: "#0B0B0F" },
-        }}
-      >
-        {!session ? (
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{ headerShown: false }}
-          />
-        ) : (
-          <>
+    <>
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerStyle: { backgroundColor: "#0B0B0F" },
+            headerTintColor: "#fff",
+            headerTitleStyle: { fontWeight: "600" },
+            contentStyle: { backgroundColor: "#0B0B0F" },
+          }}
+        >
+          {!session ? (
             <Stack.Screen
-              name="Main"
-              component={MainTabs}
+              name="Login"
+              component={LoginScreen}
               options={{ headerShown: false }}
             />
-            <Stack.Screen
-              name="GroupHub"
-              component={GroupHubScreen}
-              options={({ route }) => ({
-                title: route.params?.groupName || "Group",
-                headerBackTitle: "Back",
-              })}
-            />
-            <Stack.Screen
-              name="GameNight"
-              component={GameNightScreen}
-              options={{ 
-                title: "Game Night",
-                headerBackTitle: "Back",
-              }}
-            />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+          ) : (
+            <>
+              <Stack.Screen
+                name="Dashboard"
+                component={DashboardScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Groups"
+                component={GroupsScreen}
+                options={{ title: "Groups", headerBackTitle: "Back" }}
+              />
+              <Stack.Screen
+                name="GroupHub"
+                component={GroupHubScreen}
+                options={({ route }) => ({
+                  title: route.params?.groupName || "Group",
+                  headerBackTitle: "Back",
+                })}
+              />
+              <Stack.Screen
+                name="GameNight"
+                component={GameNightScreen}
+                options={{ title: "Game Night", headerBackTitle: "Back" }}
+              />
+              <Stack.Screen
+                name="Settings"
+                component={SettingsScreen}
+                options={{ title: "Settings", headerBackTitle: "Back" }}
+              />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+      {showSplash && session && (
+        <SplashOverlay onFinish={() => setShowSplash(false)} />
+      )}
+    </>
   );
 }
 
@@ -219,20 +144,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#0B0B0F",
   },
+  loadingLogo: {
+    fontSize: 36,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 12,
+  },
   loadingText: {
     color: "#666",
-    fontSize: 16,
+    fontSize: 14,
   },
   splashContainer: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#0B0B0F",
-  },
-  splashLogo: {
-    fontSize: 80,
-    textAlign: "center",
-    marginBottom: 16,
+    zIndex: 100,
   },
   splashTitle: {
     fontSize: 48,
@@ -241,16 +168,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   splashSubtitle: {
-    fontSize: 18,
-    color: "#666",
+    fontSize: 16,
+    color: "#EF6E59",
     textAlign: "center",
     marginTop: 8,
-  },
-  tabBar: {
-    backgroundColor: "#0B0B0F",
-    borderTopColor: "#222",
-    borderTopWidth: 1,
-    paddingBottom: 4,
-    height: 60,
   },
 });

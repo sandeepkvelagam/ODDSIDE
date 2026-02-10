@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 import uuid
 
 class NotificationGameFlowTester:
-    def __init__(self, base_url: str = "https://kvitt-poker-app.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://poker-app-upgrade.preview.emergentagent.com"):
         self.base_url = base_url
         self.user1_id = None  # Host
         self.user2_id = None  # Player

@@ -26,7 +26,7 @@ export function SettingsScreen() {
   };
 
   const openWebApp = () => {
-    Linking.openURL("https://kvitt-poker-app.preview.emergentagent.com");
+    Linking.openURL("https://poker-app-upgrade.preview.emergentagent.com");
   };
 
   return (

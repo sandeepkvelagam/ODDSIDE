@@ -8,7 +8,7 @@ import json
 import uuid
 
 def test_specific_endpoints():
-    base_url = "https://kvitt-poker-app.preview.emergentagent.com"
+    base_url = "https://poker-app-upgrade.preview.emergentagent.com"
     test_id = str(uuid.uuid4())[:8]
     
     print("🚀 Testing Specific NEW Endpoints for Kvitt")

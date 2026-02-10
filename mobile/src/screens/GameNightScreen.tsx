@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Text, View, ScrollView, AppState, AppStateStatus } from "react-native";
+import { Text, View, ScrollView, AppState, AppStateStatus, StyleSheet } from "react-native";
 import { RouteProp, useRoute } from "@react-navigation/native";
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
@@ -156,47 +156,47 @@ export function GameNightScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View className="py-4">
-          <Text className="text-white text-2xl font-semibold">Game</Text>
-          <Text className="text-white/50 mt-1">
+        <View style={styles.header}>
+          <Text style={styles.title}>Game</Text>
+          <Text style={styles.socketStatus}>
             Socket: {connected ? "✅ Connected" : reconnecting ? "⏳ Reconnecting..." : "❌ Disconnected"} • Last: {lastEvent}
           </Text>
-          {error ? <Text className="text-red-400 mt-2">{error}</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
 
         {reconnecting && (
-          <View className="mb-3 bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-3">
-            <Text className="text-yellow-200 text-sm">Reconnecting...</Text>
+          <View style={styles.reconnectBanner}>
+            <Text style={styles.reconnectText}>Reconnecting...</Text>
           </View>
         )}
 
         <Card>
-          <Text className="text-white/70">Players</Text>
-          <View className="mt-3">
+          <Text style={styles.sectionTitle}>Players</Text>
+          <View style={{ marginTop: 12 }}>
             {players.length === 0 ? (
-              <Text className="text-white/50">No players found.</Text>
+              <Text style={styles.emptyText}>No players found.</Text>
             ) : (
               players.map((p: any, idx: number) => (
-                <View key={p?._id ?? p?.id ?? idx} className="py-2">
-                  <Text className="text-white">{p?.name ?? p?.email ?? "Player"}</Text>
-                  <Text className="text-white/50 text-sm">
+                <View key={p?._id ?? p?.id ?? idx} style={styles.playerItem}>
+                  <Text style={styles.playerName}>{p?.name ?? p?.email ?? "Player"}</Text>
+                  <Text style={styles.playerStats}>
                     Chips: {p?.chips ?? 0} • Buy-in: ${p?.total_buy_in ?? 0}
                   </Text>
-                  {idx < players.length - 1 ? <View className="h-px bg-white/10 mt-2" /> : null}
+                  {idx < players.length - 1 ? <View style={styles.divider} /> : null}
                 </View>
               ))
             )}
           </View>
         </Card>
 
-        <View className="h-4" />
+        <View style={{ height: 16 }} />
 
         <Card>
-          <Text className="text-white/70">Read-only v1</Text>
-          <Text className="text-white/50 mt-2">
+          <Text style={styles.sectionTitle}>Read-only v1</Text>
+          <Text style={styles.infoText}>
             Hardened: Reconnect + resync on foreground ✅
           </Text>
-          <Text className="text-white/50 mt-1">
+          <Text style={styles.infoText}>
             Next: buy-in/cash-out actions + role checks
           </Text>
         </Card>
@@ -204,3 +204,59 @@ export function GameNightScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    paddingVertical: 16,
+  },
+  title: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "600",
+  },
+  socketStatus: {
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 4,
+  },
+  errorText: {
+    color: "#f87171",
+    marginTop: 8,
+  },
+  reconnectBanner: {
+    marginBottom: 12,
+    backgroundColor: "rgba(161, 98, 7, 0.3)",
+    borderWidth: 1,
+    borderColor: "rgba(234, 179, 8, 0.5)",
+    borderRadius: 8,
+    padding: 12,
+  },
+  reconnectText: {
+    color: "#fef08a",
+    fontSize: 14,
+  },
+  sectionTitle: {
+    color: "rgba(255,255,255,0.7)",
+  },
+  emptyText: {
+    color: "rgba(255,255,255,0.5)",
+  },
+  playerItem: {
+    paddingVertical: 8,
+  },
+  playerName: {
+    color: "#fff",
+  },
+  playerStats: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 14,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    marginTop: 8,
+  },
+  infoText: {
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 8,
+  },
+});

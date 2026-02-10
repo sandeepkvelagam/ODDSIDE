@@ -1,10 +1,8 @@
 import { api } from "./client";
-import type { Group } from "../types";
 
-export async function listGroups(): Promise<Group[]> {
+export async function listGroups() {
   const res = await api.get("/groups");
-  // Backend returns array directly or { groups: [...] }
-  return res.data?.groups ?? res.data ?? [];
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function getGroup(groupId: string) {

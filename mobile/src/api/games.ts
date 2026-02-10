@@ -1,9 +1,8 @@
 import { api } from "./client";
-import type { Game } from "../types";
 
-export async function listGroupGames(groupId: string): Promise<Game[]> {
-  const res = await api.get(`/groups/${groupId}/games`);
-  return res.data?.games ?? res.data ?? [];
+export async function listGroupGames(groupId: string) {
+  const res = await api.get(`/games?group_id=${groupId}`);
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function getGame(gameId: string) {

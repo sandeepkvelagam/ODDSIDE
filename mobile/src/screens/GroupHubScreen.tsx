@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View, StyleSheet } from "react-native";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Screen } from "../components/ui/Screen";
@@ -40,44 +40,44 @@ export function GroupHubScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View className="py-4">
-          <Text className="text-white text-2xl font-semibold">{group?.name ?? "Group"}</Text>
-          {error ? <Text className="text-red-400 mt-2">{error}</Text> : null}
+        <View style={styles.header}>
+          <Text style={styles.title}>{group?.name ?? "Group"}</Text>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
 
-        <Text className="text-white/70 mb-2">Members</Text>
+        <Text style={styles.sectionTitle}>Members</Text>
         <Card>
           {Array.isArray(members) && members.length > 0 ? (
             members.slice(0, 10).map((m: any, idx: number) => (
-              <View key={m?._id ?? m?.id ?? idx} className="py-2">
-                <Text className="text-white">{m?.name ?? m?.email ?? "Member"}</Text>
+              <View key={m?._id ?? m?.id ?? idx} style={styles.memberItem}>
+                <Text style={styles.memberName}>{m?.name ?? m?.email ?? "Member"}</Text>
                 {idx < Math.min(members.length, 10) - 1 ? (
-                  <View className="h-px bg-white/10 mt-2" />
+                  <View style={styles.divider} />
                 ) : null}
               </View>
             ))
           ) : (
-            <Text className="text-white/50">No members data found.</Text>
+            <Text style={styles.emptyText}>No members data found.</Text>
           )}
         </Card>
 
-        <View className="h-5" />
+        <View style={{ height: 20 }} />
 
-        <Text className="text-white/70 mb-2">Games</Text>
+        <Text style={styles.sectionTitle}>Games</Text>
         {games.length === 0 ? (
           <Card>
-            <Text className="text-white/50">No games yet.</Text>
+            <Text style={styles.emptyText}>No games yet.</Text>
           </Card>
         ) : (
-          <View className="gap-3">
+          <View style={{ gap: 12 }}>
             {games.map((g) => (
               <Card key={g._id} onPress={() => navigation.navigate("GameNight", { gameId: g._id })}>
-                <View className="flex-row items-center justify-between">
+                <View style={styles.gameRow}>
                   <View>
-                    <Text className="text-white font-semibold">Game</Text>
-                    <Text className="text-white/50 mt-1">Status: {g.status}</Text>
+                    <Text style={styles.gameName}>Game</Text>
+                    <Text style={styles.gameStatus}>Status: {g.status}</Text>
                   </View>
-                  <Text className="text-white/40">›</Text>
+                  <Text style={styles.arrow}>›</Text>
                 </View>
               </Card>
             ))}
@@ -87,3 +87,53 @@ export function GroupHubScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    paddingVertical: 16,
+  },
+  title: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "600",
+  },
+  errorText: {
+    color: "#f87171",
+    marginTop: 8,
+  },
+  sectionTitle: {
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 8,
+  },
+  memberItem: {
+    paddingVertical: 8,
+  },
+  memberName: {
+    color: "#fff",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    marginTop: 8,
+  },
+  emptyText: {
+    color: "rgba(255,255,255,0.5)",
+  },
+  gameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  gameName: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  gameStatus: {
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 4,
+  },
+  arrow: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 20,
+  },
+});

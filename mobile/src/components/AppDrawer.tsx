@@ -9,16 +9,24 @@ import {
   ScrollView,
   Pressable,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDrawer } from "../context/DrawerContext";
-import { ProfileChip } from "./ProfileChip";
-import { FloatingActionButton } from "./FloatingActionButton";
-import { COLORS, BLUR_INTENSITY } from "../styles/glass";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.82;
+
+// Glass design colors
+const COLORS = {
+  background: "#141414",
+  surface: "rgba(255,255,255,0.08)",
+  textPrimary: "rgba(255,255,255,0.92)",
+  textSecondary: "rgba(255,255,255,0.55)",
+  textMuted: "rgba(255,255,255,0.35)",
+  border: "rgba(255,255,255,0.14)",
+  borderLight: "rgba(255,255,255,0.08)",
+  orange: "#D77A42",
+};
 
 type MenuItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -86,17 +94,18 @@ export function AppDrawer({
         }),
       ]).start();
     }
-  }, [isOpen]);
+  }, [isOpen, translateX, overlayOpacity]);
+
+  const userInitial = userName?.[0]?.toUpperCase() || "?";
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={isOpen ? "auto" : "none"}>
-      {/* Overlay with blur */}
+      {/* Overlay */}
       <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-        <BlurView intensity={12} tint="dark" style={StyleSheet.absoluteFill} />
         <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} />
       </Animated.View>
 
-      {/* Drawer with glass styling */}
+      {/* Drawer */}
       <Animated.View
         style={[
           styles.drawer,
@@ -108,14 +117,12 @@ export function AppDrawer({
           },
         ]}
       >
-        <BlurView intensity={BLUR_INTENSITY} tint="dark" style={StyleSheet.absoluteFill} />
-
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>Kvitt</Text>
         </View>
 
-        {/* Recents Section - "All chats" style */}
+        {/* Recents Section */}
         {recentItems.length > 0 && (
           <View style={styles.recentsSection}>
             <TouchableOpacity style={styles.recentsHeader} activeOpacity={0.7}>
@@ -159,7 +166,7 @@ export function AppDrawer({
                 <Ionicons name={item.icon} size={20} color={COLORS.textPrimary} />
               </View>
               <Text style={styles.menuLabel}>{item.label}</Text>
-              {item.badge && item.badge > 0 && (
+              {item.badge !== undefined && item.badge > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{item.badge > 99 ? "99+" : item.badge}</Text>
                 </View>
@@ -169,19 +176,30 @@ export function AppDrawer({
         </View>
 
         {/* Spacer */}
-        <View style={{ flex: 1 }} />
+        <View style={styles.spacer} />
 
-        {/* Bottom Profile Bar - Glass style */}
+        {/* Bottom Profile Bar */}
         <View style={styles.bottomBar}>
-          <ProfileChip 
-            name={userName} 
+          {/* Profile Chip */}
+          <TouchableOpacity 
+            style={styles.profileChip} 
             onPress={onProfilePress}
-            testID="drawer-profile-chip"
-          />
-          <FloatingActionButton 
+            activeOpacity={0.7}
+          >
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{userInitial}</Text>
+            </View>
+            <Text style={styles.profileName} numberOfLines={1}>{userName}</Text>
+          </TouchableOpacity>
+
+          {/* FAB */}
+          <TouchableOpacity 
+            style={styles.fab} 
             onPress={onNewPress}
-            testID="drawer-fab"
-          />
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
       </Animated.View>
     </View>
@@ -191,17 +209,16 @@ export function AppDrawer({
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   drawer: {
     position: "absolute",
     top: 0,
     left: 0,
     bottom: 0,
-    backgroundColor: "rgba(20,20,20,0.85)",
+    backgroundColor: "rgba(20,20,20,0.95)",
     borderRightWidth: 1,
     borderRightColor: COLORS.border,
-    overflow: "hidden",
   },
   header: {
     paddingHorizontal: 20,
@@ -211,7 +228,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    zIndex: 1,
   },
   recentsSection: {
     paddingHorizontal: 16,
@@ -259,7 +275,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 10,
-    zIndex: 1,
   },
   menuIconBox: {
     width: 32,
@@ -292,6 +307,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
+  spacer: {
+    flex: 1,
+  },
   bottomBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -300,6 +318,45 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
-    zIndex: 1,
+  },
+  profileChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flex: 1,
+    marginRight: 12,
+  },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: COLORS.textPrimary,
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  profileName: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    fontWeight: "600",
+    flex: 1,
+  },
+  fab: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.orange,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

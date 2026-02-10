@@ -92,13 +92,14 @@ export function DashboardScreen() {
           <Text style={styles.logoSubtext}>Ledger</Text>
         </View>
         
-        <GlassIconButton 
-          icon="notifications-outline" 
-          onPress={() => {}}
-          testID="notifications-button"
-        >
+        <View>
+          <GlassIconButton 
+            icon="notifications-outline" 
+            onPress={() => {}}
+            testID="notifications-button"
+          />
           {notifications.length > 0 && <View style={styles.notifBadge} />}
-        </GlassIconButton>
+        </View>
       </View>
 
       <ScrollView

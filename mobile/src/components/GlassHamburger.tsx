@@ -14,7 +14,7 @@ export function GlassHamburger({ onPress, testID }: Props) {
       style={glassStyles.glassIconBtn} 
       onPress={onPress}
       activeOpacity={0.7}
-      data-testid={testID}
+      testID={testID}
     >
       <BlurView 
         intensity={BLUR_INTENSITY} 

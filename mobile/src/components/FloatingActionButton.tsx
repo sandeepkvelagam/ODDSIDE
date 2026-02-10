@@ -15,7 +15,7 @@ export function FloatingActionButton({ onPress, icon = "add", testID }: Props) {
       style={glassStyles.fab} 
       onPress={onPress}
       activeOpacity={0.8}
-      data-testid={testID}
+      testID={testID}
     >
       <View style={styles.innerSheen}>
         <Ionicons name={icon} size={28} color="#fff" />

@@ -17,7 +17,7 @@ export function ProfileChip({ name, onPress, testID }: Props) {
       style={glassStyles.profileChip} 
       onPress={onPress}
       activeOpacity={0.7}
-      data-testid={testID}
+      testID={testID}
     >
       <BlurView 
         intensity={BLUR_INTENSITY} 

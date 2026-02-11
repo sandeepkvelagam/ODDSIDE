@@ -3137,7 +3137,20 @@ async def analyze_poker_hand(data: PokerAnalyzeRequest, user: User = Depends(get
     
     if len(data.your_hand) != 2:
         raise HTTPException(status_code=400, detail="Must provide exactly 2 hole cards")
-    
+
+    if len(data.community_cards) < 3:
+        raise HTTPException(status_code=400, detail="Must provide at least 3 community cards (flop)")
+
+    if len(data.community_cards) > 5:
+        raise HTTPException(status_code=400, detail="Cannot have more than 5 community cards")
+
+    # Check for duplicate cards
+    all_cards = data.your_hand + data.community_cards
+    # Normalize card format for comparison
+    normalized = [c.lower().strip() for c in all_cards]
+    if len(normalized) != len(set(normalized)):
+        raise HTTPException(status_code=400, detail="Duplicate cards detected - each card can only appear once")
+
     # Build the prompt
     hand_str = ", ".join(data.your_hand)
     community_str = ", ".join(data.community_cards) if data.community_cards else "None (Pre-flop)"
@@ -3150,22 +3163,33 @@ async def analyze_poker_hand(data: PokerAnalyzeRequest, user: User = Depends(get
     elif len(data.community_cards) == 5:
         stage = "River"
     
-    system_prompt = """You are a poker hand analyzer. Given hole cards and community cards, analyze the hand strength and provide a suggestion.
+    system_prompt = """You are an expert poker hand analyzer. Given hole cards and community cards, ACCURATELY identify the best 5-card hand and provide a suggestion.
+
+POKER HAND RANKINGS (highest to lowest):
+1. Royal Flush: A-K-Q-J-10 all same suit
+2. Straight Flush: 5 sequential cards, same suit
+3. Four of a Kind: 4 cards of same rank (e.g., 5-5-5-5)
+4. Full House: 3 of a kind + a pair (e.g., 5-5-5-2-2)
+5. Flush: 5 cards same suit
+6. Straight: 5 sequential cards
+7. Three of a Kind: 3 cards of same rank
+8. Two Pair: 2 different pairs
+9. One Pair: 2 cards of same rank
+10. High Card: No matches
+
+CRITICAL: Count cards carefully!
+- Four of a Kind requires EXACTLY 4 cards of the same rank
+- Full House requires EXACTLY 3 of one rank AND 2 of another
+- The best 5-card hand is made from your 2 hole cards + community cards
 
 RESPOND IN THIS EXACT JSON FORMAT:
 {
   "action": "FOLD" | "CHECK" | "CALL" | "RAISE",
   "potential": "Low" | "Medium" | "High",
-  "reasoning": "Brief explanation in 1-2 sentences"
+  "reasoning": "Brief explanation stating the exact hand type and why"
 }
 
-ANALYSIS RULES:
-- Pre-flop: Evaluate hole card strength (premium pairs, suited connectors, etc.)
-- Post-flop: Consider made hands, draws, and outs
-- Be conservative with weak hands
-- "potential" refers to hand potential to win
-
-Keep reasoning concise (under 50 words). Focus on probability and hand strength."""
+Keep reasoning concise (under 50 words). Be precise about hand identification."""
 
     user_prompt = f"""Stage: {stage}
 My hole cards: {hand_str}

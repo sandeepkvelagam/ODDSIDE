@@ -96,26 +96,74 @@ export default function PokerAIAssistant() {
     setSelectedCard(`${type}-${index}`);
   };
 
-  // Handle value input
-  const handleValueInput = (value) => {
+  // Handle keyboard input when card is selected
+  const handleKeyDown = (e) => {
     if (!selectedCard) return;
-    
-    const val = value.toUpperCase();
-    if (val !== "" && val !== "1" && !validValues.includes(val)) return;
-    
-    const [type, idx] = selectedCard.split("-");
-    const index = parseInt(idx);
-    
-    if (type === "hand") {
-      const newHand = [...hand];
-      newHand[index].rank = val === "1" ? "10" : val;
-      setHand(newHand);
-    } else {
-      const newComm = [...community];
-      newComm[index].rank = val === "1" ? "10" : val;
-      setCommunity(newComm);
+
+    const key = e.key.toUpperCase();
+
+    // Handle backspace - clear the card
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      const [type, idx] = selectedCard.split("-");
+      const index = parseInt(idx);
+
+      if (type === "hand") {
+        const newHand = [...hand];
+        newHand[index].rank = "";
+        newHand[index].suit = null;
+        setHand(newHand);
+      } else {
+        const newComm = [...community];
+        newComm[index].rank = "";
+        newComm[index].suit = null;
+        setCommunity(newComm);
+      }
+      setSuggestion(null);
+      return;
     }
-    setSuggestion(null);
+
+    // Handle number keys and letter keys for card values
+    if (validValues.includes(key) || key === "1" || key === "0") {
+      e.preventDefault();
+      const [type, idx] = selectedCard.split("-");
+      const index = parseInt(idx);
+
+      // Handle "10" input - if typing "1" then "0"
+      if (key === "1") {
+        if (type === "hand") {
+          const newHand = [...hand];
+          newHand[index].rank = "1";
+          setHand(newHand);
+        } else {
+          const newComm = [...community];
+          newComm[index].rank = "1";
+          setCommunity(newComm);
+        }
+      } else if (key === "0") {
+        // If previous char was "1", make it "10"
+        if (type === "hand" && hand[index].rank === "1") {
+          const newHand = [...hand];
+          newHand[index].rank = "10";
+          setHand(newHand);
+        } else if (type === "comm" && community[index].rank === "1") {
+          const newComm = [...community];
+          newComm[index].rank = "10";
+          setCommunity(newComm);
+        }
+      } else {
+        if (type === "hand") {
+          const newHand = [...hand];
+          newHand[index].rank = key;
+          setHand(newHand);
+        } else {
+          const newComm = [...community];
+          newComm[index].rank = key;
+          setCommunity(newComm);
+        }
+      }
+      setSuggestion(null);
+    }
   };
 
   // Handle suit selection
@@ -137,14 +185,6 @@ export default function PokerAIAssistant() {
     setSuggestion(null);
   };
 
-  // Get current selected card's value
-  const getSelectedValue = () => {
-    if (!selectedCard) return "";
-    const [type, idx] = selectedCard.split("-");
-    const index = parseInt(idx);
-    return type === "hand" ? hand[index].rank : community[index].rank;
-  };
-
   const getSelectedSuit = () => {
     if (!selectedCard) return null;
     const [type, idx] = selectedCard.split("-");
@@ -156,7 +196,30 @@ export default function PokerAIAssistant() {
   const isCardValid = (card) => card.rank && card.suit && validValues.includes(card.rank);
   const filledHand = hand.filter(isCardValid);
   const filledCommunity = community.filter(isCardValid);
-  const canAnalyze = filledHand.length === 2 && agreed;
+
+  // Check for duplicate cards (same rank + suit)
+  const getDuplicateCards = () => {
+    const allCards = [...hand, ...community].filter(isCardValid);
+    const seen = new Map();
+    const duplicates = [];
+
+    allCards.forEach(card => {
+      const key = `${card.rank}-${card.suit}`;
+      if (seen.has(key)) {
+        duplicates.push(`${card.rank}${suits[card.suit]}`);
+      } else {
+        seen.set(key, true);
+      }
+    });
+
+    return duplicates;
+  };
+
+  const duplicateCards = getDuplicateCards();
+  const hasDuplicates = duplicateCards.length > 0;
+
+  // Validation: need 2 hand cards + at least 3 community cards (flop)
+  const canAnalyze = filledHand.length === 2 && filledCommunity.length >= 3 && agreed && !hasDuplicates;
 
   const resetAll = () => {
     setHand([{ rank: "", suit: null }, { rank: "", suit: null }]);
@@ -208,7 +271,11 @@ export default function PokerAIAssistant() {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="sm:max-w-3xl bg-white border-border p-0 gap-0 overflow-hidden">
+      <DialogContent
+        className="sm:max-w-5xl bg-white border-border p-0 gap-0 overflow-hidden"
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+      >
         <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center p-6 md:p-8">
           {/* Left Side - Text (centered) */}
           <div className="order-2 md:order-1">
@@ -248,7 +315,7 @@ export default function PokerAIAssistant() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-foreground">AI Assistant</p>
-                    <p className="text-[10px] text-muted-foreground">Tap a card, enter value, pick suit</p>
+                    <p className="text-[10px] text-muted-foreground">Tap a card, type value, pick suit</p>
                   </div>
                 </div>
 
@@ -295,41 +362,38 @@ export default function PokerAIAssistant() {
                   </div>
                 </div>
 
-                {/* Input & Suit Selector */}
+                {/* Suit Selector - shown when card is selected */}
                 {selectedCard && (
                   <div className="mb-4 p-3 bg-secondary/30 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="text"
-                        value={getSelectedValue()}
-                        onChange={(e) => handleValueInput(e.target.value)}
-                        placeholder="A, 2-10, J, Q, K"
-                        maxLength={2}
-                        className="w-24 px-3 py-1.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EF6E59]/30 focus:border-[#EF6E59]"
-                        autoFocus
-                      />
-                      <div className="flex gap-1">
-                        {Object.entries(suits).map(([key, symbol]) => (
-                          <button
-                            key={key}
-                            onClick={() => handleSuitSelect(key)}
-                            className={cn(
-                              "w-8 h-8 rounded-lg text-xl flex items-center justify-center transition-all",
-                              getSelectedSuit() === key
-                                ? `${suitColors[key]} bg-zinc-100 ring-2 ring-[#EF6E59]/30`
-                                : `${suitColors[key]} opacity-50 hover:opacity-100 hover:bg-zinc-50`
-                            )}
-                          >
-                            {symbol}
-                          </button>
-                        ))}
-                      </div>
+                    <p className="text-[10px] text-muted-foreground mb-2">Type A, 2-10, J, Q, K then pick suit:</p>
+                    <div className="flex gap-2">
+                      {Object.entries(suits).map(([key, symbol]) => (
+                        <button
+                          key={key}
+                          onClick={() => handleSuitSelect(key)}
+                          className={cn(
+                            "w-10 h-10 rounded-lg text-2xl flex items-center justify-center transition-all",
+                            getSelectedSuit() === key
+                              ? `${suitColors[key]} bg-white ring-2 ring-[#EF6E59]/30 shadow-sm`
+                              : `${suitColors[key]} opacity-50 hover:opacity-100 hover:bg-white/50`
+                          )}
+                        >
+                          {symbol}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
 
+                {/* Warnings */}
+                {hasDuplicates && (
+                  <div className="mb-3 p-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+                    <strong>Duplicate card detected:</strong> {duplicateCards.join(", ")} - Each card can only appear once in a deck!
+                  </div>
+                )}
+
                 {/* Suggestion */}
-                <div className="h-[80px] overflow-hidden">
+                <div className="min-h-[80px] overflow-hidden">
                   {loading && (
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/50">
                       <Sparkles className="w-4 h-4 text-[#EF6E59] animate-pulse" />
@@ -376,13 +440,21 @@ export default function PokerAIAssistant() {
                   </span>
                 </div>
 
+                {/* Validation hint */}
+                {!canAnalyze && agreed && !hasDuplicates && (
+                  <p className="text-[10px] text-amber-600 mb-2">
+                    {filledHand.length < 2 && `Need ${2 - filledHand.length} more hand card${2 - filledHand.length > 1 ? 's' : ''}`}
+                    {filledHand.length === 2 && filledCommunity.length < 3 && `Need ${3 - filledCommunity.length} more community card${3 - filledCommunity.length > 1 ? 's' : ''} (min. 3 for flop)`}
+                  </p>
+                )}
+
                 {/* Actions */}
-                <div className="flex gap-2 mt-4">
+                <div className="flex gap-2 mt-2">
                   <Button variant="outline" size="sm" onClick={resetAll} className="flex-1 h-8 text-xs">
                     Reset
                   </Button>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="flex-1 h-8 text-xs bg-[#EF6E59] hover:bg-[#e04a35]"
                     onClick={getAnalysis}
                     disabled={!canAnalyze || loading}

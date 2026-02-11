@@ -161,6 +161,9 @@ function App() {
               </ProtectedRoute>
             } />
             
+            {/* Spotify OAuth Callback */}
+            <Route path="/spotify/callback" element={<SpotifyCallback />} />
+            
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

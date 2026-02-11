@@ -8,6 +8,7 @@ import {
   Dimensions,
   ScrollView,
   Pressable,
+  useColorScheme,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,17 +17,26 @@ import { useDrawer } from "../context/DrawerContext";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.75;
 
-// Claude-style warm dark theme colors
-const COLORS = {
-  navBg: "#1a1816", // Warm dark for nav/base
-  contentBg: "#252320", // Lighter warm dark for content panel
+// Light theme - matching web app
+const LIGHT_COLORS = {
+  navBg: "#ece7e1",
+  contentBg: "#f7f5f2",
+  textPrimary: "#1a1a1a",
+  textSecondary: "#5c5c5c",
+  textMuted: "#8c8c8c",
+  border: "rgba(0, 0, 0, 0.06)",
+  profileBg: "#ffffff",
+  orange: "#e8845c",
+};
+
+// Dark theme
+const DARK_COLORS = {
+  navBg: "#0c0c0c",
+  contentBg: "#1a1a1a",
   textPrimary: "#ffffff",
   textSecondary: "#9a9a9a",
   textMuted: "#666666",
   border: "rgba(255, 255, 255, 0.06)",
-  glassBg: "rgba(255, 255, 255, 0.05)",
-  glassBorder: "rgba(255, 255, 255, 0.08)",
-  hoverBg: "rgba(255, 255, 255, 0.05)",
   profileBg: "#2a2826",
   orange: "#e8845c",
 };
@@ -59,11 +69,14 @@ export function AppDrawer({
   menuItems,
   recentItems = [],
   userName,
-  userEmail,
   onProfilePress,
   onNewPress,
   children,
 }: Props) {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
+
   const { isOpen, closeDrawer } = useDrawer();
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -104,12 +117,13 @@ export function AppDrawer({
   const userInitial = userName?.[0]?.toUpperCase() || "?";
 
   return (
-    <View style={styles.root}>
-      {/* Nav Sidebar - Base layer (doesn't move) */}
+    <View style={[styles.root, { backgroundColor: colors.navBg }]}>
+      {/* Nav Sidebar */}
       <View
         style={[
           styles.navSidebar,
           {
+            backgroundColor: colors.navBg,
             paddingTop: insets.top + 16,
             paddingBottom: insets.bottom + 16,
           },
@@ -117,7 +131,7 @@ export function AppDrawer({
       >
         {/* Logo */}
         <View style={styles.logoSection}>
-          <Text style={styles.logo}>Kvitt</Text>
+          <Text style={[styles.logo, { color: colors.textPrimary }]}>Kvitt</Text>
         </View>
 
         {/* Nav Items */}
@@ -134,13 +148,15 @@ export function AppDrawer({
             >
               <Ionicons
                 name={item.icon}
-                size={22}
-                color={COLORS.textSecondary}
+                size={24}
+                color={colors.textSecondary}
                 style={styles.navIcon}
               />
-              <Text style={styles.navLabel}>{item.label}</Text>
+              <Text style={[styles.navLabel, { color: colors.textSecondary }]}>
+                {item.label}
+              </Text>
               {item.badge !== undefined && item.badge > 0 && (
-                <View style={styles.badge}>
+                <View style={[styles.badge, { backgroundColor: colors.orange }]}>
                   <Text style={styles.badgeText}>
                     {item.badge > 99 ? "99+" : item.badge}
                   </Text>
@@ -153,11 +169,10 @@ export function AppDrawer({
         {/* Recents Section */}
         {recentItems.length > 0 && (
           <View style={styles.recentsSection}>
-            <Text style={styles.recentsLabel}>RECENTS</Text>
-            <ScrollView
-              style={styles.recentsList}
-              showsVerticalScrollIndicator={false}
-            >
+            <Text style={[styles.recentsLabel, { color: colors.textMuted }]}>
+              Recents
+            </Text>
+            <ScrollView style={styles.recentsList} showsVerticalScrollIndicator={false}>
               {recentItems.map((item) => (
                 <TouchableOpacity
                   key={item.id}
@@ -168,7 +183,10 @@ export function AppDrawer({
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.recentTitle} numberOfLines={1}>
+                  <Text
+                    style={[styles.recentTitle, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
                     {item.title}
                   </Text>
                 </TouchableOpacity>
@@ -183,45 +201,61 @@ export function AppDrawer({
         {/* Bottom Section */}
         <View style={styles.bottomSection}>
           <TouchableOpacity style={styles.allGamesRow} activeOpacity={0.7}>
-            <Text style={styles.allGamesText}>All games</Text>
-            <Ionicons
-              name="chevron-forward"
-              size={14}
-              color={COLORS.textMuted}
-            />
+            <Text style={[styles.allGamesText, { color: colors.textMuted }]}>
+              All games
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </TouchableOpacity>
 
-          {/* Profile Pill */}
-          <TouchableOpacity
-            style={styles.profilePill}
-            onPress={() => {
-              onProfilePress();
-              closeDrawer();
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{userInitial}</Text>
-            </View>
-            <Text style={styles.profileName} numberOfLines={1}>
-              {userName}
-            </Text>
-          </TouchableOpacity>
+          {/* Profile Pill + FAB Row */}
+          <View style={styles.bottomRow}>
+            <TouchableOpacity
+              style={[
+                styles.profilePill,
+                { backgroundColor: colors.profileBg, borderColor: colors.border },
+              ]}
+              onPress={() => {
+                onProfilePress();
+                closeDrawer();
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{userInitial}</Text>
+              </View>
+              <Text style={[styles.profileName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {userName}
+              </Text>
+            </TouchableOpacity>
+
+            {/* FAB */}
+            <TouchableOpacity
+              style={[styles.fab, { backgroundColor: colors.orange }]}
+              onPress={() => {
+                onNewPress();
+                closeDrawer();
+              }}
+              activeOpacity={0.9}
+            >
+              <Ionicons name="add" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
-      {/* Content Panel - Slides right with rounded left edge */}
+      {/* Content Panel */}
       <Animated.View
         style={[
           styles.contentPanel,
           {
+            backgroundColor: colors.contentBg,
             transform: [{ translateX: slideAnim }],
           },
         ]}
       >
         {children}
 
-        {/* Overlay on content when drawer open */}
+        {/* Overlay */}
         <Animated.View
           style={[
             styles.contentOverlay,
@@ -237,28 +271,6 @@ export function AppDrawer({
           <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} />
         </Animated.View>
       </Animated.View>
-
-      {/* FAB - Fixed position, always visible */}
-      <Animated.View
-        style={[
-          styles.fabContainer,
-          {
-            transform: [{ translateX: slideAnim }],
-            bottom: insets.bottom + 100,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => {
-            onNewPress();
-            closeDrawer();
-          }}
-          activeOpacity={0.9}
-        >
-          <Ionicons name="sparkles" size={24} color="#fff5ee" />
-        </TouchableOpacity>
-      </Animated.View>
     </View>
   );
 }
@@ -266,123 +278,104 @@ export function AppDrawer({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COLORS.navBg,
   },
-
-  /* Nav Sidebar - Base layer */
   navSidebar: {
     position: "absolute",
     top: 0,
     left: 0,
     width: DRAWER_WIDTH,
     height: "100%",
-    backgroundColor: COLORS.navBg,
   },
   logoSection: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   logo: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "600",
-    color: COLORS.textPrimary,
     letterSpacing: -0.5,
   },
-
-  /* Nav Items */
   navSection: {
     paddingHorizontal: 12,
   },
   navItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 12,
     borderRadius: 12,
   },
   navIcon: {
-    width: 24,
-    marginRight: 12,
+    width: 28,
+    marginRight: 14,
   },
   navLabel: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
+    fontSize: 17,
+    fontWeight: "400",
     flex: 1,
   },
   badge: {
-    backgroundColor: COLORS.orange,
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 22,
+    height: 22,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 6,
   },
   badgeText: {
     color: "#fff",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
   },
-
-  /* Recents */
   recentsSection: {
     paddingHorizontal: 20,
-    marginTop: 24,
+    marginTop: 28,
     flex: 1,
   },
   recentsLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
+    fontSize: 13,
     fontWeight: "500",
-    letterSpacing: 1.5,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   recentsList: {
     flex: 1,
   },
   recentItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: 12,
   },
   recentTitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
+    fontSize: 16,
   },
-
   spacer: {
     flex: 1,
   },
-
-  /* Bottom */
   bottomSection: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    paddingTop: 16,
   },
   allGamesRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   allGamesText: {
-    fontSize: 14,
-    color: COLORS.textMuted,
+    fontSize: 15,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   profilePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: COLORS.profileBg,
     borderRadius: 999,
     paddingVertical: 4,
     paddingLeft: 4,
     paddingRight: 16,
-    alignSelf: "flex-start",
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   avatar: {
     width: 28,
@@ -398,23 +391,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   profileName: {
-    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: "500",
   },
-
-  /* Content Panel - Rounded left edge */
+  fab: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   contentPanel: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: COLORS.contentBg,
     borderTopLeftRadius: 28,
     borderBottomLeftRadius: 28,
     overflow: "hidden",
-    // Shadow for depth
     shadowColor: "#000",
     shadowOffset: { width: -4, height: 0 },
     shadowOpacity: 0.3,
@@ -424,26 +419,5 @@ const styles = StyleSheet.create({
   contentOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#000",
-  },
-
-  /* FAB */
-  fabContainer: {
-    position: "absolute",
-    right: 20,
-    zIndex: 100,
-  },
-  fab: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    // Gradient-like effect with solid color
-    backgroundColor: "#e8845c",
-    shadowColor: "#e8845c",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
   },
 });

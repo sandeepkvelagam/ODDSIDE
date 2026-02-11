@@ -6,6 +6,7 @@ import {
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
+  useColorScheme,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -19,10 +20,21 @@ import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// Claude-style warm dark theme colors
-const COLORS = {
-  navBg: "#1a1816",
-  contentBg: "#252320",
+// Light theme - matching web app
+const LIGHT_COLORS = {
+  contentBg: "#f7f5f2",
+  textPrimary: "#1a1a1a",
+  textSecondary: "#5c5c5c",
+  textMuted: "#8c8c8c",
+  border: "rgba(0, 0, 0, 0.06)",
+  glassBg: "rgba(0, 0, 0, 0.04)",
+  glassBorder: "rgba(0, 0, 0, 0.08)",
+  orange: "#e8845c",
+};
+
+// Dark theme
+const DARK_COLORS = {
+  contentBg: "#1a1a1a",
   textPrimary: "#ffffff",
   textSecondary: "#9a9a9a",
   textMuted: "#666666",
@@ -33,6 +45,10 @@ const COLORS = {
 };
 
 export function DashboardScreen() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
+
   const navigation = useNavigation<NavigationProp>();
   const { user, signOut } = useAuth();
   const { toggleDrawer } = useDrawer();
@@ -75,11 +91,10 @@ export function DashboardScreen() {
   }, [fetchDashboard]);
 
   const menuItems = [
-    { icon: "home" as const, label: "Dashboard", onPress: () => {} },
-    { icon: "people" as const, label: "Groups", onPress: () => navigation.navigate("Groups") },
-    { icon: "notifications-outline" as const, label: "Notifications", onPress: () => {}, badge: notifications.length },
-    { icon: "settings-outline" as const, label: "Settings", onPress: () => navigation.navigate("Settings") },
-    { icon: "log-out-outline" as const, label: "Sign Out", onPress: signOut },
+    { icon: "home-outline" as const, label: "Dashboard", onPress: () => {} },
+    { icon: "chatbubble-outline" as const, label: "Chats", onPress: () => navigation.navigate("Groups") },
+    { icon: "people-outline" as const, label: "Groups", onPress: () => navigation.navigate("Groups") },
+    { icon: "game-controller-outline" as const, label: "Games", onPress: () => navigation.navigate("Groups") },
   ];
 
   const recentDrawerItems = recentGames.map((game) => ({
@@ -101,36 +116,36 @@ export function DashboardScreen() {
       onProfilePress={() => navigation.navigate("Settings")}
       onNewPress={() => navigation.navigate("AIAssistant")}
     >
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.contentBg }]}>
         {/* Header Bar */}
         <View style={styles.header}>
           {/* Hamburger Button - Glass style */}
           <TouchableOpacity
-            style={styles.glassButton}
+            style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
             onPress={toggleDrawer}
             activeOpacity={0.7}
           >
             <View style={styles.hamburgerLines}>
-              <View style={styles.hamburgerLine} />
-              <View style={styles.hamburgerLine} />
-              <View style={styles.hamburgerLine} />
+              <View style={[styles.hamburgerLine, { backgroundColor: colors.textSecondary }]} />
+              <View style={[styles.hamburgerLine, { backgroundColor: colors.textSecondary }]} />
+              <View style={[styles.hamburgerLine, { backgroundColor: colors.textSecondary }]} />
             </View>
           </TouchableOpacity>
 
           {/* Center - Logo */}
           <View style={styles.headerCenter}>
-            <Text style={styles.logoText}>Kvitt</Text>
-            <Text style={styles.logoSubtext}>Ledger</Text>
+            <Text style={[styles.logoText, { color: colors.textPrimary }]}>Kvitt</Text>
+            <Text style={[styles.logoSubtext, { color: colors.textMuted }]}>Ledger</Text>
           </View>
 
           {/* Notification Button - Glass style */}
-          <TouchableOpacity style={styles.glassButton} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]} activeOpacity={0.7}>
             <Ionicons
               name="notifications-outline"
               size={22}
-              color={COLORS.textSecondary}
+              color={colors.textSecondary}
             />
-            {notifications.length > 0 && <View style={styles.notifDot} />}
+            {notifications.length > 0 && <View style={[styles.notifDot, { backgroundColor: colors.orange }]} />}
           </TouchableOpacity>
         </View>
 
@@ -141,21 +156,21 @@ export function DashboardScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={COLORS.orange}
+              tintColor={colors.orange}
             />
           }
         >
           {/* Profile Chip Row */}
           <View style={styles.profileRow}>
             <TouchableOpacity
-              style={styles.profileChip}
+              style={[styles.profileChip, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
               onPress={() => navigation.navigate("Settings")}
               activeOpacity={0.7}
             >
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{userInitial}</Text>
               </View>
-              <Text style={styles.profileName}>{userName}</Text>
+              <Text style={[styles.profileName, { color: colors.textPrimary }]}>{userName}</Text>
             </TouchableOpacity>
           </View>
 
@@ -168,45 +183,45 @@ export function DashboardScreen() {
 
           {/* Stats Cards */}
           <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{stats?.total_games || 0}</Text>
-              <Text style={styles.statLabel}>Games</Text>
+            <View style={[styles.statCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats?.total_games || 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Games</Text>
             </View>
-            <View style={[styles.statCard, styles.statCardAccent]}>
-              <Text style={styles.statValue}>
+            <View style={[styles.statCard, styles.statCardAccent, { backgroundColor: colors.glassBg }]}>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
                 ${stats?.net_profit ? Math.abs(stats.net_profit).toFixed(0) : "0"}
               </Text>
-              <Text style={styles.statLabel}>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                 {(stats?.net_profit || 0) >= 0 ? "Profit" : "Loss"}
               </Text>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>
+            <View style={[styles.statCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
                 {stats?.win_rate ? `${stats.win_rate.toFixed(0)}%` : "0%"}
               </Text>
-              <Text style={styles.statLabel}>Win Rate</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Win Rate</Text>
             </View>
           </View>
 
           {/* Recent Games */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Games</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Recent Games</Text>
             {recentGames.length > 0 && (
               <TouchableOpacity onPress={() => navigation.navigate("Groups")}>
-                <Text style={styles.seeAll}>See all</Text>
+                <Text style={[styles.seeAll, { color: colors.orange }]}>See all</Text>
               </TouchableOpacity>
             )}
           </View>
 
           {recentGames.length === 0 ? (
-            <View style={styles.emptyCard}>
+            <View style={[styles.emptyCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
               <Ionicons
                 name="game-controller-outline"
                 size={32}
-                color={COLORS.textMuted}
+                color={colors.textMuted}
               />
-              <Text style={styles.emptyText}>No games yet</Text>
-              <Text style={styles.emptySubtext}>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No games yet</Text>
+              <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
                 Join a group and start playing
               </Text>
             </View>
@@ -214,7 +229,7 @@ export function DashboardScreen() {
             recentGames.map((game: any) => (
               <TouchableOpacity
                 key={game.game_id || game._id}
-                style={styles.gameCard}
+                style={[styles.gameCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
                 onPress={() =>
                   navigation.navigate("GameNight", {
                     gameId: game.game_id || game._id,
@@ -223,10 +238,10 @@ export function DashboardScreen() {
                 activeOpacity={0.7}
               >
                 <View style={styles.gameInfo}>
-                  <Text style={styles.gameTitle}>
+                  <Text style={[styles.gameTitle, { color: colors.textPrimary }]}>
                     {game.title || game.group_name || "Game Night"}
                   </Text>
-                  <Text style={styles.gameSubtext}>
+                  <Text style={[styles.gameSubtext, { color: colors.textSecondary }]}>
                     {game.player_count || 0} players
                     {game.total_pot ? ` · $${game.total_pot} pot` : ""}
                   </Text>
@@ -255,12 +270,12 @@ export function DashboardScreen() {
           )}
 
           {/* Quick Actions */}
-          <Text style={[styles.sectionTitle, { marginTop: 28 }]}>
+          <Text style={[styles.sectionTitle, { marginTop: 28, color: colors.textSecondary }]}>
             Quick Actions
           </Text>
           <View style={styles.actionsRow}>
             <TouchableOpacity
-              style={styles.actionCard}
+              style={[styles.actionCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
               onPress={() => navigation.navigate("Groups")}
               activeOpacity={0.7}
             >
@@ -270,12 +285,12 @@ export function DashboardScreen() {
                   { backgroundColor: "rgba(232,132,92,0.15)" },
                 ]}
               >
-                <Ionicons name="people" size={24} color={COLORS.orange} />
+                <Ionicons name="people" size={24} color={colors.orange} />
               </View>
-              <Text style={styles.actionText}>My Groups</Text>
+              <Text style={[styles.actionText, { color: colors.textPrimary }]}>My Groups</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.actionCard}
+              style={[styles.actionCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
               onPress={() => navigation.navigate("Settings")}
               activeOpacity={0.7}
             >
@@ -287,7 +302,7 @@ export function DashboardScreen() {
               >
                 <Ionicons name="settings" size={24} color="#3b82f6" />
               </View>
-              <Text style={styles.actionText}>Settings</Text>
+              <Text style={[styles.actionText, { color: colors.textPrimary }]}>Settings</Text>
             </TouchableOpacity>
           </View>
 
@@ -302,7 +317,6 @@ export function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.contentBg,
   },
   header: {
     flexDirection: "row",
@@ -315,9 +329,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: COLORS.glassBg,
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -329,7 +341,6 @@ const styles = StyleSheet.create({
     width: 18,
     height: 1.5,
     borderRadius: 1,
-    backgroundColor: COLORS.textSecondary,
   },
   headerCenter: {
     alignItems: "center",
@@ -337,11 +348,9 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 18,
     fontWeight: "500",
-    color: COLORS.textPrimary,
   },
   logoSubtext: {
     fontSize: 13,
-    color: COLORS.textMuted,
     marginTop: -1,
   },
   notifDot: {
@@ -351,7 +360,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.orange,
   },
   content: {
     padding: 16,
@@ -367,9 +375,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: COLORS.glassBg,
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
     alignSelf: "flex-start",
   },
   avatar: {
@@ -386,7 +392,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   profileName: {
-    color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: "500",
   },
@@ -413,23 +418,19 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.glassBg,
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
   },
   statCardAccent: {
     borderColor: "rgba(232,132,92,0.3)",
   },
   statValue: {
-    color: COLORS.textPrimary,
     fontSize: 24,
     fontWeight: "700",
   },
   statLabel: {
-    color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: "500",
     marginTop: 4,
@@ -443,37 +444,30 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    color: COLORS.textSecondary,
     fontSize: 13,
     fontWeight: "600",
     letterSpacing: 0.5,
     marginBottom: 12,
   },
   seeAll: {
-    color: COLORS.orange,
     fontSize: 13,
     fontWeight: "500",
   },
   emptyCard: {
-    backgroundColor: COLORS.glassBg,
     borderRadius: 16,
     padding: 32,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
   },
   emptyText: {
-    color: COLORS.textSecondary,
     fontSize: 15,
     marginTop: 12,
   },
   emptySubtext: {
-    color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 4,
   },
   gameCard: {
-    backgroundColor: COLORS.glassBg,
     borderRadius: 16,
     padding: 16,
     flexDirection: "row",
@@ -481,18 +475,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
   },
   gameInfo: {
     flex: 1,
   },
   gameTitle: {
-    color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: "600",
   },
   gameSubtext: {
-    color: COLORS.textSecondary,
     fontSize: 12,
     marginTop: 3,
   },
@@ -506,7 +497,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(34,197,94,0.15)",
   },
   statusEnded: {
-    backgroundColor: COLORS.glassBg,
+    backgroundColor: "rgba(128,128,128,0.15)",
   },
   statusText: {
     fontSize: 12,
@@ -516,7 +507,7 @@ const styles = StyleSheet.create({
     color: "#22c55e",
   },
   statusEndedText: {
-    color: COLORS.textSecondary,
+    color: "#888",
   },
   actionsRow: {
     flexDirection: "row",
@@ -524,12 +515,10 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     flex: 1,
-    backgroundColor: COLORS.glassBg,
     borderRadius: 16,
     padding: 20,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
   },
   actionIconBox: {
     width: 48,
@@ -540,7 +529,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   actionText: {
-    color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: "500",
   },

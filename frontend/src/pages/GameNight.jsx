@@ -1126,8 +1126,11 @@ export default function GameNight() {
             </Card>
           </div>
 
-          {/* Sidebar - Game Thread */}
+          {/* Sidebar - Spotify Player & Game Thread */}
           <div className="space-y-4 md:space-y-6">
+            {/* Spotify Player - Host Only */}
+            <SpotifyPlayer isHost={isHost} />
+            
             <Card className="bg-card border-border/50" data-testid="game-thread">
               <CardHeader className="pb-2">
                 <CardTitle className="font-heading text-lg md:text-xl font-bold flex items-center gap-2">

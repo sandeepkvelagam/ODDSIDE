@@ -515,7 +515,7 @@ export default function GameNight() {
                 ${chipValue.toFixed(2)}/chip
               </span>
               {/* AI Poker Assistant */}
-              <PokerAIAssistant />
+              <PokerAIAssistant gameId={gameId} />
             </div>
           )}
           

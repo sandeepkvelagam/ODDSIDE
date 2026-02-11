@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import {
@@ -6,7 +6,7 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Sparkles, Loader2, Brain, Eye, EyeOff } from "lucide-react";
+import { Sparkles, Loader2, Brain, Eye, EyeOff, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -69,10 +69,13 @@ const Card = ({ rank, suit, hidden, onClick, isSelected, isInput }) => {
   );
 };
 
-export default function PokerAIAssistant() {
+export default function PokerAIAssistant({ gameId = null }) {
   const [open, setOpen] = useState(false);
   const [showHand, setShowHand] = useState(true);
   const [selectedCard, setSelectedCard] = useState(null); // "hand-0", "hand-1", "comm-0", etc.
+  const [showStats, setShowStats] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
   
   // Cards state
   const [hand, setHand] = useState([
@@ -90,6 +93,25 @@ export default function PokerAIAssistant() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState(null);
+
+  // Fetch user stats when dialog opens
+  useEffect(() => {
+    if (open && !stats && !loadingStats) {
+      fetchStats();
+    }
+  }, [open]);
+
+  const fetchStats = async () => {
+    setLoadingStats(true);
+    try {
+      const response = await axios.get(`${API}/poker/stats`);
+      setStats(response.data);
+    } catch (error) {
+      console.error("Failed to fetch stats:", error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
   // Handle card selection
   const handleCardClick = (type, index) => {
@@ -236,16 +258,19 @@ export default function PokerAIAssistant() {
 
   const getAnalysis = async () => {
     if (!canAnalyze) return;
-    
+
     setLoading(true);
     setSuggestion(null);
-    
+
     try {
       const response = await axios.post(`${API}/poker/analyze`, {
         your_hand: filledHand.map(c => `${c.rank} of ${c.suit}`),
-        community_cards: filledCommunity.map(c => `${c.rank} of ${c.suit}`)
+        community_cards: filledCommunity.map(c => `${c.rank} of ${c.suit}`),
+        game_id: gameId  // Link to game for analytics
       });
       setSuggestion(response.data);
+      // Refresh stats after successful analysis
+      fetchStats();
     } catch (error) {
       setSuggestion({
         action: "Error",
@@ -292,9 +317,64 @@ export default function PokerAIAssistant() {
             <p className="text-muted-foreground mb-4 leading-relaxed">
               New to poker? Enter your cards with a simple UI and get instant suggestions—stay, raise, check, or fold. Perfect for beginners learning the game.
             </p>
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 leading-relaxed">
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 leading-relaxed mb-4">
               <strong>Disclaimer:</strong> AI suggestions are for entertainment purposes only and do not constitute financial advice. Always use your best judgment when playing.
             </div>
+
+            {/* Stats Toggle */}
+            <button
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              {showStats ? "Hide" : "View"} Your Stats
+              {stats?.total_analyses > 0 && (
+                <span className="px-1.5 py-0.5 bg-secondary rounded text-[10px]">
+                  {stats.total_analyses} hands
+                </span>
+              )}
+            </button>
+
+            {/* Stats Display */}
+            {showStats && stats && stats.total_analyses > 0 && (
+              <div className="mt-3 p-3 rounded-xl bg-secondary/30 border border-border/30">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Your AI Analysis Stats
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 bg-white rounded-lg">
+                    <p className="text-muted-foreground text-[10px]">Most Common</p>
+                    <p className="font-bold text-[#EF6E59]">{stats.most_common_suggestion || "—"}</p>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg">
+                    <p className="text-muted-foreground text-[10px]">High Potential</p>
+                    <p className="font-bold text-green-600">{stats.potential_percentages?.High || 0}%</p>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg">
+                    <p className="text-muted-foreground text-[10px]">Raise Rate</p>
+                    <p className="font-bold">{stats.action_percentages?.RAISE || 0}%</p>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg">
+                    <p className="text-muted-foreground text-[10px]">Fold Rate</p>
+                    <p className="font-bold">{stats.action_percentages?.FOLD || 0}%</p>
+                  </div>
+                </div>
+                {stats.insights?.aggressive_play && (
+                  <p className="mt-2 text-[10px] text-amber-600">💪 You tend to play aggressively!</p>
+                )}
+                {stats.insights?.conservative_play && (
+                  <p className="mt-2 text-[10px] text-blue-600">🛡️ You play conservatively.</p>
+                )}
+              </div>
+            )}
+
+            {showStats && (!stats || stats.total_analyses === 0) && (
+              <div className="mt-3 p-3 rounded-xl bg-secondary/30 border border-border/30 text-center">
+                <p className="text-xs text-muted-foreground">
+                  No hands analyzed yet. Try the AI Assistant to build your stats!
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Right Side - Demo Card */}

@@ -8,38 +8,14 @@ import {
   Dimensions,
   ScrollView,
   Pressable,
-  useColorScheme,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDrawer } from "../context/DrawerContext";
+import { useTheme } from "../context/ThemeContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.75;
-
-// Light theme - matching web app
-const LIGHT_COLORS = {
-  navBg: "#ece7e1",
-  contentBg: "#f7f5f2",
-  textPrimary: "#1a1a1a",
-  textSecondary: "#5c5c5c",
-  textMuted: "#8c8c8c",
-  border: "rgba(0, 0, 0, 0.06)",
-  profileBg: "#ffffff",
-  orange: "#e8845c",
-};
-
-// Dark theme
-const DARK_COLORS = {
-  navBg: "#0c0c0c",
-  contentBg: "#1a1a1a",
-  textPrimary: "#ffffff",
-  textSecondary: "#9a9a9a",
-  textMuted: "#666666",
-  border: "rgba(255, 255, 255, 0.06)",
-  profileBg: "#2a2826",
-  orange: "#e8845c",
-};
 
 type MenuItem = {
   icon: keyof typeof Ionicons.glyphMap;

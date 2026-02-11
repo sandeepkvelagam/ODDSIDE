@@ -6,7 +6,6 @@ import {
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
-  useColorScheme,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,39 +14,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useDrawer } from "../context/DrawerContext";
+import { useTheme } from "../context/ThemeContext";
 import { AppDrawer } from "../components/AppDrawer";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// Light theme - matching web app
-const LIGHT_COLORS = {
-  contentBg: "#f7f5f2",
-  textPrimary: "#1a1a1a",
-  textSecondary: "#5c5c5c",
-  textMuted: "#8c8c8c",
-  border: "rgba(0, 0, 0, 0.06)",
-  glassBg: "rgba(0, 0, 0, 0.04)",
-  glassBorder: "rgba(0, 0, 0, 0.08)",
-  orange: "#e8845c",
-};
-
-// Dark theme
-const DARK_COLORS = {
-  contentBg: "#1a1a1a",
-  textPrimary: "#ffffff",
-  textSecondary: "#9a9a9a",
-  textMuted: "#666666",
-  border: "rgba(255, 255, 255, 0.06)",
-  glassBg: "rgba(255, 255, 255, 0.05)",
-  glassBorder: "rgba(255, 255, 255, 0.08)",
-  orange: "#e8845c",
-};
-
 export function DashboardScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
+  const { isDark, colors } = useTheme();
 
   const navigation = useNavigation<NavigationProp>();
   const { user, signOut } = useAuth();

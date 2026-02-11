@@ -3107,6 +3107,7 @@ class AskAssistantRequest(BaseModel):
 class PokerAnalyzeRequest(BaseModel):
     your_hand: List[str]  # ["A of spades", "K of spades"]
     community_cards: List[str] = []  # ["Q of hearts", "J of diamonds", "10 of clubs"]
+    game_id: Optional[str] = None  # Optional link to active game for analytics
 
 @api_router.post("/assistant/ask")
 async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_current_user)):
@@ -3128,13 +3129,19 @@ async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_curr
 
 @api_router.post("/poker/analyze")
 async def analyze_poker_hand(data: PokerAnalyzeRequest, user: User = Depends(get_current_user)):
-    """Analyze poker hand and provide suggestion."""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-    
-    api_key = os.environ.get('EMERGENT_LLM_KEY')
-    if not api_key:
-        raise HTTPException(status_code=503, detail="AI service not configured")
-    
+    """
+    Analyze poker hand using DETERMINISTIC code evaluation.
+
+    Architecture:
+    1. Code-based Hand Evaluator - Accurately identifies the poker hand (no LLM errors)
+    2. Rule-based Strategy Advisor - Provides action suggestions based on hand strength
+    3. Optional LLM Enhancement - Can add contextual advice (future feature)
+
+    This approach eliminates LLM counting/math errors that caused incorrect hand identification.
+    """
+    from poker_evaluator import evaluate_hand, get_action_suggestion, get_hand_strength
+
+    # Validation
     if len(data.your_hand) != 2:
         raise HTTPException(status_code=400, detail="Must provide exactly 2 hole cards")
 
@@ -3146,15 +3153,11 @@ async def analyze_poker_hand(data: PokerAnalyzeRequest, user: User = Depends(get
 
     # Check for duplicate cards
     all_cards = data.your_hand + data.community_cards
-    # Normalize card format for comparison
     normalized = [c.lower().strip() for c in all_cards]
     if len(normalized) != len(set(normalized)):
         raise HTTPException(status_code=400, detail="Duplicate cards detected - each card can only appear once")
 
-    # Build the prompt
-    hand_str = ", ".join(data.your_hand)
-    community_str = ", ".join(data.community_cards) if data.community_cards else "None (Pre-flop)"
-    
+    # Determine game stage
     stage = "Pre-flop"
     if len(data.community_cards) == 3:
         stage = "Flop"
@@ -3162,75 +3165,161 @@ async def analyze_poker_hand(data: PokerAnalyzeRequest, user: User = Depends(get
         stage = "Turn"
     elif len(data.community_cards) == 5:
         stage = "River"
-    
-    system_prompt = """You are an expert poker hand analyzer. Given hole cards and community cards, ACCURATELY identify the best 5-card hand and provide a suggestion.
-
-POKER HAND RANKINGS (highest to lowest):
-1. Royal Flush: A-K-Q-J-10 all same suit
-2. Straight Flush: 5 sequential cards, same suit
-3. Four of a Kind: 4 cards of same rank (e.g., 5-5-5-5)
-4. Full House: 3 of a kind + a pair (e.g., 5-5-5-2-2)
-5. Flush: 5 cards same suit
-6. Straight: 5 sequential cards
-7. Three of a Kind: 3 cards of same rank
-8. Two Pair: 2 different pairs
-9. One Pair: 2 cards of same rank
-10. High Card: No matches
-
-CRITICAL: Count cards carefully!
-- Four of a Kind requires EXACTLY 4 cards of the same rank
-- Full House requires EXACTLY 3 of one rank AND 2 of another
-- The best 5-card hand is made from your 2 hole cards + community cards
-
-RESPOND IN THIS EXACT JSON FORMAT:
-{
-  "action": "FOLD" | "CHECK" | "CALL" | "RAISE",
-  "potential": "Low" | "Medium" | "High",
-  "reasoning": "Brief explanation stating the exact hand type and why"
-}
-
-Keep reasoning concise (under 50 words). Be precise about hand identification."""
-
-    user_prompt = f"""Stage: {stage}
-My hole cards: {hand_str}
-Community cards: {community_str}
-
-Analyze this hand and suggest an action."""
 
     try:
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"poker_{user.user_id}_{uuid.uuid4().hex[:8]}",
-            system_message=system_prompt
-        ).with_model("openai", "gpt-4o-mini")
-        
-        message = UserMessage(text=user_prompt)
-        response = await chat.send_message(message)
-        
-        # Parse JSON response
-        import json
-        import re
-        
-        # Try to extract JSON from response
-        json_match = re.search(r'\{[^}]+\}', response, re.DOTALL)
-        if json_match:
-            result = json.loads(json_match.group())
-            return {
-                "action": result.get("action", "CHECK"),
-                "potential": result.get("potential", "Medium"),
-                "reasoning": result.get("reasoning", response)
+        # Step 1: DETERMINISTIC hand evaluation (no LLM - 100% accurate)
+        evaluation = evaluate_hand(data.your_hand, data.community_cards)
+
+        if "error" in evaluation:
+            raise HTTPException(status_code=400, detail=evaluation["error"])
+
+        # Step 2: Rule-based action suggestion
+        suggestion = get_action_suggestion(evaluation, stage)
+
+        # Build the result
+        analysis_result = {
+            "action": suggestion["action"],
+            "potential": suggestion["potential"],
+            "reasoning": suggestion["reasoning"],
+            # Include detailed evaluation for transparency
+            "hand_details": {
+                "hand_name": evaluation["hand_name"],
+                "description": evaluation["description"],
+                "strength": get_hand_strength(evaluation["hand_rank"])
             }
-        else:
-            # Fallback - return raw response
-            return {
-                "action": "CHECK",
-                "potential": "Medium",
-                "reasoning": response[:200]
-            }
-            
+        }
+
+        # Log the analysis for analytics
+        log_entry = {
+            "log_id": str(uuid.uuid4()),
+            "user_id": user.user_id,
+            "user_name": user.name,
+            "game_id": data.game_id,
+            "timestamp": datetime.utcnow(),
+            "stage": stage,
+            "hole_cards": data.your_hand,
+            "community_cards": data.community_cards,
+            "all_cards": all_cards,
+            "evaluation": {
+                "hand_rank": int(evaluation["hand_rank"]),
+                "hand_name": evaluation["hand_name"],
+                "description": evaluation["description"]
+            },
+            "ai_response": analysis_result,
+            "model": "deterministic_v1"  # No longer using LLM for hand evaluation
+        }
+        await db.poker_analysis_logs.insert_one(log_entry)
+
+        return analysis_result
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Poker analysis error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to analyze hand")
+        # Log errors for debugging
+        error_log = {
+            "log_id": str(uuid.uuid4()),
+            "user_id": user.user_id,
+            "timestamp": datetime.utcnow(),
+            "stage": stage,
+            "hole_cards": data.your_hand,
+            "community_cards": data.community_cards,
+            "error": str(e),
+            "model": "deterministic_v1"
+        }
+        await db.poker_analysis_logs.insert_one(error_log)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze hand: {str(e)}")
+
+
+@api_router.get("/poker/history")
+async def get_poker_history(
+    limit: int = 20,
+    offset: int = 0,
+    user: User = Depends(get_current_user)
+):
+    """Get user's poker analysis history."""
+    logs = await db.poker_analysis_logs.find(
+        {"user_id": user.user_id, "ai_response": {"$exists": True}},
+        {"_id": 0, "raw_response": 0}
+    ).sort("timestamp", -1).skip(offset).limit(limit).to_list(limit)
+
+    total = await db.poker_analysis_logs.count_documents(
+        {"user_id": user.user_id, "ai_response": {"$exists": True}}
+    )
+
+    return {
+        "history": logs,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
+
+
+@api_router.get("/poker/stats")
+async def get_poker_stats(user: User = Depends(get_current_user)):
+    """Get user's poker analysis statistics and insights."""
+    # Get all user's analyses
+    logs = await db.poker_analysis_logs.find(
+        {"user_id": user.user_id, "ai_response": {"$exists": True}},
+        {"_id": 0}
+    ).to_list(1000)
+
+    if not logs:
+        return {
+            "total_analyses": 0,
+            "message": "No poker hands analyzed yet. Use the AI Assistant to get started!"
+        }
+
+    # Calculate stats
+    total = len(logs)
+    actions = {"FOLD": 0, "CHECK": 0, "CALL": 0, "RAISE": 0}
+    potentials = {"Low": 0, "Medium": 0, "High": 0}
+    stages = {"Pre-flop": 0, "Flop": 0, "Turn": 0, "River": 0}
+
+    for log in logs:
+        ai_resp = log.get("ai_response", {})
+        action = ai_resp.get("action", "CHECK")
+        potential = ai_resp.get("potential", "Medium")
+        stage = log.get("stage", "Flop")
+
+        if action in actions:
+            actions[action] += 1
+        if potential in potentials:
+            potentials[potential] += 1
+        if stage in stages:
+            stages[stage] += 1
+
+    # Most common action
+    most_common_action = max(actions, key=actions.get) if any(actions.values()) else None
+
+    # Calculate percentages
+    action_pcts = {k: round(v / total * 100, 1) for k, v in actions.items()}
+    potential_pcts = {k: round(v / total * 100, 1) for k, v in potentials.items()}
+
+    # Get recent trend (last 10 hands)
+    recent = logs[:10] if len(logs) >= 10 else logs
+    recent_high_potential = sum(
+        1 for l in recent if l.get("ai_response", {}).get("potential") == "High"
+    )
+
+    return {
+        "total_analyses": total,
+        "action_breakdown": actions,
+        "action_percentages": action_pcts,
+        "potential_breakdown": potentials,
+        "potential_percentages": potential_pcts,
+        "stage_breakdown": stages,
+        "most_common_suggestion": most_common_action,
+        "recent_high_potential_hands": recent_high_potential,
+        "insights": {
+            "aggressive_play": action_pcts.get("RAISE", 0) > 30,
+            "conservative_play": action_pcts.get("FOLD", 0) > 40,
+            "strong_hands_ratio": potential_pcts.get("High", 0)
+        },
+        "first_analysis": logs[-1].get("timestamp") if logs else None,
+        "last_analysis": logs[0].get("timestamp") if logs else None
+    }
+
 
 # ============== SMART DEFAULTS ENDPOINTS ==============
 

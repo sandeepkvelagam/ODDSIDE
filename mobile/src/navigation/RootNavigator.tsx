@@ -12,6 +12,7 @@ import { GroupHubScreen } from "../screens/GroupHubScreen";
 import { GameNightScreen } from "../screens/GameNightScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
+import { NotificationsScreen } from "../screens/NotificationsScreen";
 import { AIAssistantScreen } from "../screens/AIAssistantScreen";
 
 export type RootStackParamList = {
@@ -22,6 +23,7 @@ export type RootStackParamList = {
   GameNight: { gameId: string };
   Settings: undefined;
   Profile: undefined;
+  Notifications: undefined;
   AIAssistant: undefined;
 };
 
@@ -128,12 +130,28 @@ export default function RootNavigator() {
               <Stack.Screen
                 name="Settings"
                 component={SettingsScreen}
-                options={{ headerShown: false }}
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_bottom",
+                  presentation: "modal",
+                }}
               />
               <Stack.Screen
                 name="Profile"
                 component={ProfileScreen}
-                options={{ headerShown: false }}
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_right",
+                  gestureDirection: "horizontal",
+                }}
+              />
+              <Stack.Screen
+                name="Notifications"
+                component={NotificationsScreen}
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_right",
+                }}
               />
               <Stack.Screen
                 name="AIAssistant"

@@ -6,53 +6,71 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  useColorScheme,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
-
-// Light theme - matching Claude app
-const LIGHT_COLORS = {
-  background: "#e8e4de",
-  surface: "#f7f5f2",
-  inputBg: "#ffffff",
-  textPrimary: "#1a1a1a",
-  textSecondary: "#5c5c5c",
-  textMuted: "#8c8c8c",
-  border: "rgba(0, 0, 0, 0.08)",
-  buttonBg: "#1a1a1a",
-  buttonDisabled: "#9a9a9a",
-  danger: "#b91c1c",
-};
-
-// Dark theme
-const DARK_COLORS = {
-  background: "#0a0a0a",
-  surface: "#1a1a1a",
-  inputBg: "#2a2a2a",
-  textPrimary: "rgba(255,255,255,0.92)",
-  textSecondary: "rgba(255,255,255,0.55)",
-  textMuted: "rgba(255,255,255,0.35)",
-  border: "rgba(255,255,255,0.08)",
-  buttonBg: "#ffffff",
-  buttonDisabled: "#555555",
-  danger: "#ef4444",
-};
+import { useTheme } from "../context/ThemeContext";
+import { api } from "../api/client";
 
 export function ProfileScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
+  const { user, refreshUser } = useAuth();
+  const { isDark, colors } = useTheme();
 
   const [fullName, setFullName] = useState(user?.name || "");
-  const [nickname, setNickname] = useState(user?.name?.split(" ")[0] || "");
-  const [preferences, setPreferences] = useState("When learning new concepts, I find analogies particularly helpful.");
+  const [nickname, setNickname] = useState(user?.nickname || user?.name?.split(" ")[0] || "");
+  const [preferences, setPreferences] = useState(user?.preferences || "");
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
+
+  const handleUpdateProfile = async () => {
+    if (!fullName.trim()) {
+      Alert.alert("Error", "Please enter your full name");
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    try {
+      await api.put("/users/me", {
+        name: fullName.trim(),
+        nickname: nickname.trim(),
+      });
+
+      if (refreshUser) {
+        await refreshUser();
+      }
+
+      Alert.alert("Success", "Profile updated successfully");
+    } catch (error: any) {
+      Alert.alert("Error", error?.response?.data?.detail || "Failed to update profile");
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    setIsUpdatingPreferences(true);
+    try {
+      await api.put("/users/me", {
+        preferences: preferences.trim(),
+      });
+
+      if (refreshUser) {
+        await refreshUser();
+      }
+
+      Alert.alert("Success", "Preferences saved successfully");
+    } catch (error: any) {
+      Alert.alert("Error", error?.response?.data?.detail || "Failed to save preferences");
+    } finally {
+      setIsUpdatingPreferences(false);
+    }
+  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -60,10 +78,24 @@ export function ProfileScreen() {
       "Are you sure you want to delete your account? This action cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => {} },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.delete("/users/me");
+              Alert.alert("Account Deleted", "Your account has been deleted.");
+            } catch (error: any) {
+              Alert.alert("Error", error?.response?.data?.detail || "Failed to delete account");
+            }
+          },
+        },
       ]
     );
   };
+
+  const profileChanged = fullName !== (user?.name || "") || nickname !== (user?.nickname || user?.name?.split(" ")[0] || "");
+  const preferencesChanged = preferences !== (user?.preferences || "");
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -72,15 +104,15 @@ export function ProfileScreen() {
         {/* Header inside the card */}
         <View style={styles.header}>
           <TouchableOpacity
-            style={styles.headerButton}
+            style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
 
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Profile</Text>
 
-          <View style={styles.headerButton} />
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -106,10 +138,19 @@ export function ProfileScreen() {
 
           {/* Update Profile Button */}
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.buttonBg }]}
+            style={[
+              styles.button,
+              { backgroundColor: profileChanged ? colors.buttonBg : colors.buttonDisabled }
+            ]}
+            onPress={handleUpdateProfile}
+            disabled={!profileChanged || isUpdatingProfile}
             activeOpacity={0.8}
           >
-            <Text style={[styles.buttonText, { color: isDark ? "#1a1a1a" : "#ffffff" }]}>Update Profile</Text>
+            {isUpdatingProfile ? (
+              <ActivityIndicator color={isDark ? "#1a1a1a" : "#ffffff"} />
+            ) : (
+              <Text style={[styles.buttonText, { color: isDark ? "#1a1a1a" : "#ffffff" }]}>Update Profile</Text>
+            )}
           </TouchableOpacity>
 
           {/* Divider */}
@@ -121,7 +162,7 @@ export function ProfileScreen() {
             style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
             value={preferences}
             onChangeText={setPreferences}
-            placeholder="Add your preferences..."
+            placeholder="When learning new concepts, I find analogies particularly helpful."
             placeholderTextColor={colors.textMuted}
             multiline
             numberOfLines={4}
@@ -134,10 +175,19 @@ export function ProfileScreen() {
 
           {/* Save Preferences Button */}
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.buttonDisabled }]}
+            style={[
+              styles.button,
+              { backgroundColor: preferencesChanged ? colors.buttonBg : colors.buttonDisabled }
+            ]}
+            onPress={handleSavePreferences}
+            disabled={!preferencesChanged || isUpdatingPreferences}
             activeOpacity={0.8}
           >
-            <Text style={[styles.buttonText, { color: "#ffffff" }]}>Save Preferences</Text>
+            {isUpdatingPreferences ? (
+              <ActivityIndicator color={isDark ? "#1a1a1a" : "#ffffff"} />
+            ) : (
+              <Text style={[styles.buttonText, { color: isDark ? "#1a1a1a" : "#ffffff" }]}>Save Preferences</Text>
+            )}
           </TouchableOpacity>
 
           {/* Divider */}
@@ -153,7 +203,7 @@ export function ProfileScreen() {
             <Text style={[styles.deleteText, { color: colors.danger }]}>Delete account</Text>
           </TouchableOpacity>
 
-          <View style={{ height: 40 }} />
+          <View style={{ height: 60 }} />
         </ScrollView>
       </View>
     </View>
@@ -166,27 +216,32 @@ const styles = StyleSheet.create({
   },
   mainCard: {
     flex: 1,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
     overflow: "hidden",
-    marginTop: 8,
+    marginTop: 12,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
   },
-  headerButton: {
+  glassButton: {
     width: 44,
     height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: "600",
+  },
+  headerSpacer: {
+    width: 44,
   },
   scrollView: {
     flex: 1,
@@ -199,7 +254,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   input: {
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
     fontSize: 16,
@@ -207,7 +262,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   textArea: {
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
     fontSize: 16,

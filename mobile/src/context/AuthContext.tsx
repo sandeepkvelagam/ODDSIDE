@@ -15,6 +15,7 @@ type AuthContextType = {
   user: AuthUser | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -72,8 +73,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   };
 
+  const refreshUser = async () => {
+    try {
+      const res = await api.get("/auth/me");
+      setUser(res.data);
+    } catch (error) {
+      console.error("Error refreshing user:", error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ session, user, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, user, isLoading, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

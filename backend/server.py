@@ -3379,6 +3379,396 @@ async def stripe_debt_webhook(request: Request):
     return result
 
 
+# ============== SPOTIFY INTEGRATION ==============
+
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+import base64
+
+# Spotify config from environment
+SPOTIFY_CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID', '')
+SPOTIFY_CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET', '')
+SPOTIFY_REDIRECT_URI = os.environ.get('SPOTIFY_REDIRECT_URI', os.environ.get('APP_URL', '') + '/spotify/callback')
+
+# Spotify scopes needed for playback
+SPOTIFY_SCOPES = "user-read-playback-state user-modify-playback-state user-read-private streaming user-read-currently-playing"
+
+class SpotifyTokenRequest(BaseModel):
+    code: str
+    redirect_uri: Optional[str] = None
+
+class SpotifyRefreshRequest(BaseModel):
+    refresh_token: str
+
+class SpotifyPlayRequest(BaseModel):
+    track_uri: Optional[str] = None
+    context_uri: Optional[str] = None
+    position_ms: int = 0
+    device_id: Optional[str] = None
+
+class SpotifyVolumeRequest(BaseModel):
+    volume_percent: int
+    device_id: Optional[str] = None
+
+@api_router.get("/spotify/auth-url")
+async def get_spotify_auth_url(user: User = Depends(get_current_user)):
+    """Get Spotify authorization URL for OAuth flow."""
+    if not SPOTIFY_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Spotify integration not configured. Please add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to environment.")
+    
+    # Create state with user_id for security
+    state = base64.urlsafe_b64encode(user.user_id.encode()).decode()
+    
+    auth_url = (
+        f"https://accounts.spotify.com/authorize?"
+        f"client_id={SPOTIFY_CLIENT_ID}&"
+        f"response_type=code&"
+        f"redirect_uri={SPOTIFY_REDIRECT_URI}&"
+        f"scope={SPOTIFY_SCOPES.replace(' ', '%20')}&"
+        f"state={state}"
+    )
+    
+    return {"auth_url": auth_url, "redirect_uri": SPOTIFY_REDIRECT_URI}
+
+@api_router.post("/spotify/token")
+async def exchange_spotify_token(data: SpotifyTokenRequest, user: User = Depends(get_current_user)):
+    """Exchange authorization code for access token."""
+    if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="Spotify integration not configured")
+    
+    redirect_uri = data.redirect_uri or SPOTIFY_REDIRECT_URI
+    
+    async with httpx.AsyncClient() as client:
+        # Exchange code for tokens
+        auth_header = base64.b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode()
+        response = await client.post(
+            "https://accounts.spotify.com/api/token",
+            headers={
+                "Authorization": f"Basic {auth_header}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            data={
+                "grant_type": "authorization_code",
+                "code": data.code,
+                "redirect_uri": redirect_uri
+            }
+        )
+        
+        if response.status_code != 200:
+            logger.error(f"Spotify token exchange failed: {response.text}")
+            raise HTTPException(status_code=400, detail="Failed to exchange Spotify token")
+        
+        token_data = response.json()
+        
+        # Get user profile from Spotify
+        profile_response = await client.get(
+            "https://api.spotify.com/v1/me",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+        
+        spotify_profile = profile_response.json() if profile_response.status_code == 200 else {}
+        
+        # Store tokens in database
+        spotify_data = {
+            "user_id": user.user_id,
+            "access_token": token_data["access_token"],
+            "refresh_token": token_data.get("refresh_token"),
+            "expires_in": token_data.get("expires_in", 3600),
+            "token_type": token_data.get("token_type", "Bearer"),
+            "spotify_user_id": spotify_profile.get("id"),
+            "spotify_display_name": spotify_profile.get("display_name"),
+            "spotify_product": spotify_profile.get("product", "free"),  # free or premium
+            "is_premium": spotify_profile.get("product") == "premium",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Upsert spotify token for user
+        await db.spotify_tokens.update_one(
+            {"user_id": user.user_id},
+            {"$set": spotify_data},
+            upsert=True
+        )
+        
+        return {
+            "access_token": token_data["access_token"],
+            "expires_in": token_data.get("expires_in", 3600),
+            "spotify_user": spotify_profile.get("display_name"),
+            "is_premium": spotify_profile.get("product") == "premium"
+        }
+
+@api_router.post("/spotify/refresh")
+async def refresh_spotify_token(data: SpotifyRefreshRequest, user: User = Depends(get_current_user)):
+    """Refresh expired Spotify access token."""
+    if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="Spotify integration not configured")
+    
+    async with httpx.AsyncClient() as client:
+        auth_header = base64.b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode()
+        response = await client.post(
+            "https://accounts.spotify.com/api/token",
+            headers={
+                "Authorization": f"Basic {auth_header}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": data.refresh_token
+            }
+        )
+        
+        if response.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to refresh token")
+        
+        token_data = response.json()
+        
+        # Update stored token
+        await db.spotify_tokens.update_one(
+            {"user_id": user.user_id},
+            {"$set": {
+                "access_token": token_data["access_token"],
+                "expires_in": token_data.get("expires_in", 3600),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        return {
+            "access_token": token_data["access_token"],
+            "expires_in": token_data.get("expires_in", 3600)
+        }
+
+@api_router.get("/spotify/status")
+async def get_spotify_status(user: User = Depends(get_current_user)):
+    """Check if user has Spotify connected."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    
+    if not token_data:
+        return {"connected": False}
+    
+    return {
+        "connected": True,
+        "spotify_user": token_data.get("spotify_display_name"),
+        "is_premium": token_data.get("is_premium", False)
+    }
+
+@api_router.delete("/spotify/disconnect")
+async def disconnect_spotify(user: User = Depends(get_current_user)):
+    """Disconnect Spotify account."""
+    await db.spotify_tokens.delete_one({"user_id": user.user_id})
+    return {"message": "Spotify disconnected"}
+
+@api_router.get("/spotify/search")
+async def search_spotify(q: str, type: str = "track", limit: int = 20, user: User = Depends(get_current_user)):
+    """Search Spotify for tracks, albums, or playlists."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://api.spotify.com/v1/search",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            params={"q": q, "type": type, "limit": limit}
+        )
+        
+        if response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Spotify token expired, please refresh")
+        
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Spotify search failed")
+        
+        return response.json()
+
+@api_router.get("/spotify/playback")
+async def get_playback_state(user: User = Depends(get_current_user)):
+    """Get current playback state."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.spotify.com/v1/me/player",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+        
+        if response.status_code == 204:
+            return {"is_playing": False, "device": None, "item": None}
+        
+        if response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Spotify token expired")
+        
+        if response.status_code != 200:
+            return {"is_playing": False, "device": None, "item": None}
+        
+        return response.json()
+
+@api_router.put("/spotify/play")
+async def start_playback(data: SpotifyPlayRequest, user: User = Depends(get_current_user)):
+    """Start or resume playback."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+    
+    if not token_data.get("is_premium"):
+        raise HTTPException(status_code=403, detail="Spotify Premium required for playback control")
+    
+    async with httpx.AsyncClient() as client:
+        url = "https://api.spotify.com/v1/me/player/play"
+        if data.device_id:
+            url += f"?device_id={data.device_id}"
+        
+        body = {}
+        if data.track_uri:
+            body["uris"] = [data.track_uri]
+        if data.context_uri:
+            body["context_uri"] = data.context_uri
+        if data.position_ms:
+            body["position_ms"] = data.position_ms
+        
+        response = await client.put(
+            url,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            json=body if body else None
+        )
+        
+        if response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Spotify token expired")
+        
+        if response.status_code not in [200, 204]:
+            logger.error(f"Spotify play failed: {response.status_code} - {response.text}")
+            raise HTTPException(status_code=response.status_code, detail="Failed to start playback")
+        
+        return {"status": "playing"}
+
+@api_router.put("/spotify/pause")
+async def pause_playback(device_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Pause playback."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+    
+    async with httpx.AsyncClient() as client:
+        url = "https://api.spotify.com/v1/me/player/pause"
+        if device_id:
+            url += f"?device_id={device_id}"
+        
+        response = await client.put(
+            url,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+        
+        if response.status_code not in [200, 204]:
+            raise HTTPException(status_code=response.status_code, detail="Failed to pause")
+        
+        return {"status": "paused"}
+
+@api_router.post("/spotify/next")
+async def skip_to_next(device_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Skip to next track."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+    
+    async with httpx.AsyncClient() as client:
+        url = "https://api.spotify.com/v1/me/player/next"
+        if device_id:
+            url += f"?device_id={device_id}"
+        
+        response = await client.post(
+            url,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+        
+        if response.status_code not in [200, 204]:
+            raise HTTPException(status_code=response.status_code, detail="Failed to skip")
+        
+        return {"status": "skipped"}
+
+@api_router.post("/spotify/previous")
+async def skip_to_previous(device_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Skip to previous track."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+    
+    async with httpx.AsyncClient() as client:
+        url = "https://api.spotify.com/v1/me/player/previous"
+        if device_id:
+            url += f"?device_id={device_id}"
+        
+        response = await client.post(
+            url,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+        
+        if response.status_code not in [200, 204]:
+            raise HTTPException(status_code=response.status_code, detail="Failed to go back")
+        
+        return {"status": "previous"}
+
+@api_router.put("/spotify/volume")
+async def set_volume(data: SpotifyVolumeRequest, user: User = Depends(get_current_user)):
+    """Set playback volume."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+    
+    async with httpx.AsyncClient() as client:
+        url = f"https://api.spotify.com/v1/me/player/volume?volume_percent={data.volume_percent}"
+        if data.device_id:
+            url += f"&device_id={data.device_id}"
+        
+        response = await client.put(
+            url,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+        
+        if response.status_code not in [200, 204]:
+            raise HTTPException(status_code=response.status_code, detail="Failed to set volume")
+        
+        return {"status": "volume_set", "volume": data.volume_percent}
+
+@api_router.put("/spotify/seek")
+async def seek_to_position(position_ms: int, device_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Seek to position in current track."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+    
+    async with httpx.AsyncClient() as client:
+        url = f"https://api.spotify.com/v1/me/player/seek?position_ms={position_ms}"
+        if device_id:
+            url += f"&device_id={device_id}"
+        
+        response = await client.put(
+            url,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+        
+        if response.status_code not in [200, 204]:
+            raise HTTPException(status_code=response.status_code, detail="Failed to seek")
+        
+        return {"status": "seeked", "position_ms": position_ms}
+
+@api_router.get("/spotify/devices")
+async def get_devices(user: User = Depends(get_current_user)):
+    """Get available playback devices."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.spotify.com/v1/me/player/devices",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+        
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Failed to get devices")
+        
+        return response.json()
+
+
 # ============== ROOT ENDPOINT ==============
 
 @api_router.get("/")

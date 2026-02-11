@@ -3104,6 +3104,10 @@ class AskAssistantRequest(BaseModel):
     message: str
     context: Optional[Dict[str, Any]] = None
 
+class PokerAnalyzeRequest(BaseModel):
+    your_hand: List[str]  # ["A of spades", "K of spades"]
+    community_cards: List[str] = []  # ["Q of hearts", "J of diamonds", "10 of clubs"]
+
 @api_router.post("/assistant/ask")
 async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_current_user)):
     """Ask the AI assistant a question."""
@@ -3121,6 +3125,88 @@ async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_curr
     
     response = await get_ai_response(data.message, session_id, context)
     return {"response": response, "source": "ai"}
+
+@api_router.post("/poker/analyze")
+async def analyze_poker_hand(data: PokerAnalyzeRequest, user: User = Depends(get_current_user)):
+    """Analyze poker hand and provide suggestion."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    
+    api_key = os.environ.get('EMERGENT_LLM_KEY')
+    if not api_key:
+        raise HTTPException(status_code=503, detail="AI service not configured")
+    
+    if len(data.your_hand) != 2:
+        raise HTTPException(status_code=400, detail="Must provide exactly 2 hole cards")
+    
+    # Build the prompt
+    hand_str = ", ".join(data.your_hand)
+    community_str = ", ".join(data.community_cards) if data.community_cards else "None (Pre-flop)"
+    
+    stage = "Pre-flop"
+    if len(data.community_cards) == 3:
+        stage = "Flop"
+    elif len(data.community_cards) == 4:
+        stage = "Turn"
+    elif len(data.community_cards) == 5:
+        stage = "River"
+    
+    system_prompt = """You are a poker hand analyzer. Given hole cards and community cards, analyze the hand strength and provide a suggestion.
+
+RESPOND IN THIS EXACT JSON FORMAT:
+{
+  "action": "FOLD" | "CHECK" | "CALL" | "RAISE",
+  "potential": "Low" | "Medium" | "High",
+  "reasoning": "Brief explanation in 1-2 sentences"
+}
+
+ANALYSIS RULES:
+- Pre-flop: Evaluate hole card strength (premium pairs, suited connectors, etc.)
+- Post-flop: Consider made hands, draws, and outs
+- Be conservative with weak hands
+- "potential" refers to hand potential to win
+
+Keep reasoning concise (under 50 words). Focus on probability and hand strength."""
+
+    user_prompt = f"""Stage: {stage}
+My hole cards: {hand_str}
+Community cards: {community_str}
+
+Analyze this hand and suggest an action."""
+
+    try:
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"poker_{user.user_id}_{uuid.uuid4().hex[:8]}",
+            system_message=system_prompt
+        ).with_model("openai", "gpt-4o-mini")
+        
+        message = UserMessage(text=user_prompt)
+        response = await chat.send_message(message)
+        
+        # Parse JSON response
+        import json
+        import re
+        
+        # Try to extract JSON from response
+        json_match = re.search(r'\{[^}]+\}', response, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+            return {
+                "action": result.get("action", "CHECK"),
+                "potential": result.get("potential", "Medium"),
+                "reasoning": result.get("reasoning", response)
+            }
+        else:
+            # Fallback - return raw response
+            return {
+                "action": "CHECK",
+                "potential": "Medium",
+                "reasoning": response[:200]
+            }
+            
+    except Exception as e:
+        logger.error(f"Poker analysis error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to analyze hand")
 
 # ============== SMART DEFAULTS ENDPOINTS ==============
 

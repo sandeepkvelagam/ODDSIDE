@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useGameSocket } from "@/hooks/useGameSocket";
+import SpotifyPlayer from "@/components/SpotifyPlayer";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 

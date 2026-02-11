@@ -1,148 +1,133 @@
-# Kvitt PRD - Implementation Status
+# Kvitt Poker Ledger - Product Requirements Document
 
 ## Original Problem Statement
-Build **Kvitt** - a behavioral ledger app for home poker games.
-**Tagline: "Your side, settled."**
+Build a poker ledger application with web and mobile apps for tracking poker nights, buy-ins, cash-outs, and settlements. The app should allow users to create groups, host games, manage players, and automatically calculate who owes whom at the end.
 
-## Latest Update: February 2026 (Session 5)
+## User Personas
+1. **Host**: Creates and manages poker games, controls buy-ins/cash-outs, settles games
+2. **Player**: Joins games, requests buy-ins, cashes out, views their stats
+3. **Group Admin**: Manages group membership, invites players
 
-### Current Session: Mobile App Auth Fix + Navigation Overhaul
-
-#### Critical Bug Fix: Mobile Auth (P0 BLOCKER - RESOLVED)
-- **Root Cause:** Mobile app never called `/api/auth/sync-user` after Supabase login, so user didn't exist in MongoDB → all API calls returned 401 "Unauthorized"
-- **Fix:** Created `AuthContext.tsx` that calls `sync-user` after login (matching web app's `AuthContext.js` pattern)
-- **Files:** `/app/mobile/src/context/AuthContext.tsx` (NEW)
-- **Testing:** 100% backend tests passed (11/11), TypeScript compiles with 0 errors
-
-#### Mobile Navigation Overhaul
-- Replaced bottom tab navigator with stack-based navigation + drawer
-- `RootNavigator.tsx` now uses `AuthContext` for session management
-- `DashboardScreen` has hamburger menu → opens `AppDrawer` (glassmorphism slide-out)
-- Fixed wrong API endpoints: `/dashboard/stats` → `/stats/me`, `/games/recent` → `/games`
-- Fixed `GroupsScreen` and `GroupHubScreen` to use correct `RootStackParamList` types
-- All screens updated to use `AuthContext` for user data and sign-out
+## Core Requirements
+- User authentication (Supabase)
+- Group creation and management
+- Game night creation and hosting
+- Real-time buy-in/cash-out tracking
+- Automatic settlement calculation
+- Game history and stats
+- Mobile app (Expo/React Native)
 
 ---
 
-### Phase 1: AI-Light Features (COMPLETE)
+## What's Been Implemented
 
-#### 1. AI Chat Assistant (Explain-Only)
-- **Backend**: `/app/backend/ai_assistant.py` - OpenAI GPT-5.2 via Emergent key
-- **Frontend**: `/app/frontend/src/components/AIAssistant.jsx` - Floating chat bubble
-- **Endpoint**: POST `/api/assistant/ask`
+### December 2024 - Web App Core ✅
+- Full authentication with Supabase
+- Group CRUD operations
+- Game night management
+- Real-time WebSocket updates
+- Player buy-ins and cash-outs
+- Settlement calculation
+- Game history and stats
+- Premium features with Stripe
+- AI Assistant
 
-#### 2. Smart Defaults (Data-Driven)
-- **Endpoint**: GET `/api/groups/{group_id}/smart-defaults`
-- **Endpoint**: GET `/api/groups/{group_id}/frequent-players`
+### February 2025 - Mobile App Fixes ✅
+- Fixed mobile auth 401 errors (sync-user integration)
+- Refactored navigation to drawer style
+- Created AuthContext for mobile
+- Fixed API endpoint URLs in DashboardScreen
 
-#### 3. Real-Time WebSocket Integration in GameNight
-- Live connection indicator, auto-refresh, toast notifications, live chat
-
----
-
-### Phase 0: Foundation Infrastructure (COMPLETE)
-- WebSocket Real-Time Updates (Socket.IO)
-- Game-Agnostic Event Schema
-- Rule-Based Onboarding Guide
-- Email Notifications (Resend)
-
-### Error Handling & Logging (COMPLETE)
-- Centralized Error Handler (backend + frontend)
-- Login Error Messages & Supabase Error Mapping
-
-### Stripe Premium Subscriptions (COMPLETE)
-- Monthly ($4.99), Yearly ($39.99), Lifetime ($99.99)
-- Backend endpoints + Frontend pricing page
-
-### Previous Session Features (COMPLETE)
-- Auto Buy-In on Game Start/Join
-- Group Admin Controls (remove/leave members)
-- Host Post-Game Edit Permissions
-- Notification Navigation
-- Request Join Button
-
-### Rebrand (COMPLETE)
-- Name: Kvitt, Tagline: "Your side, settled."
-- Light theme default, Charcoal buttons, Warm peachy orange accent
+### February 2025 - Spotify Integration ✅
+- Backend OAuth2 flow for Spotify
+- Token storage per user in MongoDB
+- Playback control endpoints (play, pause, skip, volume, seek)
+- Search functionality
+- SpotifyPlayer component with glass UI
+- Web Playback SDK integration
+- Host-only control (players see what's playing)
+- Added to GameNight sidebar
 
 ---
 
-## Tech Stack
-- **Frontend**: React 19 + Tailwind CSS + shadcn/ui
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB
-- **Auth**: Supabase Auth (email/password)
-- **Mobile**: React Native + Expo
-- **Real-time**: Socket.IO
-- **Payments**: Stripe
-- **Email**: Resend
-- **AI**: OpenAI GPT-5.2 via Emergent key
+## Pending Issues
 
----
+### P0 - Critical
+- **Mobile Expo Errors**: User getting "expected dynamic type 'boolean'" error when testing mobile app
+- **Spotify Credentials**: Waiting for user to create Spotify Developer app and provide Client ID/Secret
 
-## Mobile App Architecture
-```
-/app/mobile/
-├── App.tsx                      # Entry: AuthProvider → DrawerProvider → RootNavigator
-├── src/
-│   ├── api/
-│   │   ├── client.ts            # Axios + Supabase Bearer token interceptor
-│   │   ├── games.ts             # /games, /games/:id
-│   │   └── groups.ts            # /groups, /groups/:id
-│   ├── components/
-│   │   ├── AppDrawer.tsx         # Glassmorphism slide-out drawer
-│   │   ├── HamburgerButton.tsx   # Menu trigger
-│   │   └── ui/                   # Screen, Card components
-│   ├── context/
-│   │   ├── AuthContext.tsx        # Session + sync-user + user data
-│   │   └── DrawerContext.tsx      # Drawer open/close state
-│   ├── lib/
-│   │   ├── socket.ts             # Socket.IO client
-│   │   └── supabase.ts           # Supabase client with SecureStore
-│   ├── navigation/
-│   │   ├── RootNavigator.tsx      # Stack nav: Login → Dashboard/Groups/GroupHub/GameNight/Settings
-│   │   └── MainStack.tsx          # (Legacy, no longer used by RootNavigator)
-│   └── screens/
-│       ├── DashboardScreen.tsx    # Stats, recent games, drawer, actions
-│       ├── GroupsScreen.tsx       # Groups list
-│       ├── GroupHubScreen.tsx     # Group details + games
-│       ├── GameNightScreen.tsx    # Live game with Socket.IO
-│       ├── LoginScreen.tsx        # Supabase email/password auth
-│       └── SettingsScreen.tsx     # Profile, sign out
-```
-
----
-
-## Prioritized Backlog
-
-### P0 - Critical (All Completed)
-- [x] Mobile auth sync-user fix
-- [x] Mobile navigation overhaul (stack + drawer)
-- [x] Fix wrong API endpoints in mobile screens
-
-### P1 - High Priority (In Progress)
-- [ ] Test mobile app on actual device (user testing)
-- [ ] Stripe debt settlement end-to-end testing
-- [ ] Fix mobile "Create Account" flow (Supabase email confirmation)
-- [ ] Enhanced dashboard with charts
+### P1 - High Priority  
+- Fix game history view on mobile
+- Implement "create game" flow on mobile
+- Fix/implement "join group" flow on mobile
 
 ### P2 - Medium Priority
-- [ ] Build more mobile screens (Game History, Profile/Badges)
-- [ ] AI: Natural language session logging
-- [ ] Shareable game result cards
-- [ ] RSVP calendar for scheduled games
-
-### P3 - Nice to Have
-- [ ] Backend refactoring (split server.py into routers)
-- [ ] Landing/marketing page for mobile app
-- [ ] Phase 2 & 3 AI features (analytics, revenue AI)
-- [ ] Stripe Webhooks for auto subscription management
-- [ ] Export data to CSV
+- User profile editing on mobile
+- Apple Music integration (future)
 
 ---
 
-## Known Issues / Technical Debt
-1. `server.py` is 3000+ lines - needs router splitting
-2. `GameNight.jsx` is 1370+ lines - needs component splitting
-3. Mobile app `MainStack.tsx` is legacy/unused - can be removed
-4. nativewind/tailwindcss still in mobile package.json (unused)
+## Technical Architecture
+
+### Backend (FastAPI)
+- `/app/backend/server.py` - Main API
+- MongoDB collections: users, groups, game_nights, players, transactions, ledger, spotify_tokens
+- Supabase JWT authentication
+- WebSocket for real-time updates
+
+### Web Frontend (React)
+- `/app/frontend/src/` - React app with Tailwind/shadcn
+- Key pages: Dashboard, Groups, GroupHub, GameNight, Settlement
+- Components: SpotifyPlayer, AIAssistant, Navbar
+
+### Mobile App (Expo/React Native)
+- `/app/mobile/src/` - Expo app
+- Drawer navigation
+- AuthContext for Supabase integration
+
+### Environment Variables
+```
+# Backend
+MONGO_URL, DB_NAME, SUPABASE_URL, SUPABASE_JWT_SECRET
+SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_REDIRECT_URI
+
+# Frontend  
+REACT_APP_BACKEND_URL
+
+# Mobile
+EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_API_URL
+```
+
+---
+
+## Key API Endpoints
+
+### Auth
+- `POST /api/auth/sync-user` - Sync Supabase user to MongoDB
+
+### Groups
+- `GET/POST /api/groups` - List/Create groups
+- `GET /api/groups/:id` - Group details
+- `POST /api/groups/:id/join` - Join group
+
+### Games
+- `GET/POST /api/games` - List/Create games
+- `PUT /api/games/:id/start` - Start game
+- `PUT /api/games/:id/end` - End game
+- `POST /api/games/:id/buy-in` - Process buy-in
+- `POST /api/games/:id/cash-out` - Process cash-out
+
+### Spotify
+- `GET /api/spotify/auth-url` - Get OAuth URL
+- `POST /api/spotify/token` - Exchange code for token
+- `PUT /api/spotify/play|pause|next|previous` - Playback control
+- `GET /api/spotify/playback` - Current state
+
+---
+
+## Files of Reference
+- `/app/backend/server.py` - All API endpoints
+- `/app/frontend/src/pages/GameNight.jsx` - Main game page
+- `/app/frontend/src/components/SpotifyPlayer.jsx` - Music player
+- `/app/mobile/src/context/AuthContext.tsx` - Mobile auth
+- `/app/mobile/src/screens/DashboardScreen.tsx` - Mobile dashboard

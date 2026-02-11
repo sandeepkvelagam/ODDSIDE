@@ -60,10 +60,10 @@ export default function SpotifyPlayer({ isHost = false }) {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
-    const state = urlParams.get("state");
+    const spotifyCode = urlParams.get("spotify_code");
 
-    if (code && window.location.pathname.includes("/game/")) {
-      handleSpotifyCallback(code);
+    if ((code || spotifyCode) && window.location.pathname.includes("/game")) {
+      handleSpotifyCallback(code || spotifyCode);
       // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -148,15 +148,6 @@ export default function SpotifyPlayer({ isHost = false }) {
       setSpotifyUser(response.data.spotify_user);
 
       if (response.data.connected) {
-        // Get stored token for SDK
-        const tokenRes = await axios.post(`${API}/spotify/refresh`, {
-          refresh_token: localStorage.getItem("spotify_refresh_token"),
-        }).catch(() => null);
-        
-        if (tokenRes?.data?.access_token) {
-          setAccessToken(tokenRes.data.access_token);
-        }
-        
         fetchPlaybackState();
       }
     } catch (error) {
@@ -178,11 +169,6 @@ export default function SpotifyPlayer({ isHost = false }) {
       setIsPremium(response.data.is_premium);
       setSpotifyUser(response.data.spotify_user);
       setAccessToken(response.data.access_token);
-      
-      // Store refresh token locally
-      if (response.data.refresh_token) {
-        localStorage.setItem("spotify_refresh_token", response.data.refresh_token);
-      }
 
       toast.success(`Connected as ${response.data.spotify_user}`);
       fetchPlaybackState();
@@ -227,7 +213,6 @@ export default function SpotifyPlayer({ isHost = false }) {
         setProgress(response.data.progress_ms || 0);
       }
     } catch (error) {
-      // Token might be expired
       console.error("Playback state error:", error);
     }
   };
@@ -369,22 +354,33 @@ export default function SpotifyPlayer({ isHost = false }) {
   // Non-host view - just show what's playing
   if (!isHost && connected && playerState?.item) {
     return (
-      <div className="bg-zinc-900/80 backdrop-blur-sm rounded-2xl border border-zinc-800 p-4">
-        <div className="flex items-center gap-3">
-          <img
-            src={playerState.item.album?.images?.[0]?.url || playerState.item.album?.images?.[1]?.url}
-            alt={playerState.item.name}
-            className="w-12 h-12 rounded-lg object-cover"
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-white font-medium truncate text-sm">
-              {playerState.item.name}
-            </p>
-            <p className="text-zinc-400 text-xs truncate">
-              {playerState.item.artists?.map((a) => a.name).join(", ")}
-            </p>
+      <div className="rounded-2xl overflow-hidden">
+        {/* Dotted header style */}
+        <div className="flex items-center justify-center gap-2 py-3">
+          <span className="text-muted-foreground text-xs tracking-[0.3em] font-mono uppercase"
+                style={{ fontFamily: 'monospace', letterSpacing: '0.2em' }}>
+            NOW PLAYING
+          </span>
+          <Music className="w-4 h-4 text-muted-foreground" />
+        </div>
+        
+        <div className="bg-card border border-border rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center gap-3">
+            <img
+              src={playerState.item.album?.images?.[0]?.url || playerState.item.album?.images?.[1]?.url}
+              alt={playerState.item.name}
+              className="w-12 h-12 rounded-lg object-cover"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-foreground font-medium truncate text-sm">
+                {playerState.item.name}
+              </p>
+              <p className="text-muted-foreground text-xs truncate">
+                {playerState.item.artists?.map((a) => a.name).join(", ")}
+              </p>
+            </div>
+            <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
           </div>
-          <Music className="w-5 h-5 text-green-500" />
         </div>
       </div>
     );
@@ -393,10 +389,18 @@ export default function SpotifyPlayer({ isHost = false }) {
   // Host view
   if (loading) {
     return (
-      <div className="bg-zinc-900/80 backdrop-blur-sm rounded-2xl border border-zinc-800 p-6">
-        <div className="flex items-center justify-center gap-2 text-zinc-400">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Loading Spotify...</span>
+      <div className="rounded-2xl overflow-hidden">
+        <div className="flex items-center justify-center gap-2 py-3">
+          <span className="text-muted-foreground text-xs tracking-[0.3em] font-mono uppercase">
+            MUSIC PLAYER
+          </span>
+          <Music className="w-4 h-4 text-muted-foreground" />
+        </div>
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Loading...</span>
+          </div>
         </div>
       </div>
     );
@@ -407,261 +411,284 @@ export default function SpotifyPlayer({ isHost = false }) {
   }
 
   return (
-    <div className="bg-zinc-900/80 backdrop-blur-sm rounded-2xl border border-zinc-800 overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-zinc-500 text-xs font-medium tracking-widest uppercase">
-            Music Player
-          </span>
-          <Music className="w-4 h-4 text-zinc-500" />
-        </div>
-        {connected && (
-          <div className="flex items-center gap-2">
-            {sdkReady ? (
-              <Wifi className="w-4 h-4 text-green-500" />
-            ) : (
-              <WifiOff className="w-4 h-4 text-zinc-500" />
-            )}
-            <span className="text-xs text-zinc-500">{spotifyUser}</span>
+    <div className="rounded-2xl overflow-hidden">
+      {/* Dotted header - matching PRODUCT VIDEO style */}
+      <div className="flex items-center justify-center gap-2 py-3">
+        <span className="text-muted-foreground text-xs tracking-[0.3em] font-mono uppercase"
+              style={{ fontFamily: 'monospace', letterSpacing: '0.2em' }}>
+          MUSIC PLAYER
+        </span>
+        <Music className="w-4 h-4 text-muted-foreground" />
+      </div>
+
+      {/* Main container - rounded like the video player */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-lg">
+        {!connected ? (
+          /* Connect State - with video-like container */
+          <div className="aspect-video bg-zinc-900 flex flex-col items-center justify-center p-6">
+            <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
+              <Music className="w-10 h-10 text-green-500" />
+            </div>
+            <h3 className="text-white text-xl font-semibold mb-2">Connect Spotify</h3>
+            <p className="text-zinc-400 text-sm text-center mb-6 max-w-xs">
+              Play music during your poker night. Requires Spotify Premium.
+            </p>
+            <Button
+              onClick={connectSpotify}
+              className="bg-green-500 hover:bg-green-600 text-black font-semibold px-6"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Connect Spotify
+            </Button>
+          </div>
+        ) : !isPremium ? (
+          /* Premium Required */
+          <div className="aspect-video bg-zinc-900 flex flex-col items-center justify-center p-6">
+            <div className="w-20 h-20 rounded-full bg-yellow-500/20 flex items-center justify-center mb-4">
+              <Music className="w-10 h-10 text-yellow-500" />
+            </div>
+            <h3 className="text-white text-xl font-semibold mb-2">Premium Required</h3>
+            <p className="text-zinc-400 text-sm text-center mb-6">
+              Spotify Premium is required for playback control.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={disconnectSpotify}
+                className="border-zinc-700 text-zinc-300"
+              >
+                Disconnect
+              </Button>
+              <Button
+                onClick={() => window.open("https://spotify.com/premium", "_blank")}
+                className="bg-green-500 hover:bg-green-600 text-black"
+              >
+                Get Premium
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* Player - Video-style layout */
+          <div>
+            {/* Album Art / Video Canvas Area */}
+            <div className="aspect-video bg-zinc-900 relative flex items-center justify-center overflow-hidden">
+              {playerState?.item?.album?.images?.[0] ? (
+                <>
+                  {/* Blurred background */}
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center blur-2xl opacity-50"
+                    style={{ backgroundImage: `url(${playerState.item.album.images[0].url})` }}
+                  />
+                  {/* Main album art */}
+                  <img
+                    src={playerState.item.album.images[0].url}
+                    alt={playerState.item.name}
+                    className="relative z-10 w-32 h-32 md:w-40 md:h-40 rounded-xl shadow-2xl object-cover"
+                  />
+                  {/* Playing indicator */}
+                  {playerState?.is_playing && (
+                    <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded-full">
+                      <div className="flex gap-0.5">
+                        <div className="w-1 h-3 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                        <div className="w-1 h-4 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                        <div className="w-1 h-2 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span className="text-white text-xs font-medium">Playing</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-zinc-500">
+                  <Music className="w-16 h-16 mb-2 opacity-30" />
+                  <span className="text-sm">No track playing</span>
+                </div>
+              )}
+            </div>
+
+            {/* Controls Section */}
+            <div className="p-4 bg-card">
+              {/* Track Info */}
+              <div className="text-center mb-4">
+                <p className="text-foreground font-semibold truncate">
+                  {playerState?.item?.name || "No track playing"}
+                </p>
+                <p className="text-muted-foreground text-sm truncate">
+                  {playerState?.item?.artists?.map((a) => a.name).join(", ") || "—"}
+                </p>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mb-4">
+                <Slider
+                  value={[progress]}
+                  max={playerState?.item?.duration_ms || playerState?.duration_ms || 100}
+                  step={1000}
+                  onValueChange={handleSeek}
+                  className="cursor-pointer"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>{formatTime(progress)}</span>
+                  <span>{formatTime(playerState?.item?.duration_ms || playerState?.duration_ms)}</span>
+                </div>
+              </div>
+
+              {/* Playback Controls */}
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handlePrevious}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <SkipBack className="w-5 h-5" />
+                </Button>
+                <Button
+                  size="icon"
+                  onClick={playerState?.is_playing ? handlePause : handlePlay}
+                  className="w-12 h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  {playerState?.is_playing ? (
+                    <Pause className="w-5 h-5" />
+                  ) : (
+                    <Play className="w-5 h-5 ml-0.5" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleNext}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <SkipForward className="w-5 h-5" />
+                </Button>
+              </div>
+
+              {/* Volume */}
+              <div className="flex items-center gap-3 mb-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleMute}
+                  className="text-muted-foreground hover:text-foreground h-8 w-8"
+                >
+                  {isMuted || volume === 0 ? (
+                    <VolumeX className="w-4 h-4" />
+                  ) : (
+                    <Volume2 className="w-4 h-4" />
+                  )}
+                </Button>
+                <Slider
+                  value={[volume]}
+                  max={100}
+                  step={1}
+                  onValueChange={handleVolumeChange}
+                  className="flex-1"
+                />
+              </div>
+
+              {/* Search Toggle */}
+              <div className="border-t border-border pt-4">
+                {showSearch ? (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && searchTracks()}
+                          placeholder="Search songs..."
+                          className="pl-9 bg-secondary border-border"
+                        />
+                      </div>
+                      <Button onClick={searchTracks} disabled={searching} size="sm">
+                        {searching ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          "Search"
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setShowSearch(false);
+                          setSearchResults([]);
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {searchResults.length > 0 && (
+                      <ScrollArea className="h-48">
+                        <div className="space-y-1">
+                          {searchResults.map((track) => (
+                            <button
+                              key={track.id}
+                              onClick={() => playTrack(track)}
+                              className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors text-left"
+                            >
+                              <img
+                                src={track.album.images[2]?.url || track.album.images[0]?.url}
+                                alt={track.name}
+                                className="w-10 h-10 rounded object-cover"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-foreground text-sm truncate">{track.name}</p>
+                                <p className="text-muted-foreground text-xs truncate">
+                                  {track.artists.map((a) => a.name).join(", ")}
+                                </p>
+                              </div>
+                              <span className="text-muted-foreground text-xs">
+                                {formatTime(track.duration_ms)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSearch(true)}
+                    className="w-full border-border text-muted-foreground hover:text-foreground"
+                  >
+                    <Search className="w-4 h-4 mr-2" />
+                    Search songs
+                  </Button>
+                )}
+              </div>
+
+              {/* Status & Disconnect */}
+              <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {sdkReady ? (
+                    <>
+                      <Wifi className="w-3 h-3 text-green-500" />
+                      <span>Connected as {spotifyUser}</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="w-3 h-3" />
+                      <span>{spotifyUser}</span>
+                    </>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={disconnectSpotify}
+                  className="text-muted-foreground hover:text-foreground text-xs h-7"
+                >
+                  Disconnect
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {!connected ? (
-        /* Connect State */
-        <div className="p-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/10 flex items-center justify-center">
-            <Music className="w-8 h-8 text-green-500" />
-          </div>
-          <h3 className="text-white font-semibold mb-2">Connect Spotify</h3>
-          <p className="text-zinc-400 text-sm mb-4">
-            Play music during your poker night. Requires Spotify Premium.
-          </p>
-          <Button
-            onClick={connectSpotify}
-            className="bg-green-500 hover:bg-green-600 text-black font-semibold"
-          >
-            <ExternalLink className="w-4 h-4 mr-2" />
-            Connect Spotify
-          </Button>
-        </div>
-      ) : !isPremium ? (
-        /* Premium Required */
-        <div className="p-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-500/10 flex items-center justify-center">
-            <Music className="w-8 h-8 text-yellow-500" />
-          </div>
-          <h3 className="text-white font-semibold mb-2">Premium Required</h3>
-          <p className="text-zinc-400 text-sm mb-4">
-            Spotify Premium is required for playback control.
-          </p>
-          <div className="flex gap-2 justify-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={disconnectSpotify}
-              className="border-zinc-700"
-            >
-              Disconnect
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => window.open("https://spotify.com/premium", "_blank")}
-              className="bg-green-500 hover:bg-green-600 text-black"
-            >
-              Get Premium
-            </Button>
-          </div>
-        </div>
-      ) : (
-        /* Player */
-        <div className="p-4">
-          {/* Album Art & Track Info */}
-          <div className="flex gap-4 mb-4">
-            <div className="w-24 h-24 rounded-xl bg-zinc-800 overflow-hidden flex-shrink-0">
-              {playerState?.item?.album?.images?.[0] ? (
-                <img
-                  src={playerState.item.album.images[0].url}
-                  alt={playerState.item.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Music className="w-8 h-8 text-zinc-600" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <p className="text-white font-semibold truncate">
-                {playerState?.item?.name || "No track playing"}
-              </p>
-              <p className="text-zinc-400 text-sm truncate">
-                {playerState?.item?.artists?.map((a) => a.name).join(", ") || "—"}
-              </p>
-              <p className="text-zinc-500 text-xs truncate mt-1">
-                {playerState?.item?.album?.name || ""}
-              </p>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="mb-4">
-            <Slider
-              value={[progress]}
-              max={playerState?.item?.duration_ms || playerState?.duration_ms || 100}
-              step={1000}
-              onValueChange={handleSeek}
-              className="cursor-pointer"
-            />
-            <div className="flex justify-between text-xs text-zinc-500 mt-1">
-              <span>{formatTime(progress)}</span>
-              <span>{formatTime(playerState?.item?.duration_ms || playerState?.duration_ms)}</span>
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePrevious}
-              className="text-zinc-400 hover:text-white"
-            >
-              <SkipBack className="w-5 h-5" />
-            </Button>
-            <Button
-              size="icon"
-              onClick={playerState?.is_playing ? handlePause : handlePlay}
-              className="w-12 h-12 rounded-full bg-white hover:bg-zinc-200 text-black"
-            >
-              {playerState?.is_playing ? (
-                <Pause className="w-5 h-5" />
-              ) : (
-                <Play className="w-5 h-5 ml-0.5" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleNext}
-              className="text-zinc-400 hover:text-white"
-            >
-              <SkipForward className="w-5 h-5" />
-            </Button>
-          </div>
-
-          {/* Volume */}
-          <div className="flex items-center gap-3 mb-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleMute}
-              className="text-zinc-400 hover:text-white h-8 w-8"
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX className="w-4 h-4" />
-              ) : (
-                <Volume2 className="w-4 h-4" />
-              )}
-            </Button>
-            <Slider
-              value={[volume]}
-              max={100}
-              step={1}
-              onValueChange={handleVolumeChange}
-              className="flex-1"
-            />
-          </div>
-
-          {/* Search Toggle */}
-          <div className="border-t border-zinc-800 pt-4">
-            {showSearch ? (
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                    <Input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && searchTracks()}
-                      placeholder="Search songs..."
-                      className="pl-9 bg-zinc-800 border-zinc-700"
-                    />
-                  </div>
-                  <Button onClick={searchTracks} disabled={searching} size="sm">
-                    {searching ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      "Search"
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setShowSearch(false);
-                      setSearchResults([]);
-                    }}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                {searchResults.length > 0 && (
-                  <ScrollArea className="h-48">
-                    <div className="space-y-1">
-                      {searchResults.map((track) => (
-                        <button
-                          key={track.id}
-                          onClick={() => playTrack(track)}
-                          className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors text-left"
-                        >
-                          <img
-                            src={track.album.images[2]?.url || track.album.images[0]?.url}
-                            alt={track.name}
-                            className="w-10 h-10 rounded object-cover"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm truncate">{track.name}</p>
-                            <p className="text-zinc-400 text-xs truncate">
-                              {track.artists.map((a) => a.name).join(", ")}
-                            </p>
-                          </div>
-                          <span className="text-zinc-500 text-xs">
-                            {formatTime(track.duration_ms)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={() => setShowSearch(true)}
-                className="w-full border-zinc-700 text-zinc-400 hover:text-white"
-              >
-                <Search className="w-4 h-4 mr-2" />
-                Search songs
-              </Button>
-            )}
-          </div>
-
-          {/* Disconnect */}
-          <div className="mt-4 pt-4 border-t border-zinc-800">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={disconnectSpotify}
-              className="text-zinc-500 hover:text-zinc-300 w-full"
-            >
-              Disconnect Spotify
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

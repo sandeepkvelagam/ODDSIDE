@@ -514,6 +514,8 @@ export default function GameNight() {
               <span className="px-2 py-1 bg-secondary/50 rounded-full">
                 ${chipValue.toFixed(2)}/chip
               </span>
+              {/* AI Poker Assistant */}
+              <PokerAIAssistant />
             </div>
           )}
           

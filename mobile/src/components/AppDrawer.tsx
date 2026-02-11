@@ -49,9 +49,7 @@ export function AppDrawer({
   onNewPress,
   children,
 }: Props) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
+  const { colors } = useTheme();
 
   const { isOpen, closeDrawer } = useDrawer();
   const insets = useSafeAreaInsets();

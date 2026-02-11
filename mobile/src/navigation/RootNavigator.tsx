@@ -13,6 +13,9 @@ import { GameNightScreen } from "../screens/GameNightScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { NotificationsScreen } from "../screens/NotificationsScreen";
+import { PrivacyScreen } from "../screens/PrivacyScreen";
+import { BillingScreen } from "../screens/BillingScreen";
+import { LanguageScreen } from "../screens/LanguageScreen";
 import { AIAssistantScreen } from "../screens/AIAssistantScreen";
 
 export type RootStackParamList = {
@@ -24,6 +27,9 @@ export type RootStackParamList = {
   Settings: undefined;
   Profile: undefined;
   Notifications: undefined;
+  Privacy: undefined;
+  Billing: undefined;
+  Language: undefined;
   AIAssistant: undefined;
 };
 

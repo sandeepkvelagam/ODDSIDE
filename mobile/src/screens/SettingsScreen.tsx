@@ -24,7 +24,7 @@ export function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
-  const { themeMode, setThemeMode, isDark, colors } = useTheme();
+  const { themeMode, setThemeMode, colors } = useTheme();
   const [hapticEnabled, setHapticEnabled] = useState(true);
   const [showAppearancePopup, setShowAppearancePopup] = useState(false);
 
@@ -46,7 +46,7 @@ export function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 4 }]}>
       {/* Main card with rounded top */}
       <View style={[styles.mainCard, { backgroundColor: colors.surface }]}>
         {/* Header inside the card */}
@@ -88,6 +88,7 @@ export function SettingsScreen() {
 
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate("Billing")}
             activeOpacity={0.7}
           >
             <Ionicons name="card-outline" size={22} color={colors.textPrimary} />
@@ -113,6 +114,7 @@ export function SettingsScreen() {
 
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate("Language")}
             activeOpacity={0.7}
           >
             <Ionicons name="globe-outline" size={22} color={colors.textPrimary} />
@@ -133,6 +135,7 @@ export function SettingsScreen() {
 
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate("Privacy")}
             activeOpacity={0.7}
           >
             <Ionicons name="shield-outline" size={22} color={colors.textPrimary} />
@@ -249,7 +252,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 36,
     borderTopRightRadius: 36,
     overflow: "hidden",
-    marginTop: 12,
+    marginTop: 8,
   },
   header: {
     flexDirection: "row",

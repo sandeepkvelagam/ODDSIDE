@@ -98,7 +98,7 @@ export function ProfileScreen() {
   const preferencesChanged = preferences !== (user?.preferences || "");
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 4 }]}>
       {/* Main card with rounded top */}
       <View style={[styles.mainCard, { backgroundColor: colors.surface }]}>
         {/* Header inside the card */}

@@ -160,6 +160,30 @@ export default function RootNavigator() {
                 }}
               />
               <Stack.Screen
+                name="Privacy"
+                component={PrivacyScreen}
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_right",
+                }}
+              />
+              <Stack.Screen
+                name="Billing"
+                component={BillingScreen}
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_right",
+                }}
+              />
+              <Stack.Screen
+                name="Language"
+                component={LanguageScreen}
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_right",
+                }}
+              />
+              <Stack.Screen
                 name="AIAssistant"
                 component={AIAssistantScreen}
                 options={{

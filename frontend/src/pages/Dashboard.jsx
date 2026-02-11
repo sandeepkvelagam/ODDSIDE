@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { 
+import {
   TrendingUp, TrendingDown, Users, Play, Plus, ChevronRight,
-  Wallet, Target, Crown, UserPlus, DollarSign, HelpCircle
+  Wallet, Target, Crown, UserPlus, DollarSign, HelpCircle,
+  BarChart3, Trophy, Percent, Flame, Activity
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PendingInvites from "@/components/PendingInvites";
@@ -182,6 +183,70 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Game Performance Stats - Compact */}
+        {stats?.total_games > 0 && (
+          <Card className="bg-card border-border/50 mb-4 sm:mb-6">
+            <CardHeader className="flex flex-row items-center justify-between py-2 px-3 sm:px-6 sm:py-3">
+              <CardTitle className="font-heading text-sm sm:text-lg font-bold flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                PERFORMANCE
+              </CardTitle>
+              <span className="text-[10px] sm:text-xs text-muted-foreground">{stats.total_games} games</span>
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-4 pt-0">
+              <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                {/* Win/Loss */}
+                <div className="text-center p-2 bg-secondary/30 rounded-lg">
+                  <p className="font-heading text-sm sm:text-lg font-bold">
+                    <span className="text-primary">{Math.round((stats.win_rate / 100) * stats.total_games)}</span>
+                    <span className="text-muted-foreground">/</span>
+                    <span className="text-destructive">{stats.total_games - Math.round((stats.win_rate / 100) * stats.total_games)}</span>
+                  </p>
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground">W/L</p>
+                </div>
+
+                {/* Avg/Game */}
+                <div className="text-center p-2 bg-secondary/30 rounded-lg">
+                  <p className={`font-heading text-sm sm:text-lg font-bold ${(stats.net_profit / stats.total_games) >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                    {(stats.net_profit / stats.total_games) >= 0 ? '+' : ''}${(stats.net_profit / stats.total_games).toFixed(0)}
+                  </p>
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground">Avg</p>
+                </div>
+
+                {/* Best */}
+                <div className="text-center p-2 bg-secondary/30 rounded-lg">
+                  <p className="font-heading text-sm sm:text-lg font-bold text-primary">
+                    +${(stats.biggest_win || 0).toFixed(0)}
+                  </p>
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground">Best</p>
+                </div>
+
+                {/* Worst */}
+                <div className="text-center p-2 bg-secondary/30 rounded-lg">
+                  <p className="font-heading text-sm sm:text-lg font-bold text-destructive">
+                    ${(stats.biggest_loss || 0).toFixed(0)}
+                  </p>
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground">Worst</p>
+                </div>
+              </div>
+
+              {/* ROI - Simplified */}
+              <div className="mt-2 sm:mt-3 flex items-center gap-2 text-[10px] sm:text-xs">
+                <span className="text-muted-foreground">ROI:</span>
+                <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${stats.total_buy_ins > 0 && ((stats.net_profit / stats.total_buy_ins) * 100) >= 0 ? 'bg-primary' : 'bg-destructive'}`}
+                    style={{ width: `${Math.min(Math.abs(stats.total_buy_ins > 0 ? ((stats.net_profit / stats.total_buy_ins) * 100) : 0), 100)}%` }}
+                  />
+                </div>
+                <span className={`font-mono font-bold ${stats.total_buy_ins > 0 && ((stats.net_profit / stats.total_buy_ins) * 100) >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                  {stats.total_buy_ins > 0 ? ((stats.net_profit / stats.total_buy_ins) * 100).toFixed(0) : 0}%
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Active Games & Groups - Stack on mobile */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">

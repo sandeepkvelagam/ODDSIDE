@@ -6,7 +6,7 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Sparkles, Loader2, Brain, Eye, EyeOff, BarChart3 } from "lucide-react";
+import { Sparkles, Loader2, Brain, Eye, EyeOff, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -18,51 +18,51 @@ const validValues = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q"
 const suits = { hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" };
 const suitColors = { hearts: "text-red-500", diamonds: "text-red-500", clubs: "text-foreground", spades: "text-foreground" };
 
-// Card display component (same as demo)
+// Card display component
 const Card = ({ rank, suit, hidden, onClick, isSelected, isInput }) => {
   if (hidden) {
     return (
-      <div className="w-12 h-16 sm:w-14 sm:h-[76px] rounded-lg bg-gradient-to-br from-red-500 to-red-600 border border-red-400 shadow-sm flex items-center justify-center">
-        <span className="text-white text-2xl font-bold">?</span>
+      <div className="w-11 h-[58px] sm:w-12 sm:h-[66px] rounded-lg bg-gradient-to-br from-red-500 to-red-600 border border-red-400 shadow-sm flex items-center justify-center">
+        <span className="text-white text-xl font-bold">?</span>
       </div>
     );
   }
-  
+
   if (isInput) {
     return (
-      <div 
+      <div
         onClick={onClick}
         className={cn(
-          "w-12 h-16 sm:w-14 sm:h-[76px] rounded-lg border shadow-sm flex flex-col items-center justify-center cursor-pointer transition-all",
-          isSelected 
-            ? "bg-white border-[#EF6E59] ring-2 ring-[#EF6E59]/30" 
-            : rank 
+          "w-11 h-[58px] sm:w-12 sm:h-[66px] rounded-lg border shadow-sm flex flex-col items-center justify-center cursor-pointer transition-all",
+          isSelected
+            ? "bg-white border-[#EF6E59] ring-2 ring-[#EF6E59]/30"
+            : rank
               ? "bg-white border-border/50 hover:border-zinc-300"
               : "bg-zinc-50 border-dashed border-zinc-300 hover:border-zinc-400"
         )}
       >
         {rank ? (
           <>
-            <span className={cn("text-sm sm:text-base font-bold", suitColors[suit] || "text-zinc-400")}>
+            <span className={cn("text-sm font-bold", suitColors[suit] || "text-zinc-400")}>
               {rank}
             </span>
-            <span className={cn("text-lg sm:text-xl leading-none", suitColors[suit] || "text-zinc-300")}>
+            <span className={cn("text-lg leading-none", suitColors[suit] || "text-zinc-300")}>
               {suit ? suits[suit] : "?"}
             </span>
           </>
         ) : (
-          <span className="text-zinc-300 text-xs">tap</span>
+          <span className="text-zinc-300 text-[10px]">tap</span>
         )}
       </div>
     );
   }
 
   return (
-    <div className="w-12 h-16 sm:w-14 sm:h-[76px] rounded-lg bg-white border border-border/50 shadow-sm flex flex-col items-center justify-center">
-      <span className={cn("text-sm sm:text-base font-bold", suitColors[suit])}>
+    <div className="w-11 h-[58px] sm:w-12 sm:h-[66px] rounded-lg bg-white border border-border/50 shadow-sm flex flex-col items-center justify-center">
+      <span className={cn("text-sm font-bold", suitColors[suit])}>
         {rank}
       </span>
-      <span className={cn("text-lg sm:text-xl leading-none", suitColors[suit])}>
+      <span className={cn("text-lg leading-none", suitColors[suit])}>
         {suits[suit]}
       </span>
     </div>
@@ -73,9 +73,6 @@ export default function PokerAIAssistant({ gameId = null }) {
   const [open, setOpen] = useState(false);
   const [showHand, setShowHand] = useState(true);
   const [selectedCard, setSelectedCard] = useState(null); // "hand-0", "hand-1", "comm-0", etc.
-  const [showStats, setShowStats] = useState(false);
-  const [stats, setStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(false);
   
   // Cards state
   const [hand, setHand] = useState([
@@ -93,43 +90,36 @@ export default function PokerAIAssistant({ gameId = null }) {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [showStats, setShowStats] = useState(false);
 
-  // Fetch user stats when dialog opens
+  // Fetch stats when dialog opens
   useEffect(() => {
-    if (open && !stats && !loadingStats) {
-      fetchStats();
+    if (open) {
+      axios.get(`${API}/poker/stats`).then(res => setStats(res.data)).catch(() => {});
     }
   }, [open]);
-
-  const fetchStats = async () => {
-    setLoadingStats(true);
-    try {
-      const response = await axios.get(`${API}/poker/stats`);
-      setStats(response.data);
-    } catch (error) {
-      console.error("Failed to fetch stats:", error);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
 
   // Handle card selection
   const handleCardClick = (type, index) => {
     setSelectedCard(`${type}-${index}`);
   };
 
+  // Track if waiting for "0" to complete "10"
+  const [waitingForTen, setWaitingForTen] = useState(false);
+
   // Handle keyboard input when card is selected
   const handleKeyDown = (e) => {
     if (!selectedCard) return;
 
     const key = e.key.toUpperCase();
+    const [type, idx] = selectedCard.split("-");
+    const index = parseInt(idx);
 
     // Handle backspace - clear the card
     if (e.key === "Backspace") {
       e.preventDefault();
-      const [type, idx] = selectedCard.split("-");
-      const index = parseInt(idx);
-
+      setWaitingForTen(false);
       if (type === "hand") {
         const newHand = [...hand];
         newHand[index].rank = "";
@@ -145,44 +135,42 @@ export default function PokerAIAssistant({ gameId = null }) {
       return;
     }
 
-    // Handle number keys and letter keys for card values
-    if (validValues.includes(key) || key === "1" || key === "0") {
+    // Handle "10" input
+    if (key === "1") {
       e.preventDefault();
-      const [type, idx] = selectedCard.split("-");
-      const index = parseInt(idx);
-
-      // Handle "10" input - if typing "1" then "0"
-      if (key === "1") {
-        if (type === "hand") {
-          const newHand = [...hand];
-          newHand[index].rank = "1";
-          setHand(newHand);
-        } else {
-          const newComm = [...community];
-          newComm[index].rank = "1";
-          setCommunity(newComm);
-        }
-      } else if (key === "0") {
-        // If previous char was "1", make it "10"
-        if (type === "hand" && hand[index].rank === "1") {
-          const newHand = [...hand];
-          newHand[index].rank = "10";
-          setHand(newHand);
-        } else if (type === "comm" && community[index].rank === "1") {
-          const newComm = [...community];
-          newComm[index].rank = "10";
-          setCommunity(newComm);
-        }
+      setWaitingForTen(true);
+      // Show "10" preview immediately
+      if (type === "hand") {
+        const newHand = [...hand];
+        newHand[index].rank = "10";
+        setHand(newHand);
       } else {
-        if (type === "hand") {
-          const newHand = [...hand];
-          newHand[index].rank = key;
-          setHand(newHand);
-        } else {
-          const newComm = [...community];
-          newComm[index].rank = key;
-          setCommunity(newComm);
-        }
+        const newComm = [...community];
+        newComm[index].rank = "10";
+        setCommunity(newComm);
+      }
+      return;
+    }
+
+    if (key === "0" && waitingForTen) {
+      e.preventDefault();
+      setWaitingForTen(false);
+      // Already set to "10", just confirm
+      return;
+    }
+
+    // Handle other valid keys (A, 2-9, J, Q, K)
+    if (validValues.includes(key) && key !== "10") {
+      e.preventDefault();
+      setWaitingForTen(false);
+      if (type === "hand") {
+        const newHand = [...hand];
+        newHand[index].rank = key;
+        setHand(newHand);
+      } else {
+        const newComm = [...community];
+        newComm[index].rank = key;
+        setCommunity(newComm);
       }
       setSuggestion(null);
     }
@@ -269,8 +257,6 @@ export default function PokerAIAssistant({ gameId = null }) {
         game_id: gameId  // Link to game for analytics
       });
       setSuggestion(response.data);
-      // Refresh stats after successful analysis
-      fetchStats();
     } catch (error) {
       setSuggestion({
         action: "Error",
@@ -297,120 +283,105 @@ export default function PokerAIAssistant({ gameId = null }) {
       </DialogTrigger>
       
       <DialogContent
-        className="sm:max-w-5xl bg-white border-border p-0 gap-0 overflow-hidden"
+        className="sm:max-w-4xl bg-white border-border p-0 gap-0"
         onKeyDown={handleKeyDown}
         tabIndex={0}
       >
-        <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center p-6 md:p-8">
-          {/* Left Side - Text (centered) */}
-          <div className="order-2 md:order-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#EF6E59]/10 text-[#EF6E59] text-sm font-medium mb-4">
-              <Brain className="w-4 h-4" />
+        <div className="grid md:grid-cols-2 gap-4 md:gap-8 items-start p-3 sm:p-4 md:p-6">
+          {/* Left Side - Text (centered, top-aligned) */}
+          <div className="order-2 md:order-1 text-center md:text-left flex flex-col justify-start">
+            <div className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-[#EF6E59]/10 text-[#EF6E59] text-xs font-medium mb-2 mx-auto md:mx-0 w-fit">
+              <Brain className="w-3 h-3" />
               AI Poker Assistant
-              <span className="bg-[#EF6E59] text-white text-[10px] px-1.5 py-0.5 rounded-full font-semibold">
+              <span className="bg-[#EF6E59] text-white text-[9px] px-1.5 py-0.5 rounded-full font-semibold">
                 Beta
               </span>
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-foreground">
-              Your AI game companion
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 text-foreground">
+              Your AI Game Companion
             </h2>
-            <p className="text-muted-foreground mb-4 leading-relaxed">
-              New to poker? Enter your cards with a simple UI and get instant suggestions—stay, raise, check, or fold. Perfect for beginners learning the game.
+            <p className="text-xs text-muted-foreground mb-2 leading-relaxed hidden sm:block">
+              New to poker? Enter your cards and see what a basic strategy model would suggest—check, raise, call, or fold.
             </p>
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 leading-relaxed mb-4">
-              <strong>Disclaimer:</strong> AI suggestions are for entertainment purposes only and do not constitute financial advice. Always use your best judgment when playing.
+            <p className="text-[10px] text-muted-foreground/80 mb-2 leading-relaxed hidden md:block">
+              Designed to help beginners understand common decision patterns and learn the game.
+            </p>
+            <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-[9px] sm:text-[10px] text-amber-800 leading-relaxed mb-2">
+              <strong>Disclaimer:</strong> Suggestions are educational and for entertainment only. They do not guarantee outcomes.
             </div>
 
-            {/* Stats Toggle */}
-            <button
-              onClick={() => setShowStats(!showStats)}
-              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <BarChart3 className="w-3.5 h-3.5" />
-              {showStats ? "Hide" : "View"} Your Stats
-              {stats?.total_analyses > 0 && (
-                <span className="px-1.5 py-0.5 bg-secondary rounded text-[10px]">
-                  {stats.total_analyses} hands
-                </span>
-              )}
-            </button>
-
-            {/* Stats Display */}
-            {showStats && stats && stats.total_analyses > 0 && (
-              <div className="mt-3 p-3 rounded-xl bg-secondary/30 border border-border/30">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Your AI Analysis Stats
-                </p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2 bg-white rounded-lg">
-                    <p className="text-muted-foreground text-[10px]">Most Common</p>
-                    <p className="font-bold text-[#EF6E59]">{stats.most_common_suggestion || "—"}</p>
+            {/* Stats Section - Collapsible */}
+            {stats?.total_analyses > 0 && (
+              <div className="hidden sm:block">
+                <button
+                  onClick={() => setShowStats(!showStats)}
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground mx-auto md:mx-0"
+                >
+                  <BarChart3 className="w-3 h-3" />
+                  {showStats ? "Hide" : "Show"} Your Stats ({stats.total_analyses} hands)
+                  {showStats ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+                {showStats && (
+                  <div className="mt-2 p-2 rounded-lg bg-secondary/30 border border-border/30">
+                    <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Your AI Analysis Stats</p>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div className="p-1.5 bg-white rounded">
+                        <span className="text-muted-foreground">Most Common</span>
+                        <p className="font-semibold text-primary">{stats.most_common_action || "—"}</p>
+                      </div>
+                      <div className="p-1.5 bg-white rounded">
+                        <span className="text-muted-foreground">High Potential</span>
+                        <p className="font-semibold text-green-600">{stats.potential_percentages?.High || 0}%</p>
+                      </div>
+                      <div className="p-1.5 bg-white rounded">
+                        <span className="text-muted-foreground">Raise Rate</span>
+                        <p className="font-semibold">{stats.action_percentages?.RAISE || 0}%</p>
+                      </div>
+                      <div className="p-1.5 bg-white rounded">
+                        <span className="text-muted-foreground">Fold Rate</span>
+                        <p className="font-semibold text-destructive">{stats.action_percentages?.FOLD || 0}%</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-2 bg-white rounded-lg">
-                    <p className="text-muted-foreground text-[10px]">High Potential</p>
-                    <p className="font-bold text-green-600">{stats.potential_percentages?.High || 0}%</p>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg">
-                    <p className="text-muted-foreground text-[10px]">Raise Rate</p>
-                    <p className="font-bold">{stats.action_percentages?.RAISE || 0}%</p>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg">
-                    <p className="text-muted-foreground text-[10px]">Fold Rate</p>
-                    <p className="font-bold">{stats.action_percentages?.FOLD || 0}%</p>
-                  </div>
-                </div>
-                {stats.insights?.aggressive_play && (
-                  <p className="mt-2 text-[10px] text-amber-600">💪 You tend to play aggressively!</p>
                 )}
-                {stats.insights?.conservative_play && (
-                  <p className="mt-2 text-[10px] text-blue-600">🛡️ You play conservatively.</p>
-                )}
-              </div>
-            )}
-
-            {showStats && (!stats || stats.total_analyses === 0) && (
-              <div className="mt-3 p-3 rounded-xl bg-secondary/30 border border-border/30 text-center">
-                <p className="text-xs text-muted-foreground">
-                  No hands analyzed yet. Try the AI Assistant to build your stats!
-                </p>
               </div>
             )}
           </div>
 
-          {/* Right Side - Demo Card */}
+          {/* Right Side - Card Input */}
           <div className="order-1 md:order-2">
-            <div className="relative rounded-2xl border-2 border-dashed border-border/50 shadow-card overflow-hidden bg-white/80 backdrop-blur-sm">
-              {/* Coming Soon badge */}
-              <div className="absolute top-3 right-3 z-20">
-                <span className="text-[10px] font-semibold bg-[#EF6E59] text-white px-2.5 py-1 rounded-full shadow-sm">
+            <div className="relative rounded-xl border border-border/50 shadow-sm overflow-hidden bg-white">
+              {/* Beta badge */}
+              <div className="absolute top-2 right-2 z-20">
+                <span className="text-[9px] font-semibold bg-[#EF6E59] text-white px-2 py-0.5 rounded-full">
                   Beta
                 </span>
               </div>
 
-              <div className="p-5">
-                {/* Header */}
-                <div className="flex items-center gap-2 mb-5">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#EF6E59] to-[#e04a35] flex items-center justify-center">
-                    <Brain className="w-4 h-4 text-white" />
+              <div className="p-3 sm:p-4">
+                {/* Header - Compact */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-md bg-gradient-to-br from-[#EF6E59] to-[#e04a35] flex items-center justify-center">
+                    <Brain className="w-3 h-3 text-white" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-foreground">AI Assistant</p>
-                    <p className="text-[10px] text-muted-foreground">Tap a card, type value, pick suit</p>
+                    <p className="text-[10px] font-bold text-foreground">AI Assistant</p>
+                    <p className="text-[9px] text-muted-foreground">Tap card → type value → pick suit</p>
                   </div>
                 </div>
 
-                {/* Your Hand */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Your Hand</p>
-                    <button 
+                {/* Your Hand - Compact */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Your Hand</p>
+                    <button
                       onClick={() => setShowHand(!showHand)}
-                      className="text-muted-foreground hover:text-foreground p-1 rounded"
+                      className="text-muted-foreground hover:text-foreground p-0.5 rounded"
                     >
-                      {showHand ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      {showHand ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                     </button>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
                     {hand.map((card, i) => (
                       <Card
                         key={`hand-${i}`}
@@ -425,10 +396,10 @@ export default function PokerAIAssistant({ gameId = null }) {
                   </div>
                 </div>
 
-                {/* Community Cards */}
-                <div className="mb-4">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Community Cards</p>
-                  <div className="flex gap-2">
+                {/* Community Cards - Compact */}
+                <div className="mb-3">
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-1">Community Cards</p>
+                  <div className="flex gap-1.5">
                     {community.map((card, i) => (
                       <Card
                         key={`comm-${i}`}
@@ -442,17 +413,17 @@ export default function PokerAIAssistant({ gameId = null }) {
                   </div>
                 </div>
 
-                {/* Suit Selector - shown when card is selected */}
+                {/* Suit Selector - Compact */}
                 {selectedCard && (
-                  <div className="mb-4 p-3 bg-secondary/30 rounded-xl">
-                    <p className="text-[10px] text-muted-foreground mb-2">Type A, 2-10, J, Q, K then pick suit:</p>
-                    <div className="flex gap-2">
+                  <div className="mb-3 p-2 bg-secondary/30 rounded-lg">
+                    <p className="text-[9px] text-muted-foreground mb-1.5">Type A, 2-10, J, Q, K then pick suit:</p>
+                    <div className="flex gap-1.5">
                       {Object.entries(suits).map(([key, symbol]) => (
                         <button
                           key={key}
                           onClick={() => handleSuitSelect(key)}
                           className={cn(
-                            "w-10 h-10 rounded-lg text-2xl flex items-center justify-center transition-all",
+                            "w-8 h-8 rounded-md text-xl flex items-center justify-center transition-all",
                             getSelectedSuit() === key
                               ? `${suitColors[key]} bg-white ring-2 ring-[#EF6E59]/30 shadow-sm`
                               : `${suitColors[key]} opacity-50 hover:opacity-100 hover:bg-white/50`
@@ -465,77 +436,85 @@ export default function PokerAIAssistant({ gameId = null }) {
                   </div>
                 )}
 
-                {/* Warnings */}
+                {/* Warnings - Compact */}
                 {hasDuplicates && (
-                  <div className="mb-3 p-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-                    <strong>Duplicate card detected:</strong> {duplicateCards.join(", ")} - Each card can only appear once in a deck!
+                  <div className="mb-2 p-1.5 rounded-md bg-red-50 border border-red-200 text-[10px] text-red-700">
+                    <strong>Duplicate:</strong> {duplicateCards.join(", ")}
                   </div>
                 )}
 
-                {/* Suggestion */}
-                <div className="min-h-[80px] overflow-hidden">
+                {/* Suggestion - Compact */}
+                <div className="min-h-[60px]">
                   {loading && (
-                    <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/50">
-                      <Sparkles className="w-4 h-4 text-[#EF6E59] animate-pulse" />
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50">
+                      <Sparkles className="w-3 h-3 text-[#EF6E59] animate-pulse" />
                       <div className="flex gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#EF6E59] animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#EF6E59] animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#EF6E59] animate-bounce" style={{ animationDelay: "300ms" }} />
+                        <div className="w-1 h-1 rounded-full bg-[#EF6E59] animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <div className="w-1 h-1 rounded-full bg-[#EF6E59] animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <div className="w-1 h-1 rounded-full bg-[#EF6E59] animate-bounce" style={{ animationDelay: "300ms" }} />
                       </div>
                     </div>
                   )}
                   {suggestion && !loading && (
-                    <div className="p-3 rounded-xl bg-[#EF6E59]/5 border border-[#EF6E59]/15 animate-fade-in-up">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-[#EF6E59]" />
+                    <div className="p-2 rounded-lg bg-[#EF6E59]/5 border border-[#EF6E59]/15">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-[#EF6E59]" />
                           <span className="text-[10px] font-semibold text-[#EF6E59]">
-                            Suggestion: {suggestion.action}
+                            {suggestion.action}
                           </span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground">
-                          {suggestion.potential} potential
+                        <span className={cn(
+                          "text-[9px] font-medium px-1 py-0.5 rounded",
+                          suggestion.potential === "High" ? "bg-green-100 text-green-700" :
+                          suggestion.potential === "Medium" ? "bg-amber-100 text-amber-700" :
+                          "bg-zinc-100 text-zinc-600"
+                        )}>
+                          {suggestion.potential}
                         </span>
                       </div>
-                      <p className="text-xs text-foreground leading-relaxed">
-                        {suggestion.reasoning}
+                      <p className="text-[10px] text-foreground leading-relaxed">
+                        <span className="text-muted-foreground">Why:</span> {suggestion.reasoning}
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Consent line */}
-                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/20">
+                {/* Consent + Validation - Compact */}
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/20">
                   <button
                     onClick={() => setAgreed(!agreed)}
                     className={cn(
-                      "w-3.5 h-3.5 rounded border flex items-center justify-center transition-all",
-                      agreed ? "bg-[#EF6E59] border-[#EF6E59]" : "border-border/50 bg-white"
+                      "w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0",
+                      agreed ? "bg-[#EF6E59] border-[#EF6E59]" : "border-zinc-300 bg-white hover:border-zinc-400"
                     )}
                   >
-                    {agreed && <span className="text-[8px] text-white">✓</span>}
+                    {agreed && <span className="text-[8px] text-white font-bold">✓</span>}
                   </button>
-                  <span className="text-[10px] text-muted-foreground">
-                    I understand these are suggestions only
+                  <span className={cn("text-[9px]", agreed ? "text-foreground" : "text-muted-foreground")}>
+                    AI suggestions only — I decide my actions
                   </span>
                 </div>
 
                 {/* Validation hint */}
-                {!canAnalyze && agreed && !hasDuplicates && (
-                  <p className="text-[10px] text-amber-600 mb-2">
-                    {filledHand.length < 2 && `Need ${2 - filledHand.length} more hand card${2 - filledHand.length > 1 ? 's' : ''}`}
-                    {filledHand.length === 2 && filledCommunity.length < 3 && `Need ${3 - filledCommunity.length} more community card${3 - filledCommunity.length > 1 ? 's' : ''} (min. 3 for flop)`}
-                  </p>
-                )}
+                <div className="mt-1.5 h-4">
+                  {!agreed && <p className="text-[10px] text-muted-foreground">Please confirm before generating suggestions</p>}
+                  {agreed && !hasDuplicates && filledHand.length < 2 && (
+                    <p className="text-[10px] text-amber-600">Need {2 - filledHand.length} more hand card{2 - filledHand.length > 1 ? 's' : ''}</p>
+                  )}
+                  {agreed && !hasDuplicates && filledHand.length === 2 && filledCommunity.length < 3 && (
+                    <p className="text-[10px] text-amber-600">Need {3 - filledCommunity.length} more community card{3 - filledCommunity.length > 1 ? 's' : ''}</p>
+                  )}
+                </div>
 
-                {/* Actions */}
+                {/* Actions - Compact */}
                 <div className="flex gap-2 mt-2">
-                  <Button variant="outline" size="sm" onClick={resetAll} className="flex-1 h-8 text-xs">
+                  <Button variant="outline" size="sm" onClick={resetAll} className="flex-1 h-7 text-[10px]">
                     Reset
                   </Button>
                   <Button
                     size="sm"
-                    className="flex-1 h-8 text-xs bg-[#EF6E59] hover:bg-[#e04a35]"
+                    className="flex-1 h-7 text-[10px] bg-[#EF6E59] hover:bg-[#e04a35] disabled:opacity-50"
                     onClick={getAnalysis}
                     disabled={!canAnalyze || loading}
                   >
@@ -543,6 +522,9 @@ export default function PokerAIAssistant({ gameId = null }) {
                     Get Suggestion
                   </Button>
                 </div>
+
+                {/* Micro text */}
+                <p className="text-[8px] text-muted-foreground/50 text-center mt-1.5">For learning and practice only</p>
               </div>
             </div>
           </div>

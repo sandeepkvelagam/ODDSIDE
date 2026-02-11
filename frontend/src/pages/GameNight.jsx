@@ -20,6 +20,7 @@ import {
 import Navbar from "@/components/Navbar";
 import { useGameSocket } from "@/hooks/useGameSocket";
 import SpotifyPlayer from "@/components/SpotifyPlayer";
+import PokerAIAssistant from "@/components/PokerAIAssistant";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 

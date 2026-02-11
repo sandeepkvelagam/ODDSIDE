@@ -20,6 +20,7 @@ import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 import GameHistory from "@/pages/GameHistory";
 import Premium from "@/pages/Premium";
+import SpotifyCallback from "@/pages/SpotifyCallback";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;

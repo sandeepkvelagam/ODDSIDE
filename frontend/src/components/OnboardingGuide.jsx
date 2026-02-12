@@ -152,7 +152,7 @@ function StartGameDemo() {
   }, []);
 
   return (
-    <div className="bg-zinc-900 rounded-xl p-4 mb-4">
+    <div className="bg-zinc-900 rounded-xl p-4 min-h-[120px]">
       <div className="grid grid-cols-3 gap-2 mb-3">
         {steps.map((s, i) => (
           <div key={i} className={cn(
@@ -169,12 +169,14 @@ function StartGameDemo() {
           </div>
         ))}
       </div>
-      {step >= steps.length && (
-        <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg py-2 animate-fade-in-up">
-          <Play className="w-4 h-4 text-primary" />
-          <span className="text-primary text-sm font-medium">Starting game...</span>
-        </div>
-      )}
+      <div className="min-h-[36px]">
+        {step >= steps.length && (
+          <div className="flex items-center justify-center gap-2 bg-primary/20 rounded-lg py-2 animate-fade-in-up">
+            <Play className="w-4 h-4 text-primary" />
+            <span className="text-primary text-sm font-medium">Starting game...</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

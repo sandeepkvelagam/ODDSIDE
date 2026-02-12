@@ -49,6 +49,9 @@ class AIOrchestrator:
         from .tools.scheduler import SchedulerTool
         from .tools.report_generator import ReportGeneratorTool
         from .tools.email_sender import EmailSenderTool
+        from .tools.host_decision import HostDecisionTool
+        from .tools.smart_config import SmartConfigTool
+        from .tools.payment_tracker import PaymentTrackerTool
 
         self.tool_registry.register(PokerEvaluatorTool())
         self.tool_registry.register(NotificationSenderTool(db=self.db))
@@ -56,12 +59,16 @@ class AIOrchestrator:
         self.tool_registry.register(SchedulerTool(db=self.db))
         self.tool_registry.register(ReportGeneratorTool(db=self.db))
         self.tool_registry.register(EmailSenderTool(db=self.db))
+        self.tool_registry.register(HostDecisionTool(db=self.db))
+        self.tool_registry.register(SmartConfigTool(db=self.db))
+        self.tool_registry.register(PaymentTrackerTool(db=self.db))
 
     def _setup_agents(self):
         """Register all available agents"""
         from .agents.game_setup_agent import GameSetupAgent
         from .agents.notification_agent import NotificationAgent
         from .agents.analytics_agent import AnalyticsAgent
+        from .agents.host_persona_agent import HostPersonaAgent
 
         self.agent_registry.register(
             GameSetupAgent(
@@ -79,6 +86,13 @@ class AIOrchestrator:
         )
         self.agent_registry.register(
             AnalyticsAgent(
+                tool_registry=self.tool_registry,
+                db=self.db,
+                llm_client=self.llm_client
+            )
+        )
+        self.agent_registry.register(
+            HostPersonaAgent(
                 tool_registry=self.tool_registry,
                 db=self.db,
                 llm_client=self.llm_client
@@ -181,6 +195,19 @@ class AIOrchestrator:
 
         if any(kw in input_lower for kw in ["report", "stats", "leaderboard", "summary", "analytics"]):
             return {"type": "agent", "agent": "analytics"}
+
+        # Host persona requests
+        if any(kw in input_lower for kw in ["approve", "reject", "decision", "pending", "queue"]):
+            return {"type": "agent", "agent": "host_persona"}
+
+        if any(kw in input_lower for kw in ["monitor", "health", "check game"]):
+            return {"type": "agent", "agent": "host_persona"}
+
+        if any(kw in input_lower for kw in ["settle", "settlement", "end game"]):
+            return {"type": "agent", "agent": "host_persona"}
+
+        if any(kw in input_lower for kw in ["payment", "remind", "owed"]):
+            return {"type": "agent", "agent": "host_persona"}
 
         # Default to general
         return {"type": "general"}

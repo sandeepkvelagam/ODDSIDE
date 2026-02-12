@@ -19,7 +19,6 @@ const RTL_LANGUAGES: Language[] = [];  // Arabic would be here if added
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("en");
-  const [isLoading, setIsLoading] = useState(true);
 
   // Load saved language on mount
   useEffect(() => {
@@ -34,8 +33,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error("Failed to load language:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -51,10 +48,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const t = translations[language];
   const isRTL = RTL_LANGUAGES.includes(language);
 
-  if (isLoading) {
-    return null; // Or a loading spinner
-  }
-
+  // Don't return null - always render with default English
   return (
     <LanguageContext.Provider
       value={{

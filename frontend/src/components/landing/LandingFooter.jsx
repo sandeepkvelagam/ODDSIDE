@@ -108,25 +108,19 @@ export default function LandingFooter() {
             <h4 className="font-semibold text-sm text-foreground mb-3">Company</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
-                <a href="mailto:hello@kvitt.app" className="hover:text-foreground transition-colors">
+                <Link to="/about" className="hover:text-foreground transition-colors">
                   About
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="mailto:support@kvitt.app"
-                  className="hover:text-foreground transition-colors"
-                >
+                <Link to="/contact" className="hover:text-foreground transition-colors">
                   Contact
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="mailto:press@kvitt.app"
-                  className="hover:text-foreground transition-colors"
-                >
+                <Link to="/press" className="hover:text-foreground transition-colors">
                   Press
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

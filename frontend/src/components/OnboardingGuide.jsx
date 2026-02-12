@@ -426,8 +426,8 @@ export default function OnboardingGuide({ onComplete, isModal = false }) {
     <div className={`${isModal ? '' : 'min-h-screen bg-background flex items-center justify-center p-4'}`}>
       <Card className="w-full max-w-md bg-card border-border/50 shadow-xl overflow-hidden">
         <CardContent className="p-0">
-          {/* Demo Area */}
-          <div className="p-4 bg-zinc-950">
+          {/* Demo Area - Fixed height to prevent expansion/contraction */}
+          <div className="p-4 bg-zinc-950 min-h-[180px] flex flex-col justify-center">
             <Demo key={key} />
           </div>
 

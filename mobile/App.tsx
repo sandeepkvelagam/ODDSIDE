@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "./src/context/AuthContext";
 import { DrawerProvider } from "./src/context/DrawerContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
+import { LanguageProvider } from "./src/context/LanguageContext";
 import RootNavigator from "./src/navigation/RootNavigator";
 
 function AppContent() {
@@ -21,11 +22,13 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <AuthProvider>
-            <DrawerProvider>
-              <AppContent />
-            </DrawerProvider>
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <DrawerProvider>
+                <AppContent />
+              </DrawerProvider>
+            </AuthProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

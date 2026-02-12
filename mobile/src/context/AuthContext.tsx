@@ -8,6 +8,8 @@ type AuthUser = {
   email: string;
   name: string;
   supabase_id: string;
+  nickname?: string;
+  preferences?: string;
 };
 
 type AuthContextType = {

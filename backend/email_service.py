@@ -325,7 +325,7 @@ async def send_chips_edited_email(to: str, player_name: str, game_title: str, ol
     """Send notification when host edits player chips"""
     diff = new_chips - old_chips
     diff_text = f"+{diff}" if diff > 0 else str(diff)
-    
+
     content = f"""
     <h2 style="margin: 0 0 16px; font-size: 24px; font-weight: 600; color: #1a1a1a;">
         Chip Count Updated ✏️
@@ -333,7 +333,7 @@ async def send_chips_edited_email(to: str, player_name: str, game_title: str, ol
     <p style="margin: 0 0 24px; font-size: 16px; color: #4a4a4a; line-height: 1.6;">
         Hey {player_name}, <strong>{host_name}</strong> has updated your chip count in <strong>{game_title}</strong>.
     </p>
-    
+
     <div style="background-color: #fafafa; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
             <tr>
@@ -347,11 +347,93 @@ async def send_chips_edited_email(to: str, player_name: str, game_title: str, ol
             {f'<tr><td style="padding: 12px 0 0; text-align: center; font-size: 14px; color: #666;">Reason: {reason}</td></tr>' if reason else ''}
         </table>
     </div>
-    
+
     <p style="margin: 0; font-size: 14px; color: #666;">
         Contact the host if you have any questions about this change.
     </p>
     """
-    
+
     html = get_base_template(content, f"Your chips updated: {old_chips} → {new_chips}")
     return await send_email(to, f"✏️ Chip count updated in {game_title}", html)
+
+
+async def send_subscriber_welcome_email(to: str, source: str, interests: list) -> dict:
+    """Send welcome email to new subscribers with FOMO elements"""
+
+    # Customize message based on source
+    source_messages = {
+        "hero": "You're now on the exclusive early access list",
+        "footer": "You're subscribed to the Kvitt newsletter",
+        "waitlist_ai": "You're on the AI Assistant waitlist",
+        "waitlist_music": "You're on the Music Integration waitlist",
+        "waitlist_charts": "You're on the Dashboard Charts waitlist",
+        "landing": "You're now part of the Kvitt community",
+        "cta": "You're locked in for early access"
+    }
+
+    headline = source_messages.get(source, "You're in! 🎉")
+
+    # Build interest-specific content
+    interest_content = ""
+    if "ai_assistant" in interests:
+        interest_content += """
+        <li style="margin-bottom: 8px;">
+            <strong>🤖 AI Poker Assistant</strong> - Get hand analysis and strategy tips (Coming Soon)
+        </li>
+        """
+    if "music_integration" in interests:
+        interest_content += """
+        <li style="margin-bottom: 8px;">
+            <strong>🎵 Music Integration</strong> - Control the vibe with Spotify/Apple Music (Coming Soon)
+        </li>
+        """
+    if "charts" in interests:
+        interest_content += """
+        <li style="margin-bottom: 8px;">
+            <strong>📊 Dashboard Charts</strong> - Visual analytics for your poker journey (In Development)
+        </li>
+        """
+
+    content = f"""
+    <h2 style="margin: 0 0 16px; font-size: 24px; font-weight: 600; color: #1a1a1a;">
+        {headline}
+    </h2>
+
+    <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; padding: 20px; margin-bottom: 24px; border-left: 4px solid #f97316;">
+        <p style="margin: 0; font-size: 14px; color: #92400e; font-weight: 600;">
+            🔥 You're among the first 500 to join the waitlist
+        </p>
+        <p style="margin: 8px 0 0; font-size: 13px; color: #a16207;">
+            Early supporters get exclusive benefits when we launch new features.
+        </p>
+    </div>
+
+    <p style="margin: 0 0 16px; font-size: 16px; color: #4a4a4a; line-height: 1.6;">
+        Welcome to the inside track! You'll be the first to know about:
+    </p>
+
+    <ul style="margin: 0 0 24px; padding-left: 20px; font-size: 14px; color: #4a4a4a; line-height: 1.8;">
+        <li style="margin-bottom: 8px;"><strong>🚀 New feature launches</strong> - Before anyone else</li>
+        <li style="margin-bottom: 8px;"><strong>🎁 Exclusive early access</strong> - Beta test new features</li>
+        <li style="margin-bottom: 8px;"><strong>💰 Special offers</strong> - Founding member pricing</li>
+        {interest_content}
+    </ul>
+
+    <table role="presentation" cellspacing="0" cellpadding="0">
+        <tr>
+            <td style="border-radius: 8px; background-color: #f97316;">
+                <a href="{APP_URL}" style="display: inline-block; padding: 14px 32px; font-size: 16px; font-weight: 600; color: #000000; text-decoration: none;">
+                    Check Out Kvitt →
+                </a>
+            </td>
+        </tr>
+    </table>
+
+    <p style="margin: 24px 0 0; font-size: 12px; color: #999;">
+        You're receiving this because you signed up at kvitt.app.
+        <a href="{APP_URL}/unsubscribe" style="color: #999;">Unsubscribe</a>
+    </p>
+    """
+
+    html = get_base_template(content, "You're on the list! Get ready for exclusive early access.")
+    return await send_email(to, "🎰 You're in! Welcome to Kvitt's inner circle", html)

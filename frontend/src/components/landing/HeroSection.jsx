@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown, Clock, Trophy, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
 import TypewriterText from "./TypewriterText";
 import EventFlowAnimation from "./EventFlowAnimation";
 import FeaturePills from "./FeaturePills";
+import EmailCapture from "./EmailCapture";
 
 export default function HeroSection() {
+  const [showEmailCapture, setShowEmailCapture] = useState(false);
+
   return (
     <section className="bg-dark-hero relative overflow-hidden min-h-screen flex items-center">
       {/* Glowing orbs */}
@@ -25,6 +29,19 @@ export default function HeroSection() {
       />
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 text-center py-24 sm:py-32 w-full">
+        {/* Urgency banner */}
+        <div className="mb-6 flex justify-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#EF6E59]/20 to-amber-500/20 border border-[#EF6E59]/30 backdrop-blur-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span className="text-sm text-white/90 font-medium">
+              <strong className="text-[#EF6E59]">127+ players</strong> joined this week
+            </span>
+          </div>
+        </div>
+
         {/* Logo */}
         <div className="mb-8">
           <Logo size="large" showTagline={false} dark className="justify-center" />
@@ -44,25 +61,58 @@ export default function HeroSection() {
         {/* Typewriter */}
         <TypewriterText className="mb-10" />
 
-        {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
-          <Link to="/login">
-            <Button className="bg-[#EF6E59] hover:bg-[#e85d47] text-white h-12 px-8 rounded-full font-semibold text-base transition-all hover:scale-105">
-              Try Kvitt free
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </Link>
-          <button
-            onClick={() =>
-              document
-                .getElementById("how-it-works")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-            className="h-12 px-6 rounded-full font-medium text-white/70 border border-white/20 hover:bg-white/10 transition-all text-sm inline-flex items-center gap-2"
-          >
-            See how it works
-            <ChevronDown className="w-4 h-4" />
-          </button>
+        {/* CTA Buttons or Email Capture */}
+        {!showEmailCapture ? (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
+            <Link to="/login">
+              <Button className="bg-[#EF6E59] hover:bg-[#e85d47] text-white h-12 px-8 rounded-full font-semibold text-base transition-all hover:scale-105">
+                Try Kvitt free
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+            <button
+              onClick={() => setShowEmailCapture(true)}
+              className="h-12 px-6 rounded-full font-medium text-white/70 border border-white/20 hover:bg-white/10 transition-all text-sm inline-flex items-center gap-2"
+            >
+              Get early access updates
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="mb-6 max-w-lg mx-auto">
+            <EmailCapture
+              source="hero"
+              interests={["newsletter"]}
+              variant="dark"
+              placeholder="your@email.com"
+              buttonText="Get Early Access"
+              showStats={true}
+              showBadge={true}
+              badgeText="🎁 Early supporters get exclusive perks"
+            />
+            <button
+              onClick={() => setShowEmailCapture(false)}
+              className="mt-3 text-sm text-white/50 hover:text-white/70 transition-colors"
+            >
+              ← Back to sign up
+            </button>
+          </div>
+        )}
+
+        {/* Trust badges */}
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-16 text-xs sm:text-sm text-white/50">
+          <span className="flex items-center gap-1.5">
+            <Clock className="w-4 h-4" />
+            30-second setup
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Trophy className="w-4 h-4" />
+            Used by 500+ groups
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Shield className="w-4 h-4" />
+            Bank-grade security
+          </span>
         </div>
 
         {/* Flow animation */}

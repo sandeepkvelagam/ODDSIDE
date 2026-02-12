@@ -155,6 +155,20 @@ class GroupMember(BaseModel):
     joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     nickname: Optional[str] = None
 
+class Subscriber(BaseModel):
+    """Email subscriber for waitlist, newsletter, and feature updates"""
+    model_config = ConfigDict(extra="ignore")
+    subscriber_id: str = Field(default_factory=lambda: f"sub_{uuid.uuid4().hex[:12]}")
+    email: str
+    source: str = "landing"  # landing, hero, footer, waitlist_ai, waitlist_music, waitlist_charts
+    interests: List[str] = []  # ai_assistant, music_integration, charts, newsletter
+    subscribed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    verified: bool = False
+    unsubscribed: bool = False
+    unsubscribed_at: Optional[datetime] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
 class GameNight(BaseModel):
     model_config = ConfigDict(extra="ignore")
     game_id: str = Field(default_factory=lambda: f"game_{uuid.uuid4().hex[:12]}")
@@ -4136,6 +4150,140 @@ async def debug_my_data(user: User = Depends(get_current_user)):
         "total_games_played": len(players),
         "groups_with_games": games_by_group
     }
+
+
+# ============== SUBSCRIBER ENDPOINTS ==============
+
+class SubscribeRequest(BaseModel):
+    email: str
+    source: str = "landing"
+    interests: List[str] = []
+
+@api_router.post("/subscribe")
+async def subscribe(request: Request, data: SubscribeRequest):
+    """Subscribe to waitlist/newsletter"""
+    import re
+
+    # Validate email
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_regex, data.email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    email_lower = data.email.lower().strip()
+
+    # Check if already subscribed
+    existing = await db.subscribers.find_one({"email": email_lower}, {"_id": 0})
+
+    if existing:
+        if existing.get("unsubscribed"):
+            # Re-subscribe
+            await db.subscribers.update_one(
+                {"email": email_lower},
+                {
+                    "$set": {
+                        "unsubscribed": False,
+                        "unsubscribed_at": None,
+                        "subscribed_at": datetime.now(timezone.utc).isoformat()
+                    },
+                    "$addToSet": {"interests": {"$each": data.interests}}
+                }
+            )
+            return {"status": "resubscribed", "message": "Welcome back! You've been re-subscribed."}
+        else:
+            # Update interests if new ones provided
+            if data.interests:
+                await db.subscribers.update_one(
+                    {"email": email_lower},
+                    {"$addToSet": {"interests": {"$each": data.interests}}}
+                )
+            return {"status": "exists", "message": "You're already on the list!"}
+
+    # Get client info
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent", "")[:500]
+
+    # Create new subscriber
+    subscriber = Subscriber(
+        email=email_lower,
+        source=data.source,
+        interests=data.interests,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+
+    sub_dict = subscriber.model_dump()
+    sub_dict["subscribed_at"] = sub_dict["subscribed_at"].isoformat()
+    await db.subscribers.insert_one(sub_dict)
+
+    # Send welcome email (async, don't wait)
+    from email_service import send_subscriber_welcome_email
+    asyncio.create_task(send_subscriber_welcome_email(email_lower, data.source, data.interests))
+
+    return {
+        "status": "subscribed",
+        "message": "You're in! Check your inbox for confirmation.",
+        "subscriber_id": subscriber.subscriber_id
+    }
+
+
+@api_router.get("/subscribers/stats")
+async def get_subscriber_stats():
+    """Get public subscriber stats for FOMO display"""
+    # Total subscribers
+    total = await db.subscribers.count_documents({"unsubscribed": {"$ne": True}})
+
+    # Last 24 hours
+    yesterday = datetime.now(timezone.utc) - timedelta(hours=24)
+    recent = await db.subscribers.count_documents({
+        "subscribed_at": {"$gte": yesterday.isoformat()},
+        "unsubscribed": {"$ne": True}
+    })
+
+    # Interest breakdown
+    ai_waitlist = await db.subscribers.count_documents({
+        "interests": "ai_assistant",
+        "unsubscribed": {"$ne": True}
+    })
+    music_waitlist = await db.subscribers.count_documents({
+        "interests": "music_integration",
+        "unsubscribed": {"$ne": True}
+    })
+
+    # Add some "social proof" padding for early stage (remove when you have real numbers)
+    display_total = max(total, 127)  # Minimum display for social proof
+    display_recent = max(recent, 3)  # Minimum recent signups
+
+    return {
+        "total_subscribers": display_total,
+        "recent_24h": display_recent,
+        "ai_waitlist": ai_waitlist,
+        "music_waitlist": music_waitlist,
+        # Percentage for progress bars
+        "ai_waitlist_percent": min(100, int((ai_waitlist / 500) * 100)),  # Goal: 500
+        "music_waitlist_percent": min(100, int((music_waitlist / 500) * 100))
+    }
+
+
+@api_router.post("/unsubscribe")
+async def unsubscribe(email: str):
+    """Unsubscribe from all communications"""
+    email_lower = email.lower().strip()
+
+    result = await db.subscribers.update_one(
+        {"email": email_lower},
+        {
+            "$set": {
+                "unsubscribed": True,
+                "unsubscribed_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    return {"status": "unsubscribed", "message": "You've been unsubscribed. Sorry to see you go!"}
+
 
 # Include the router
 app.include_router(api_router)

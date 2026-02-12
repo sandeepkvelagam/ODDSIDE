@@ -46,8 +46,8 @@ export function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 4 }]}>
-      {/* Main card with rounded top */}
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      {/* Main card - no border radius, sits inside the curved outer container */}
       <View style={[styles.mainCard, { backgroundColor: colors.surface }]}>
         {/* Header inside the card */}
         <View style={styles.header}>
@@ -249,10 +249,7 @@ const styles = StyleSheet.create({
   },
   mainCard: {
     flex: 1,
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
     overflow: "hidden",
-    marginTop: 8,
   },
   header: {
     flexDirection: "row",

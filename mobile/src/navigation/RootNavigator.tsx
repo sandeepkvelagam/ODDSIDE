@@ -138,8 +138,8 @@ export default function RootNavigator() {
                 component={SettingsScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_bottom",
-                  presentation: "modal",
+                  animation: "slide_from_right",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -148,6 +148,7 @@ export default function RootNavigator() {
                 options={{
                   headerShown: false,
                   animation: "slide_from_right",
+                  presentation: "transparentModal",
                   gestureDirection: "horizontal",
                 }}
               />

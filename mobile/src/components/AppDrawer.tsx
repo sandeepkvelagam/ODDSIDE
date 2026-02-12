@@ -190,7 +190,7 @@ export function AppDrawer({
               ]}
               onPress={() => {
                 onProfilePress();
-                closeDrawer();
+                // Don't close drawer - Settings will overlay on top
               }}
               activeOpacity={0.7}
             >
@@ -381,8 +381,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderTopLeftRadius: 28,
-    borderBottomLeftRadius: 28,
+    borderTopLeftRadius: 48,
+    borderBottomLeftRadius: 48,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: -4, height: 0 },

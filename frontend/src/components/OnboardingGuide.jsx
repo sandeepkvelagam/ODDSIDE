@@ -203,9 +203,9 @@ function DuringGameDemo() {
   }, []);
 
   return (
-    <div className="bg-zinc-900 rounded-xl p-4 mb-4 max-h-[140px] overflow-hidden">
+    <div className="bg-zinc-900 rounded-xl p-4 min-h-[140px]">
       <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Game Thread</p>
-      <div className="space-y-2">
+      <div className="space-y-2 h-[100px] overflow-hidden">
         {events.map((event, i) => (
           <div key={i} className="flex items-center gap-2 text-xs animate-fade-in-up">
             <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-white text-[10px] font-bold">

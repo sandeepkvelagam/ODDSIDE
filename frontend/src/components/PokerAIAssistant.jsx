@@ -287,26 +287,26 @@ export default function PokerAIAssistant({ gameId = null }) {
         onKeyDown={handleKeyDown}
         tabIndex={0}
       >
-        <div className="grid md:grid-cols-2 gap-4 md:gap-8 items-start p-3 sm:p-4 md:p-6">
+        <div className="grid md:grid-cols-2 gap-4 md:gap-6 items-start p-4 sm:p-5 md:p-6">
           {/* Left Side - Text (centered, top-aligned) */}
           <div className="order-2 md:order-1 text-center md:text-left flex flex-col justify-start">
-            <div className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-[#EF6E59]/10 text-[#EF6E59] text-xs font-medium mb-2 mx-auto md:mx-0 w-fit">
-              <Brain className="w-3 h-3" />
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#EF6E59]/10 text-[#EF6E59] text-xs font-medium mb-2 mx-auto md:mx-0 w-fit">
+              <Brain className="w-3.5 h-3.5" />
               AI Poker Assistant
               <span className="bg-[#EF6E59] text-white text-[9px] px-1.5 py-0.5 rounded-full font-semibold">
                 Beta
               </span>
             </div>
-            <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 text-foreground">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 text-foreground">
               Your AI Game Companion
             </h2>
-            <p className="text-xs text-muted-foreground mb-2 leading-relaxed hidden sm:block">
+            <p className="text-sm text-muted-foreground mb-2 leading-relaxed hidden sm:block">
               New to poker? Enter your cards and see what a basic strategy model would suggest—check, raise, call, or fold.
             </p>
-            <p className="text-[10px] text-muted-foreground/80 mb-2 leading-relaxed hidden md:block">
+            <p className="text-xs text-muted-foreground/80 mb-2 leading-relaxed hidden md:block">
               Designed to help beginners understand common decision patterns and learn the game.
             </p>
-            <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-[9px] sm:text-[10px] text-amber-800 leading-relaxed mb-2">
+            <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] sm:text-xs text-amber-800 leading-relaxed mb-2">
               <strong>Disclaimer:</strong> Suggestions are educational and for entertainment only. They do not guarantee outcomes.
             </div>
 
@@ -315,30 +315,30 @@ export default function PokerAIAssistant({ gameId = null }) {
               <div className="hidden sm:block">
                 <button
                   onClick={() => setShowStats(!showStats)}
-                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground mx-auto md:mx-0"
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mx-auto md:mx-0"
                 >
-                  <BarChart3 className="w-3 h-3" />
+                  <BarChart3 className="w-3.5 h-3.5" />
                   {showStats ? "Hide" : "Show"} Your Stats ({stats.total_analyses} hands)
-                  {showStats ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  {showStats ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
                 {showStats && (
-                  <div className="mt-2 p-2 rounded-lg bg-secondary/30 border border-border/30">
-                    <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Your AI Analysis Stats</p>
-                    <div className="grid grid-cols-2 gap-2 text-[10px]">
-                      <div className="p-1.5 bg-white rounded">
-                        <span className="text-muted-foreground">Most Common</span>
+                  <div className="mt-2 p-2.5 rounded-lg bg-secondary/30 border border-border/30">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Your AI Analysis Stats</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 bg-white rounded">
+                        <span className="text-muted-foreground text-[10px]">Most Common</span>
                         <p className="font-semibold text-primary">{stats.most_common_action || "—"}</p>
                       </div>
-                      <div className="p-1.5 bg-white rounded">
-                        <span className="text-muted-foreground">High Potential</span>
+                      <div className="p-2 bg-white rounded">
+                        <span className="text-muted-foreground text-[10px]">High Potential</span>
                         <p className="font-semibold text-green-600">{stats.potential_percentages?.High || 0}%</p>
                       </div>
-                      <div className="p-1.5 bg-white rounded">
-                        <span className="text-muted-foreground">Raise Rate</span>
+                      <div className="p-2 bg-white rounded">
+                        <span className="text-muted-foreground text-[10px]">Raise Rate</span>
                         <p className="font-semibold">{stats.action_percentages?.RAISE || 0}%</p>
                       </div>
-                      <div className="p-1.5 bg-white rounded">
-                        <span className="text-muted-foreground">Fold Rate</span>
+                      <div className="p-2 bg-white rounded">
+                        <span className="text-muted-foreground text-[10px]">Fold Rate</span>
                         <p className="font-semibold text-destructive">{stats.action_percentages?.FOLD || 0}%</p>
                       </div>
                     </div>

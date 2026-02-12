@@ -73,7 +73,7 @@ function CreateGroupDemo() {
   }, [isComplete]);
 
   return (
-    <div className="bg-zinc-900 rounded-xl p-4 mb-4">
+    <div className="bg-zinc-900 rounded-xl p-4 min-h-[120px]">
       <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Group Name</p>
       <div className="bg-zinc-800 rounded-lg px-3 py-2 mb-3">
         <span className="text-white text-sm">
@@ -81,12 +81,14 @@ function CreateGroupDemo() {
           {!isComplete && <span className="animate-pulse text-primary">|</span>}
         </span>
       </div>
-      {showCreated && (
-        <div className="flex items-center gap-2 text-green-500 text-xs animate-fade-in-up">
-          <Check className="w-3 h-3" />
-          Group created!
-        </div>
-      )}
+      <div className="h-5">
+        {showCreated && (
+          <div className="flex items-center gap-2 text-green-500 text-xs animate-fade-in-up">
+            <Check className="w-3 h-3" />
+            Group created!
+          </div>
+        )}
+      </div>
     </div>
   );
 }

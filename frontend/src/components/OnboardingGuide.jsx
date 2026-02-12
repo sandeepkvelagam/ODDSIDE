@@ -112,8 +112,8 @@ function InviteFriendsDemo() {
   }, [isComplete, currentEmail]);
 
   return (
-    <div className="bg-zinc-900 rounded-xl p-4 mb-4">
-      <div className="flex gap-2 mb-2">
+    <div className="bg-zinc-900 rounded-xl p-4 min-h-[120px]">
+      <div className="flex gap-2 mb-2 min-h-[28px] flex-wrap">
         {sentEmails.map((email, i) => (
           <div key={i} className="bg-primary/20 text-primary text-[10px] px-2 py-1 rounded-full flex items-center gap-1 animate-fade-in-up">
             {email.split('@')[0]}
@@ -121,15 +121,17 @@ function InviteFriendsDemo() {
           </div>
         ))}
       </div>
-      {currentEmail < emails.length && (
-        <div className="bg-zinc-800 rounded-lg px-3 py-2 flex items-center gap-2">
-          <span className="text-white text-sm flex-1">
-            {displayText}
-            {!isComplete && <span className="animate-pulse text-primary">|</span>}
-          </span>
-          <Send className="w-4 h-4 text-zinc-500" />
-        </div>
-      )}
+      <div className="min-h-[40px]">
+        {currentEmail < emails.length && (
+          <div className="bg-zinc-800 rounded-lg px-3 py-2 flex items-center gap-2">
+            <span className="text-white text-sm flex-1">
+              {displayText}
+              {!isComplete && <span className="animate-pulse text-primary">|</span>}
+            </span>
+            <Send className="w-4 h-4 text-zinc-500" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

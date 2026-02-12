@@ -11,47 +11,49 @@ type ThemeContextType = {
   colors: typeof LIGHT_COLORS;
 };
 
-// Light theme colors
+// Light theme colors - aligned with web (frontend/src/index.css)
 export const LIGHT_COLORS = {
-  background: "#e8e4de",
-  surface: "#f7f5f2",
-  inputBg: "#ffffff",
+  background: "#F5F3EF",      // Web: hsl(40, 20%, 97%) - cream
+  surface: "#FFFFFF",          // Web: card white
+  inputBg: "#FFFFFF",
   glassBg: "rgba(0, 0, 0, 0.04)",
   glassBorder: "rgba(0, 0, 0, 0.08)",
-  textPrimary: "#1a1a1a",
+  textPrimary: "#333333",      // Web: hsl(0, 0%, 20%)
   textSecondary: "#5c5c5c",
-  textMuted: "#8c8c8c",
+  textMuted: "#737373",        // Web: hsl(0, 0%, 45%)
   border: "rgba(0, 0, 0, 0.06)",
-  orange: "#e8845c",
-  popupBg: "#ffffff",
-  danger: "#b91c1c",
-  buttonBg: "#1a1a1a",
+  orange: "#EF6E59",           // Web: hsl(14, 85%, 58%) - Kvitt primary
+  popupBg: "#FFFFFF",
+  danger: "#DC2626",           // Web: hsl(0, 84%, 55%)
+  buttonBg: "#262626",         // Web: charcoal
   buttonDisabled: "#9a9a9a",
+  success: "#16A34A",          // Web: hsl(142, 76%, 36%)
   // Dashboard & Drawer specific
-  contentBg: "#f7f5f2",
-  navBg: "#ece7e1",
-  profileBg: "#ffffff",
+  contentBg: "#F5F3EF",        // Match background
+  navBg: "#EBE8E3",            // Slightly darker cream for nav
+  profileBg: "#FFFFFF",
 };
 
-// Dark theme colors
+// Dark theme colors - aligned with web (frontend/src/index.css)
 export const DARK_COLORS = {
-  background: "#0a0a0a",
-  surface: "#1a1a1a",
+  background: "#1a1a1a",       // Web: hsl(0, 0%, 10%)
+  surface: "#212121",          // Web: hsl(0, 0%, 13%) - card
   inputBg: "#2a2a2a",
   glassBg: "rgba(255, 255, 255, 0.05)",
   glassBorder: "rgba(255, 255, 255, 0.08)",
-  textPrimary: "#ffffff",
-  textSecondary: "#9a9a9a",
+  textPrimary: "#F2F2F2",      // Web: hsl(0, 0%, 95%)
+  textSecondary: "#A6A6A6",    // Web: hsl(0, 0%, 65%)
   textMuted: "#666666",
   border: "rgba(255, 255, 255, 0.06)",
-  orange: "#e8845c",
-  popupBg: "#2a2a2a",
-  danger: "#ef4444",
+  orange: "#EF6E59",           // Web: same primary orange
+  popupBg: "#212121",
+  danger: "#DC2626",           // Web: hsl(0, 62%, 50%)
   buttonBg: "#ffffff",
   buttonDisabled: "#555555",
+  success: "#16A34A",          // Web: success green
   // Dashboard & Drawer specific
   contentBg: "#1a1a1a",
-  navBg: "#0c0c0c",
+  navBg: "#141414",            // Slightly darker for nav
   profileBg: "#2a2826",
 };
 

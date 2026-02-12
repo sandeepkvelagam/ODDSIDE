@@ -6,6 +6,7 @@ import {
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
+  Pressable,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -94,17 +95,20 @@ export function DashboardScreen() {
         {/* Header Bar */}
         <View style={styles.header}>
           {/* Hamburger Button - Glass style */}
-          <TouchableOpacity
-            style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
+          <Pressable
+            style={({ pressed }) => [
+              styles.glassButton,
+              { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
+              pressed && styles.glassButtonPressed
+            ]}
             onPress={toggleDrawer}
-            activeOpacity={0.7}
           >
             <View style={styles.hamburgerLines}>
               <View style={[styles.hamburgerLine, { backgroundColor: colors.textSecondary }]} />
               <View style={[styles.hamburgerLine, { backgroundColor: colors.textSecondary }]} />
               <View style={[styles.hamburgerLine, { backgroundColor: colors.textSecondary }]} />
             </View>
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Center - Logo */}
           <View style={styles.headerCenter}>
@@ -113,14 +117,20 @@ export function DashboardScreen() {
           </View>
 
           {/* Notification Button - Glass style */}
-          <TouchableOpacity style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]} activeOpacity={0.7}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.glassButton,
+              { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
+              pressed && styles.glassButtonPressed
+            ]}
+          >
             <Ionicons
               name="notifications-outline"
               size={22}
               color={colors.textSecondary}
             />
             {notifications.length > 0 && <View style={[styles.notifDot, { backgroundColor: colors.orange }]} />}
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <ScrollView
@@ -306,6 +316,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  glassButtonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
   },
   hamburgerLines: {
     gap: 5,

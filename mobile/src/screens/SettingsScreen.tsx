@@ -9,6 +9,7 @@ import {
   Switch,
   Modal,
   Pressable,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,6 +28,7 @@ export function SettingsScreen() {
   const { themeMode, setThemeMode, colors } = useTheme();
   const [hapticEnabled, setHapticEnabled] = useState(true);
   const [showAppearancePopup, setShowAppearancePopup] = useState(false);
+  const [showInfoPopup, setShowInfoPopup] = useState(false);
 
   const userName = user?.name || user?.email?.split("@")[0] || "Player";
 
@@ -51,21 +53,29 @@ export function SettingsScreen() {
       <View style={[styles.mainCard, { backgroundColor: colors.surface }]}>
         {/* Header inside the card */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
+          <Pressable
+            style={({ pressed }) => [
+              styles.glassButton,
+              { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
+              pressed && styles.glassButtonPressed
+            ]}
             onPress={() => navigation.goBack()}
           >
             <Ionicons name="close" size={22} color={colors.textPrimary} />
-          </TouchableOpacity>
+          </Pressable>
 
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Settings</Text>
 
-          <TouchableOpacity
-            style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-            activeOpacity={0.7}
+          <Pressable
+            style={({ pressed }) => [
+              styles.glassButton,
+              { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
+              pressed && styles.glassButtonPressed
+            ]}
+            onPress={() => setShowInfoPopup(true)}
           >
             <Ionicons name="information-circle-outline" size={22} color={colors.textPrimary} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -88,12 +98,14 @@ export function SettingsScreen() {
 
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
-            onPress={() => navigation.navigate("Billing")}
             activeOpacity={0.7}
+            disabled
           >
             <Ionicons name="card-outline" size={22} color={colors.textPrimary} />
             <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Billing</Text>
-            <Text style={[styles.menuValue, { color: colors.textSecondary }]}>Free plan</Text>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Coming Soon</Text>
+            </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
 
@@ -114,12 +126,14 @@ export function SettingsScreen() {
 
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
-            onPress={() => navigation.navigate("Language")}
             activeOpacity={0.7}
+            disabled
           >
             <Ionicons name="globe-outline" size={22} color={colors.textPrimary} />
             <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Language</Text>
-            <Text style={[styles.menuValue, { color: colors.textSecondary }]}>English</Text>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Coming Soon</Text>
+            </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
 
@@ -239,6 +253,53 @@ export function SettingsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Info Popup */}
+      <Modal
+        visible={showInfoPopup}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInfoPopup(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowInfoPopup(false)}
+        >
+          <Pressable style={[styles.infoPopup, { backgroundColor: colors.popupBg }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={[styles.versionText, { color: colors.textMuted }]}>Kvitt v1.0.0</Text>
+
+            <TouchableOpacity
+              style={[styles.infoItem, { borderColor: colors.border }]}
+              onPress={() => Linking.openURL("https://kvitt.app/acceptable-use")}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="document-text-outline" size={18} color={colors.textPrimary} />
+              <Text style={[styles.infoItemText, { color: colors.textPrimary }]}>Acceptable Use Policy</Text>
+              <Ionicons name="open-outline" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.infoItem, { borderColor: colors.border }]}
+              onPress={() => Linking.openURL("https://kvitt.app/terms")}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="document-text-outline" size={18} color={colors.textPrimary} />
+              <Text style={[styles.infoItemText, { color: colors.textPrimary }]}>Consumer Terms</Text>
+              <Ionicons name="open-outline" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.infoItem, { borderColor: colors.border }]}
+              onPress={() => Linking.openURL("https://kvitt.app/privacy")}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="shield-outline" size={18} color={colors.textPrimary} />
+              <Text style={[styles.infoItemText, { color: colors.textPrimary }]}>Privacy Policy</Text>
+              <Ionicons name="open-outline" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -265,6 +326,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+  },
+  glassButtonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
   },
   headerTitle: {
     fontSize: 17,
@@ -345,6 +410,49 @@ const styles = StyleSheet.create({
   popupOptionText: {
     flex: 1,
     fontSize: 16,
+    fontWeight: "500",
+  },
+  comingSoonBadge: {
+    backgroundColor: "rgba(239, 110, 89, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginRight: 8,
+  },
+  comingSoonText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#EF6E59",
+  },
+  infoPopup: {
+    width: 280,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  versionText: {
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 10,
+    gap: 12,
+  },
+  infoItemText: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: "500",
   },
 });

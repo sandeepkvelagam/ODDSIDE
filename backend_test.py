@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 import uuid
 
 class KvittAPITester:
-    def __init__(self, base_url: str = "https://poker-app-upgrade.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://pokerpal-voice.preview.emergentagent.com"):
         self.base_url = base_url
         self.session_token = None
         self.user_id = None

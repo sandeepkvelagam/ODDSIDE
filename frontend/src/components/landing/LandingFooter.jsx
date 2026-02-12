@@ -6,7 +6,7 @@ import EmailCapture from "./EmailCapture";
 export default function LandingFooter() {
   return (
     <footer className="border-t border-border/30 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14 pb-6 sm:pb-8">
         {/* Newsletter section */}
         <div className="max-w-xl mx-auto text-center mb-10 pb-10 border-b border-border/30">
           <h3 className="text-lg font-bold text-foreground mb-2">

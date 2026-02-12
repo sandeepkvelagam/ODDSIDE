@@ -217,7 +217,7 @@ export default function EmailCapture({
   // Compact variant (smaller, for cards)
   if (variant === "compact") {
     return (
-      <div className={`${className}`}>
+      <div className={`min-h-[40px] ${className}`}>
         <form onSubmit={handleSubmit}>
           <div className="flex gap-2">
             <Input
@@ -225,14 +225,14 @@ export default function EmailCapture({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={placeholder}
-              className="flex-1 h-10 text-sm"
+              className="flex-1 h-10 text-sm min-w-0"
               required
             />
             <Button
               type="submit"
               disabled={status === "loading"}
               size="sm"
-              className="bg-[#EF6E59] hover:bg-[#e85d47] text-white h-10 px-4"
+              className="bg-[#EF6E59] hover:bg-[#e85d47] text-white h-10 px-4 shrink-0"
             >
               {status === "loading" ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />

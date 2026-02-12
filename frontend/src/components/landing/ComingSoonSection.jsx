@@ -80,7 +80,7 @@ export default function ComingSoonSection() {
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-4 sm:gap-6">
+        <div className="scroll-animate grid sm:grid-cols-3 gap-4 sm:gap-6">
           {items.map((item, i) => {
             const isExpanded = expandedCard === i;
             const waitlistCount = stats[item.waitlistKey] || 0;
@@ -90,12 +90,11 @@ export default function ComingSoonSection() {
             return (
               <div
                 key={i}
-                className={`scroll-animate-scale bg-white/60 backdrop-blur-sm rounded-2xl border transition-all duration-300 ${
+                className={`bg-white/60 backdrop-blur-sm rounded-2xl border transition-all duration-300 ${
                   isExpanded
                     ? "border-[#EF6E59]/50 shadow-lg shadow-[#EF6E59]/10"
                     : "border-border/30 hover:border-[#EF6E59]/30"
                 } p-5 sm:p-6 relative`}
-                style={{ transitionDelay: `${i * 150}ms` }}
               >
                 {/* Status badge */}
                 <div className="absolute top-3 right-3">

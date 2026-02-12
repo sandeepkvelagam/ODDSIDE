@@ -238,7 +238,7 @@ function CashOutDemo() {
   }, []);
 
   return (
-    <div className="bg-zinc-900 rounded-xl p-4 mb-4">
+    <div className="bg-zinc-900 rounded-xl p-4 min-h-[140px]">
       {phase < 2 ? (
         <div>
           <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Final Chips</p>
@@ -254,14 +254,16 @@ function CashOutDemo() {
               )}>
                 <p className="text-white text-xs font-medium">{p.name}</p>
                 <p className="text-zinc-400 text-[10px]">{p.chips} chips</p>
-                {phase >= 1 && (
-                  <p className={cn(
-                    "text-[10px] font-bold animate-fade-in-up",
-                    p.profit.startsWith('+') ? "text-green-500" : "text-red-400"
-                  )}>
-                    {p.profit}
-                  </p>
-                )}
+                <div className="h-4">
+                  {phase >= 1 && (
+                    <p className={cn(
+                      "text-[10px] font-bold animate-fade-in-up",
+                      p.profit.startsWith('+') ? "text-green-500" : "text-red-400"
+                    )}>
+                      {p.profit}
+                    </p>
+                  )}
+                </div>
               </div>
             ))}
           </div>

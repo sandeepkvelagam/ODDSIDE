@@ -158,7 +158,7 @@ export function SettingsScreen() {
   return (
     <View
       testID="settings-screen"
-      style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
+      style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 4 }]}
     >
       {/* Main card */}
       <View style={[styles.mainCard, { backgroundColor: colors.surface }]}>
@@ -543,7 +543,10 @@ const styles = StyleSheet.create({
   },
   mainCard: {
     flex: 1,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
     overflow: "hidden",
+    marginTop: 8,
   },
   header: {
     flexDirection: "row",

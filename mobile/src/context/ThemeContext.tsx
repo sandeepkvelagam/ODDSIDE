@@ -64,7 +64,6 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
-  const [isLoaded, setIsLoaded] = useState(false);
 
   // Load saved theme preference
   useEffect(() => {
@@ -72,7 +71,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (savedMode && ["light", "dark", "system"].includes(savedMode)) {
         setThemeModeState(savedMode as ThemeMode);
       }
-      setIsLoaded(true);
     });
   }, []);
 
@@ -89,10 +87,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
 
-  if (!isLoaded) {
-    return null; // Or a loading spinner
-  }
-
+  // Don't return null - always render with default system theme
   return (
     <ThemeContext.Provider value={{ themeMode, isDark, setThemeMode, colors }}>
       {children}

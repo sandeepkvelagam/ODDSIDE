@@ -155,6 +155,20 @@ class GroupMember(BaseModel):
     joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     nickname: Optional[str] = None
 
+class Subscriber(BaseModel):
+    """Email subscriber for waitlist, newsletter, and feature updates"""
+    model_config = ConfigDict(extra="ignore")
+    subscriber_id: str = Field(default_factory=lambda: f"sub_{uuid.uuid4().hex[:12]}")
+    email: str
+    source: str = "landing"  # landing, hero, footer, waitlist_ai, waitlist_music, waitlist_charts
+    interests: List[str] = []  # ai_assistant, music_integration, charts, newsletter
+    subscribed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    verified: bool = False
+    unsubscribed: bool = False
+    unsubscribed_at: Optional[datetime] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
 class GameNight(BaseModel):
     model_config = ConfigDict(extra="ignore")
     game_id: str = Field(default_factory=lambda: f"game_{uuid.uuid4().hex[:12]}")
@@ -3425,6 +3439,346 @@ async def get_poker_stats(user: User = Depends(get_current_user)):
     }
 
 
+# ============== HOST PERSONA / DECISION ENDPOINTS ==============
+
+class HostDecisionRequest(BaseModel):
+    decision_id: Optional[str] = None
+    decision_ids: Optional[List[str]] = None
+    reason: Optional[str] = None
+
+
+class HostPersonaSettingsRequest(BaseModel):
+    auto_approve_standard_buyin: bool = False
+    auto_send_reminders: bool = True
+    auto_generate_settlement: bool = True
+    auto_send_summary: bool = True
+    payment_reminder_days: List[int] = [1, 3, 7]
+    notify_on_rsvp_change: bool = True
+    suggest_next_game: bool = True
+
+
+@api_router.get("/host/decisions")
+async def get_pending_decisions(
+    game_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get pending decisions for the host."""
+    query = {
+        "host_id": user.user_id,
+        "status": "pending",
+        "expires_at": {"$gt": datetime.now(timezone.utc)}
+    }
+    if game_id:
+        query["game_id"] = game_id
+
+    decisions = await db.host_decisions.find(
+        query,
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+
+    # Group by type
+    grouped = {
+        "join_request": [],
+        "buy_in": [],
+        "cash_out": [],
+        "end_game": [],
+        "chip_correction": []
+    }
+    for d in decisions:
+        dtype = d.get("decision_type", "other")
+        if dtype in grouped:
+            grouped[dtype].append(d)
+
+    return {
+        "decisions": decisions,
+        "grouped": grouped,
+        "total": len(decisions)
+    }
+
+
+@api_router.post("/host/decisions/{decision_id}/approve")
+async def approve_decision(
+    decision_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Approve a pending decision."""
+    # Verify ownership
+    decision = await db.host_decisions.find_one({
+        "decision_id": decision_id,
+        "host_id": user.user_id,
+        "status": "pending"
+    })
+
+    if not decision:
+        raise HTTPException(status_code=404, detail="Decision not found or already processed")
+
+    # Update status
+    await db.host_decisions.update_one(
+        {"decision_id": decision_id},
+        {
+            "$set": {
+                "status": "approved",
+                "processed_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+
+    # Execute the approved action
+    action_result = await _execute_host_decision(decision)
+
+    return {
+        "success": True,
+        "decision_id": decision_id,
+        "decision_type": decision.get("decision_type"),
+        "action_result": action_result
+    }
+
+
+@api_router.post("/host/decisions/{decision_id}/reject")
+async def reject_decision(
+    decision_id: str,
+    data: HostDecisionRequest,
+    user: User = Depends(get_current_user)
+):
+    """Reject a pending decision."""
+    decision = await db.host_decisions.find_one({
+        "decision_id": decision_id,
+        "host_id": user.user_id,
+        "status": "pending"
+    })
+
+    if not decision:
+        raise HTTPException(status_code=404, detail="Decision not found or already processed")
+
+    await db.host_decisions.update_one(
+        {"decision_id": decision_id},
+        {
+            "$set": {
+                "status": "rejected",
+                "rejection_reason": data.reason,
+                "processed_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+
+    # Notify player of rejection
+    player_id = decision.get("context", {}).get("player_id")
+    if player_id:
+        await db.notifications.insert_one({
+            "notification_id": str(uuid.uuid4()),
+            "user_id": player_id,
+            "title": "Request Declined",
+            "message": f"Your {decision.get('decision_type', 'request').replace('_', ' ')} was declined" +
+                      (f": {data.reason}" if data.reason else ""),
+            "type": "request_rejected",
+            "data": {
+                "decision_type": decision.get("decision_type"),
+                "game_id": decision.get("game_id"),
+                "reason": data.reason
+            },
+            "read": False,
+            "created_at": datetime.now(timezone.utc)
+        })
+
+    return {
+        "success": True,
+        "decision_id": decision_id,
+        "reason": data.reason
+    }
+
+
+@api_router.post("/host/decisions/bulk-approve")
+async def bulk_approve_decisions(
+    data: HostDecisionRequest,
+    user: User = Depends(get_current_user)
+):
+    """Approve multiple decisions at once."""
+    if not data.decision_ids:
+        raise HTTPException(status_code=400, detail="decision_ids required")
+
+    approved = []
+    failed = []
+
+    for decision_id in data.decision_ids:
+        decision = await db.host_decisions.find_one({
+            "decision_id": decision_id,
+            "host_id": user.user_id,
+            "status": "pending"
+        })
+
+        if decision:
+            await db.host_decisions.update_one(
+                {"decision_id": decision_id},
+                {"$set": {"status": "approved", "processed_at": datetime.now(timezone.utc)}}
+            )
+            action_result = await _execute_host_decision(decision)
+            approved.append({"decision_id": decision_id, "result": action_result})
+        else:
+            failed.append({"decision_id": decision_id, "error": "Not found or already processed"})
+
+    return {
+        "success": len(failed) == 0,
+        "approved": approved,
+        "failed": failed,
+        "total_approved": len(approved),
+        "total_failed": len(failed)
+    }
+
+
+@api_router.get("/host/persona/status")
+async def get_host_persona_status(
+    game_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Get Host Persona automation status."""
+    # Get user's Host Persona settings
+    settings = await db.host_persona_settings.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+
+    # Get pending decision count
+    query = {"host_id": user.user_id, "status": "pending"}
+    if game_id:
+        query["game_id"] = game_id
+    pending_count = await db.host_decisions.count_documents(query)
+
+    return {
+        "enabled": True,
+        "settings": settings or {
+            "auto_approve_standard_buyin": False,
+            "auto_send_reminders": True,
+            "auto_generate_settlement": True,
+            "auto_send_summary": True,
+            "payment_reminder_days": [1, 3, 7],
+            "notify_on_rsvp_change": True,
+            "suggest_next_game": True
+        },
+        "pending_decisions": pending_count
+    }
+
+
+@api_router.put("/host/persona/settings")
+async def update_host_persona_settings(
+    data: HostPersonaSettingsRequest,
+    user: User = Depends(get_current_user)
+):
+    """Update Host Persona automation settings."""
+    settings = data.model_dump()
+    settings["user_id"] = user.user_id
+    settings["updated_at"] = datetime.now(timezone.utc)
+
+    await db.host_persona_settings.update_one(
+        {"user_id": user.user_id},
+        {"$set": settings},
+        upsert=True
+    )
+
+    return {"success": True, "settings": settings}
+
+
+async def _execute_host_decision(decision: dict) -> dict:
+    """Execute the action for an approved decision."""
+    decision_type = decision.get("decision_type")
+    context = decision.get("context", {})
+    game_id = decision.get("game_id")
+
+    if decision_type == "join_request":
+        player_entry = {
+            "user_id": context.get("player_id"),
+            "status": "active",
+            "chips": 0,
+            "total_buy_in": 0,
+            "joined_at": datetime.now(timezone.utc)
+        }
+        await db.game_nights.update_one(
+            {"game_id": game_id},
+            {"$push": {"players": player_entry}}
+        )
+        # Emit WebSocket event
+        await sio.emit("game_update", {
+            "type": "player_joined",
+            "game_id": game_id,
+            "player_id": context.get("player_id")
+        }, room=game_id)
+        return {"action": "player_added", "player_id": context.get("player_id")}
+
+    elif decision_type == "buy_in":
+        amount = context.get("amount", 0)
+        chips = context.get("chips", 0)
+        player_id = context.get("player_id")
+
+        await db.game_nights.update_one(
+            {"game_id": game_id, "players.user_id": player_id},
+            {
+                "$inc": {
+                    "players.$.chips": chips,
+                    "players.$.total_buy_in": amount
+                }
+            }
+        )
+        await sio.emit("game_update", {
+            "type": "buy_in_approved",
+            "game_id": game_id,
+            "player_id": player_id,
+            "amount": amount,
+            "chips": chips
+        }, room=game_id)
+        return {"action": "buy_in_processed", "amount": amount, "chips": chips}
+
+    elif decision_type == "cash_out":
+        chips = context.get("chips", 0)
+        player_id = context.get("player_id")
+        cash_amount = context.get("cash_amount", 0)
+
+        await db.game_nights.update_one(
+            {"game_id": game_id, "players.user_id": player_id},
+            {
+                "$set": {
+                    "players.$.chips": 0,
+                    "players.$.cashed_out": True,
+                    "players.$.chips_returned": chips,
+                    "players.$.cash_out_amount": cash_amount,
+                    "players.$.cashed_out_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        await sio.emit("game_update", {
+            "type": "cash_out_approved",
+            "game_id": game_id,
+            "player_id": player_id,
+            "chips": chips,
+            "amount": cash_amount
+        }, room=game_id)
+        return {"action": "cash_out_processed", "chips": chips, "amount": cash_amount}
+
+    elif decision_type == "end_game":
+        await db.game_nights.update_one(
+            {"game_id": game_id},
+            {"$set": {"status": "ended", "ended_at": datetime.now(timezone.utc)}}
+        )
+        await sio.emit("game_update", {"type": "game_ended", "game_id": game_id}, room=game_id)
+        return {"action": "game_ended"}
+
+    elif decision_type == "chip_correction":
+        player_id = context.get("player_id")
+        new_chips = context.get("new_chips", 0)
+
+        await db.game_nights.update_one(
+            {"game_id": game_id, "players.user_id": player_id},
+            {"$set": {"players.$.chips": new_chips}}
+        )
+        await sio.emit("game_update", {
+            "type": "chips_corrected",
+            "game_id": game_id,
+            "player_id": player_id,
+            "new_chips": new_chips
+        }, room=game_id)
+        return {"action": "chips_corrected", "new_chips": new_chips}
+
+    return {"action": "unknown", "decision_type": decision_type}
+
+
 # ============== SMART DEFAULTS ENDPOINTS ==============
 
 @api_router.get("/groups/{group_id}/smart-defaults")
@@ -4136,6 +4490,140 @@ async def debug_my_data(user: User = Depends(get_current_user)):
         "total_games_played": len(players),
         "groups_with_games": games_by_group
     }
+
+
+# ============== SUBSCRIBER ENDPOINTS ==============
+
+class SubscribeRequest(BaseModel):
+    email: str
+    source: str = "landing"
+    interests: List[str] = []
+
+@api_router.post("/subscribe")
+async def subscribe(request: Request, data: SubscribeRequest):
+    """Subscribe to waitlist/newsletter"""
+    import re
+
+    # Validate email
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_regex, data.email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    email_lower = data.email.lower().strip()
+
+    # Check if already subscribed
+    existing = await db.subscribers.find_one({"email": email_lower}, {"_id": 0})
+
+    if existing:
+        if existing.get("unsubscribed"):
+            # Re-subscribe
+            await db.subscribers.update_one(
+                {"email": email_lower},
+                {
+                    "$set": {
+                        "unsubscribed": False,
+                        "unsubscribed_at": None,
+                        "subscribed_at": datetime.now(timezone.utc).isoformat()
+                    },
+                    "$addToSet": {"interests": {"$each": data.interests}}
+                }
+            )
+            return {"status": "resubscribed", "message": "Welcome back! You've been re-subscribed."}
+        else:
+            # Update interests if new ones provided
+            if data.interests:
+                await db.subscribers.update_one(
+                    {"email": email_lower},
+                    {"$addToSet": {"interests": {"$each": data.interests}}}
+                )
+            return {"status": "exists", "message": "You're already on the list!"}
+
+    # Get client info
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent", "")[:500]
+
+    # Create new subscriber
+    subscriber = Subscriber(
+        email=email_lower,
+        source=data.source,
+        interests=data.interests,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+
+    sub_dict = subscriber.model_dump()
+    sub_dict["subscribed_at"] = sub_dict["subscribed_at"].isoformat()
+    await db.subscribers.insert_one(sub_dict)
+
+    # Send welcome email (async, don't wait)
+    from email_service import send_subscriber_welcome_email
+    asyncio.create_task(send_subscriber_welcome_email(email_lower, data.source, data.interests))
+
+    return {
+        "status": "subscribed",
+        "message": "You're in! Check your inbox for confirmation.",
+        "subscriber_id": subscriber.subscriber_id
+    }
+
+
+@api_router.get("/subscribers/stats")
+async def get_subscriber_stats():
+    """Get public subscriber stats for FOMO display"""
+    # Total subscribers
+    total = await db.subscribers.count_documents({"unsubscribed": {"$ne": True}})
+
+    # Last 24 hours
+    yesterday = datetime.now(timezone.utc) - timedelta(hours=24)
+    recent = await db.subscribers.count_documents({
+        "subscribed_at": {"$gte": yesterday.isoformat()},
+        "unsubscribed": {"$ne": True}
+    })
+
+    # Interest breakdown
+    ai_waitlist = await db.subscribers.count_documents({
+        "interests": "ai_assistant",
+        "unsubscribed": {"$ne": True}
+    })
+    music_waitlist = await db.subscribers.count_documents({
+        "interests": "music_integration",
+        "unsubscribed": {"$ne": True}
+    })
+
+    # Add some "social proof" padding for early stage (remove when you have real numbers)
+    display_total = max(total, 127)  # Minimum display for social proof
+    display_recent = max(recent, 3)  # Minimum recent signups
+
+    return {
+        "total_subscribers": display_total,
+        "recent_24h": display_recent,
+        "ai_waitlist": ai_waitlist,
+        "music_waitlist": music_waitlist,
+        # Percentage for progress bars
+        "ai_waitlist_percent": min(100, int((ai_waitlist / 500) * 100)),  # Goal: 500
+        "music_waitlist_percent": min(100, int((music_waitlist / 500) * 100))
+    }
+
+
+@api_router.post("/unsubscribe")
+async def unsubscribe(email: str):
+    """Unsubscribe from all communications"""
+    email_lower = email.lower().strip()
+
+    result = await db.subscribers.update_one(
+        {"email": email_lower},
+        {
+            "$set": {
+                "unsubscribed": True,
+                "unsubscribed_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    return {"status": "unsubscribed", "message": "You've been unsubscribed. Sorry to see you go!"}
+
 
 # Include the router
 app.include_router(api_router)

@@ -45,7 +45,7 @@ function WelcomeDemo() {
   const { displayText } = useTypewriter('Your side, settled.', 80, 300);
   
   return (
-    <div className="bg-zinc-900 rounded-xl p-4 mb-4">
+    <div className="bg-zinc-900 rounded-xl p-4 min-h-[100px]">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-6 h-6 rounded bg-primary/20 flex items-center justify-center">
           <span className="text-primary text-xs font-bold">K</span>

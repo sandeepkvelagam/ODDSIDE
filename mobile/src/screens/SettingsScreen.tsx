@@ -131,21 +131,14 @@ export function SettingsScreen() {
       // Add language code for Whisper
       formData.append("language", language);
 
-      const response = await fetch(`${API_URL}/api/voice/transcribe`, {
-        method: "POST",
+      const response = await api.post("/voice/transcribe", formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
         },
-        body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Transcription failed");
-      }
-
-      const result = await response.json();
-      setTranscribedText(result.text || "");
-      setVoiceCommand(result.command);
+      setTranscribedText(response.data.text || "");
+      setVoiceCommand(response.data.command);
     } catch (error) {
       console.error("Transcription error:", error);
       Alert.alert("Error", "Failed to transcribe audio. Please try again.");

@@ -14,14 +14,13 @@ const ONBOARDING_STEPS = [
     title: 'Welcome to Kvitt!',
     description: 'Your side, settled. Track poker games, manage buy-ins, and settle up with friends.',
     icon: Trophy,
-    action: null,
+    tip: 'Let\'s walk you through how it works in just a few steps.',
   },
   {
     id: 'create_group',
     title: 'Create Your Group',
     description: 'Start by creating a poker group. This is where you\'ll organize games with your friends.',
     icon: Users,
-    action: { label: 'Create Group', path: '/groups' },
     tip: 'Groups help you organize regular games with the same crew.',
   },
   {
@@ -29,7 +28,6 @@ const ONBOARDING_STEPS = [
     title: 'Invite Friends',
     description: 'Add your poker buddies to the group. They\'ll be able to join your games.',
     icon: UserPlus,
-    action: { label: 'Go to Groups', path: '/groups' },
     tip: 'You can invite by email. They\'ll get a notification to join.',
   },
   {
@@ -37,7 +35,6 @@ const ONBOARDING_STEPS = [
     title: 'Start a Game',
     description: 'Set your buy-in amount and chips. When you start, everyone gets their chips automatically!',
     icon: Play,
-    action: null,
     tip: 'Default buy-in is $20 for 20 chips ($1/chip). You can customize this.',
   },
   {
@@ -45,7 +42,6 @@ const ONBOARDING_STEPS = [
     title: 'During the Game',
     description: 'Players can request rebuys. As host, you approve buy-ins and track everyone\'s chips.',
     icon: Coins,
-    action: null,
     tip: 'The game thread shows all activity. Everyone sees updates in real-time.',
   },
   {
@@ -53,7 +49,6 @@ const ONBOARDING_STEPS = [
     title: 'Cash Out & Settle',
     description: 'When players cash out, enter their chip count. Kvitt calculates who owes who.',
     icon: DollarSign,
-    action: null,
     tip: 'Settlement is calculated automatically. Mark payments as done when complete.',
   },
   {
@@ -61,20 +56,17 @@ const ONBOARDING_STEPS = [
     title: 'You\'re Ready!',
     description: 'Start your first game and enjoy hassle-free poker nights!',
     icon: CheckCircle,
-    action: { label: 'Go to Dashboard', path: '/dashboard' },
+    tip: 'Head to Groups to create your first poker group.',
   },
 ];
 
 export default function OnboardingGuide({ onComplete, isModal = false }) {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
-  const [completed, setCompleted] = useState(() => {
-    const saved = localStorage.getItem('kvitt_onboarding_completed');
-    return saved ? JSON.parse(saved) : [];
-  });
 
   const step = ONBOARDING_STEPS[currentStep];
   const progress = ((currentStep + 1) / ONBOARDING_STEPS.length) * 100;
+  const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
 
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
@@ -95,11 +87,9 @@ export default function OnboardingGuide({ onComplete, isModal = false }) {
     if (onComplete) onComplete();
   };
 
-  const handleAction = () => {
-    if (step.action?.path) {
-      handleComplete();
-      navigate(step.action.path);
-    }
+  const handleGetStarted = () => {
+    handleComplete();
+    navigate('/groups');
   };
 
   const handleSkip = () => {
@@ -161,20 +151,19 @@ export default function OnboardingGuide({ onComplete, isModal = false }) {
               <ChevronLeft className="w-4 h-4 mr-1" /> Back
             </Button>
 
-            {step.action ? (
+            {isLastStep ? (
               <Button
-                onClick={handleAction}
+                onClick={handleGetStarted}
                 className="flex-1 bg-primary text-black hover:bg-primary/90"
               >
-                {step.action.label} <ArrowRight className="w-4 h-4 ml-1" />
+                Get Started <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             ) : (
               <Button
                 onClick={handleNext}
                 className="flex-1 bg-primary text-black hover:bg-primary/90"
               >
-                {currentStep === ONBOARDING_STEPS.length - 1 ? 'Get Started' : 'Next'} 
-                <ChevronRight className="w-4 h-4 ml-1" />
+                Next <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             )}
           </div>

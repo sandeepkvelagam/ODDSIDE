@@ -21,14 +21,14 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
-import { API_URL } from "../api/config";
+import { api } from "../api/client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
-  const { user, signOut, token } = useAuth();
+  const { user, signOut } = useAuth();
   const { themeMode, setThemeMode, colors } = useTheme();
   const { language, t, supportedLanguages } = useLanguage();
   

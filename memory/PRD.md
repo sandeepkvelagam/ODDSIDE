@@ -48,6 +48,13 @@ Build a poker ledger application with web and mobile apps for tracking poker nig
 - Backend endpoint: `POST /api/poker/analyze`
 - Uses GPT-4o-mini for fast analysis
 - Frontend modal: Card selector UI
+
+### December 2025 - Voice Commands & Multi-Language ✅
+- Backend endpoint: `POST /api/voice/transcribe` using OpenAI Whisper
+- Multi-language support: EN, ES, FR, DE, HI, PT, ZH
+- Mobile LanguageContext for state management with AsyncStorage persistence
+- Voice commands: buy_in, rebuy, cash_out, start_game, end_game, check_balance, ai_help
+- Mobile SettingsScreen voice modal with expo-av Audio.Recording
 - Returns: action, potential, reasoning
 - Disclaimer and checkbox required
 - Accessible from game page header
@@ -57,7 +64,7 @@ Build a poker ledger application with web and mobile apps for tracking poker nig
 ## Pending Issues
 
 ### P0 - Critical
-- **Mobile Expo Errors**: User getting "expected dynamic type 'boolean'" error
+- None currently
 
 ### P1 - High Priority  
 - Fix game history view on mobile
@@ -140,3 +147,7 @@ EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_API_URL
 - `/app/frontend/src/components/SpotifyPlayer.jsx` - Music player (coming soon)
 - `/app/mobile/src/context/AuthContext.tsx` - Mobile auth
 - `/app/mobile/src/screens/DashboardScreen.tsx` - Mobile dashboard
+- `/app/mobile/src/i18n/translations.ts` - Multi-language strings (7 languages)
+- `/app/mobile/src/context/LanguageContext.tsx` - Language state management
+- `/app/mobile/src/screens/LanguageScreen.tsx` - Language selection UI
+- `/app/mobile/src/screens/SettingsScreen.tsx` - Voice commands UI

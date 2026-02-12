@@ -300,7 +300,7 @@ function ReadyDemo() {
   }, []);
 
   return (
-    <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl p-4 mb-4 relative overflow-hidden">
+    <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl p-4 min-h-[120px] relative overflow-hidden">
       {showConfetti && (
         <div className="absolute inset-0 pointer-events-none">
           {[...Array(12)].map((_, i) => (

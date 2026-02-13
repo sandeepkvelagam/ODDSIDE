@@ -57,6 +57,18 @@ export const DARK_COLORS = {
   profileBg: "#2a2826",
 };
 
+// Spacing constants - consistent breathing room across the app
+export const SPACING = {
+  padding: 28,           // Container padding
+  gap: 18,               // Gap between elements
+  lineHeight: 1.6,       // Text line height multiplier
+  breathingRoom: 28,     // Vertical breathing room between sections
+  cardPadding: 24,       // Card internal padding
+  sectionGap: 28,        // Gap between major sections
+  elementGap: 18,        // Gap between elements within sections
+  touchTarget: 44,       // Minimum touch target size
+};
+
 const THEME_STORAGE_KEY = "@kvitt_theme_mode";
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

@@ -17,6 +17,8 @@ import { PrivacyScreen } from "../screens/PrivacyScreen";
 import { BillingScreen } from "../screens/BillingScreen";
 import { LanguageScreen } from "../screens/LanguageScreen";
 import { AIAssistantScreen } from "../screens/AIAssistantScreen";
+import { SettlementScreen } from "../screens/SettlementScreen";
+import { PokerAIScreen } from "../screens/PokerAIScreen";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -24,6 +26,8 @@ export type RootStackParamList = {
   Groups: undefined;
   GroupHub: { groupId: string; groupName?: string };
   GameNight: { gameId: string };
+  Settlement: { gameId: string };
+  PokerAI: undefined;
   Settings: undefined;
   Profile: undefined;
   Notifications: undefined;
@@ -191,6 +195,16 @@ export default function RootNavigator() {
                   headerShown: false,
                   animation: "slide_from_bottom",
                 }}
+              />
+              <Stack.Screen
+                name="Settlement"
+                component={SettlementScreen}
+                options={{ title: "Settlement", headerBackTitle: "Back" }}
+              />
+              <Stack.Screen
+                name="PokerAI"
+                component={PokerAIScreen}
+                options={{ title: "Poker AI", headerBackTitle: "Back" }}
               />
             </>
           )}

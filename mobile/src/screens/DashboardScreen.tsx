@@ -31,6 +31,7 @@ export function DashboardScreen() {
   const [stats, setStats] = useState<any>(null);
   const [recentGames, setRecentGames] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [balances, setBalances] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,16 +39,18 @@ export function DashboardScreen() {
   const fetchDashboard = useCallback(async () => {
     try {
       setError(null);
-      const [statsRes, gamesRes, notifRes] = await Promise.all([
+      const [statsRes, gamesRes, notifRes, balancesRes] = await Promise.all([
         api.get("/stats/me").catch(() => ({ data: null })),
         api.get("/games").catch(() => ({ data: [] })),
         api.get("/notifications").catch(() => ({ data: [] })),
+        api.get("/ledger/balances").catch(() => ({ data: null })),
       ]);
       setStats(statsRes.data);
       const games = Array.isArray(gamesRes.data) ? gamesRes.data : [];
       setRecentGames(games.slice(0, 5));
       const notifs = Array.isArray(notifRes.data) ? notifRes.data : [];
       setNotifications(notifs.filter((n: any) => !n.read));
+      setBalances(balancesRes.data);
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load");
     } finally {
@@ -172,7 +175,7 @@ export function DashboardScreen() {
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Games</Text>
             </View>
             <View style={[styles.statCard, styles.statCardAccent, { backgroundColor: colors.glassBg }]}>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              <Text style={[styles.statValue, { color: (stats?.net_profit || 0) >= 0 ? colors.success : colors.danger }]}>
                 ${stats?.net_profit ? Math.abs(stats.net_profit).toFixed(0) : "0"}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
@@ -186,6 +189,57 @@ export function DashboardScreen() {
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Win Rate</Text>
             </View>
           </View>
+
+          {/* Performance Card */}
+          {stats?.total_games > 0 && (
+            <View style={[styles.performanceCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+              <Text style={[styles.performanceTitle, { color: colors.textSecondary }]}>Performance</Text>
+              <View style={styles.performanceGrid}>
+                <View style={styles.performanceItem}>
+                  <Text style={[styles.perfValue, { color: colors.success }]}>{stats?.wins || 0}</Text>
+                  <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Wins</Text>
+                </View>
+                <View style={styles.performanceItem}>
+                  <Text style={[styles.perfValue, { color: colors.danger }]}>{stats?.losses || 0}</Text>
+                  <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Losses</Text>
+                </View>
+                <View style={styles.performanceItem}>
+                  <Text style={[styles.perfValue, { color: colors.textPrimary }]}>
+                    ${stats?.avg_profit ? Math.abs(stats.avg_profit).toFixed(0) : "0"}
+                  </Text>
+                  <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Avg</Text>
+                </View>
+                <View style={styles.performanceItem}>
+                  <Text style={[styles.perfValue, { color: colors.success }]}>
+                    ${stats?.best_win ? stats.best_win.toFixed(0) : "0"}
+                  </Text>
+                  <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Best</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Pending Balances */}
+          {(balances?.you_owe > 0 || balances?.owed_to_you > 0) && (
+            <View style={[styles.balancesCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+              <Text style={[styles.balancesTitle, { color: colors.textSecondary }]}>Pending Balances</Text>
+              <View style={styles.balancesRow}>
+                <View style={styles.balanceItem}>
+                  <Text style={[styles.balanceValue, { color: colors.danger }]}>
+                    ${balances?.you_owe?.toFixed(0) || "0"}
+                  </Text>
+                  <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>You Owe</Text>
+                </View>
+                <View style={[styles.balanceDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.balanceItem}>
+                  <Text style={[styles.balanceValue, { color: colors.success }]}>
+                    ${balances?.owed_to_you?.toFixed(0) || "0"}
+                  </Text>
+                  <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Owed to You</Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Recent Games */}
           <View style={styles.sectionHeader}>
@@ -350,11 +404,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   content: {
-    padding: 16,
+    padding: 28,
     paddingBottom: 32,
   },
   profileRow: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   profileChip: {
     flexDirection: "row",
@@ -401,7 +455,7 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 18,
     marginBottom: 28,
   },
   statCard: {
@@ -424,6 +478,75 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  performanceCard: {
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 28,
+    borderWidth: 1,
+  },
+  performanceTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 16,
+  },
+  performanceGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 18,
+  },
+  performanceItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  perfValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    lineHeight: 28,
+  },
+  perfLabel: {
+    fontSize: 11,
+    marginTop: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  balancesCard: {
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 28,
+    borderWidth: 1,
+  },
+  balancesTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 16,
+  },
+  balancesRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    gap: 18,
+  },
+  balanceItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  balanceValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    lineHeight: 32,
+  },
+  balanceLabel: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  balanceDivider: {
+    width: 1,
+    height: 40,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -457,11 +580,11 @@ const styles = StyleSheet.create({
   },
   gameCard: {
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 14,
     borderWidth: 1,
   },
   gameInfo: {
@@ -499,7 +622,7 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 18,
   },
   actionCard: {
     flex: 1,

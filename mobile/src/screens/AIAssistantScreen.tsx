@@ -13,7 +13,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { api } from "../api/client";
+import type { RootStackParamList } from "../navigation/RootNavigator";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 // Claude-style warm dark theme colors
 const COLORS = {
@@ -42,7 +46,7 @@ const SUGGESTIONS = [
 ];
 
 export function AIAssistantScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([
@@ -119,7 +123,13 @@ export function AIAssistantScreen() {
           </View>
         </View>
 
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity
+          style={styles.pokerAIButton}
+          onPress={() => navigation.navigate("PokerAI")}
+        >
+          <Ionicons name="diamond" size={16} color={COLORS.orange} />
+          <Text style={styles.pokerAIText}>Poker AI</Text>
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -291,8 +301,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textSecondary,
   },
-  headerSpacer: {
-    width: 44,
+  pokerAIButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "rgba(232,132,92,0.15)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(232,132,92,0.3)",
+  },
+  pokerAIText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.orange,
   },
   keyboardView: {
     flex: 1,

@@ -5,95 +5,61 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../context/ThemeContext";
+import { RightDrawer } from "../components/RightDrawer";
 
 export function BillingScreen() {
-  const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 4 }]}>
-      {/* Main card with rounded top */}
-      <View style={[styles.mainCard, { backgroundColor: colors.surface }]}>
-        {/* Header inside the card */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-
-          <View style={styles.headerTitleRow}>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Billing</Text>
-            <View style={[styles.comingSoonBadge, { backgroundColor: colors.orange }]}>
-              <Text style={styles.comingSoonText}>Coming Soon</Text>
-            </View>
-          </View>
-
-          <View style={styles.headerSpacer} />
-        </View>
-
-        {/* Content */}
-        <View style={styles.content}>
-          {/* Account Plan Box */}
-          <View style={[styles.planBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-            <Text style={[styles.planLabel, { color: colors.textSecondary }]}>Account plan</Text>
-            <Text style={[styles.planValue, { color: colors.textPrimary }]}>Free</Text>
-          </View>
-
-          {/* Menu Items */}
-          <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: colors.border }]}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="cash-outline" size={22} color={colors.textPrimary} />
-            <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Manage subscription</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: "transparent" }]}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="refresh-outline" size={22} color={colors.textPrimary} />
-            <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Restore purchases</Text>
-          </TouchableOpacity>
-        </View>
+  const titleWithBadge = (
+    <View style={styles.headerTitleRow}>
+      <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Billing</Text>
+      <View style={[styles.comingSoonBadge, { backgroundColor: colors.orange }]}>
+        <Text style={styles.comingSoonText}>Coming Soon</Text>
       </View>
     </View>
+  );
+
+  return (
+    <RightDrawer title="Billing">
+      <View style={styles.content}>
+        {/* Coming Soon Badge */}
+        <View style={[styles.comingSoonHeader, { backgroundColor: colors.orange + "15" }]}>
+          <Ionicons name="time-outline" size={20} color={colors.orange} />
+          <Text style={[styles.comingSoonHeaderText, { color: colors.orange }]}>Coming Soon</Text>
+        </View>
+
+        {/* Account Plan Box */}
+        <View style={[styles.planBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+          <Text style={[styles.planLabel, { color: colors.textSecondary }]}>Account plan</Text>
+          <Text style={[styles.planValue, { color: colors.textPrimary }]}>Free</Text>
+        </View>
+
+        {/* Menu Items */}
+        <TouchableOpacity
+          style={[styles.menuItem, { borderBottomColor: colors.border }]}
+          activeOpacity={0.7}
+          disabled
+        >
+          <Ionicons name="cash-outline" size={22} color={colors.textMuted} />
+          <Text style={[styles.menuLabel, { color: colors.textMuted }]}>Manage subscription</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.menuItem, { borderBottomColor: "transparent" }]}
+          activeOpacity={0.7}
+          disabled
+        >
+          <Ionicons name="refresh-outline" size={22} color={colors.textMuted} />
+          <Text style={[styles.menuLabel, { color: colors.textMuted }]}>Restore purchases</Text>
+        </TouchableOpacity>
+      </View>
+    </RightDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  mainCard: {
-    flex: 1,
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
-    overflow: "hidden",
-    marginTop: 8,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-  },
-  glassButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
   headerTitleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -113,12 +79,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
-  headerSpacer: {
-    width: 44,
-  },
   content: {
     paddingHorizontal: 20,
     paddingTop: 8,
+  },
+  comingSoonHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  comingSoonHeaderText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   planBox: {
     borderRadius: 14,

@@ -265,6 +265,7 @@ export function GroupsScreen() {
                 ]}
                 onPress={handleCreateGroup}
                 disabled={!newGroupName.trim() || creating}
+                activeOpacity={0.8}
               >
                 {creating ? (
                   <ActivityIndicator size="small" color="#fff" />

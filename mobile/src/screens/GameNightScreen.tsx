@@ -258,7 +258,7 @@ export function GameNightScreen() {
           <View style={styles.errorBanner}>
             <Ionicons name="alert-circle" size={16} color="#fca5a5" />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={() => setError(null)}>
+            <TouchableOpacity onPress={() => setError(null)} activeOpacity={0.7}>
               <Ionicons name="close" size={18} color="#fca5a5" />
             </TouchableOpacity>
           </View>

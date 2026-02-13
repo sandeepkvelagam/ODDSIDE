@@ -466,6 +466,7 @@ export function SettingsScreen() {
                 testID="voice-modal-close"
                 onPress={() => setShowVoiceModal(false)}
                 style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
+                activeOpacity={0.7}
               >
                 <Ionicons name="close" size={22} color={colors.textPrimary} />
               </TouchableOpacity>

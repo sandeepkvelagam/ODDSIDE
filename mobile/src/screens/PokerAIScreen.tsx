@@ -132,6 +132,7 @@ export function PokerAIScreen() {
           setSelectedSlot({ type, index });
           setSelectedRank(null);
         }}
+        activeOpacity={0.7}
       >
         {card ? (
           <View style={styles.cardContent}>
@@ -203,6 +204,7 @@ export function PokerAIScreen() {
                     key={rank}
                     style={[styles.rankButton, { borderColor: colors.glassBorder }]}
                     onPress={() => setSelectedRank(rank)}
+                    activeOpacity={0.7}
                   >
                     <Text style={[styles.rankButtonText, { color: colors.textPrimary }]}>{rank}</Text>
                   </TouchableOpacity>
@@ -215,6 +217,7 @@ export function PokerAIScreen() {
                     key={suit.name}
                     style={[styles.suitButton, { borderColor: colors.glassBorder }]}
                     onPress={() => setCard(selectedRank, suit.name)}
+                    activeOpacity={0.7}
                   >
                     <Text style={[styles.suitSymbol, { color: suit.color }]}>{suit.symbol}</Text>
                   </TouchableOpacity>
@@ -243,6 +246,7 @@ export function PokerAIScreen() {
           <TouchableOpacity
             style={[styles.resetButton, { borderColor: colors.glassBorder }]}
             onPress={handleReset}
+            activeOpacity={0.7}
           >
             <Ionicons name="refresh" size={18} color={colors.textSecondary} />
             <Text style={[styles.resetText, { color: colors.textSecondary }]}>Reset</Text>
@@ -255,6 +259,7 @@ export function PokerAIScreen() {
             ]}
             onPress={handleAnalyze}
             disabled={!canAnalyze || analyzing}
+            activeOpacity={0.8}
           >
             {analyzing ? (
               <ActivityIndicator size="small" color="#fff" />

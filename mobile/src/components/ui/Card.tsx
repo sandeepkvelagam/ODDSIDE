@@ -24,7 +24,13 @@ export function Card({
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={cardStyle}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          ...cardStyle,
+          pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+        ]}
+      >
         {children}
       </Pressable>
     );

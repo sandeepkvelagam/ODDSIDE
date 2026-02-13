@@ -193,6 +193,7 @@ export default function TestScreen() {
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={runAllTests}
           disabled={loading}
+          activeOpacity={0.8}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
@@ -201,7 +202,7 @@ export default function TestScreen() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>

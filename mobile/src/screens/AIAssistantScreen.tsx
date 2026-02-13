@@ -109,6 +109,7 @@ export function AIAssistantScreen() {
         <TouchableOpacity
           style={styles.glassButton}
           onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
         >
           <Ionicons name="chevron-down" size={24} color={COLORS.textSecondary} />
         </TouchableOpacity>
@@ -126,6 +127,7 @@ export function AIAssistantScreen() {
         <TouchableOpacity
           style={styles.pokerAIButton}
           onPress={() => navigation.navigate("PokerAI")}
+          activeOpacity={0.7}
         >
           <Ionicons name="diamond" size={16} color={COLORS.orange} />
           <Text style={styles.pokerAIText}>Poker AI</Text>
@@ -212,6 +214,7 @@ export function AIAssistantScreen() {
                   key={i}
                   style={styles.suggestionChip}
                   onPress={() => handleSuggestion(s)}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.suggestionText}>{s}</Text>
                 </TouchableOpacity>
@@ -240,6 +243,7 @@ export function AIAssistantScreen() {
               ]}
               onPress={() => sendMessage(input)}
               disabled={!input.trim() || loading}
+              activeOpacity={0.8}
             >
               <Ionicons
                 name="send"

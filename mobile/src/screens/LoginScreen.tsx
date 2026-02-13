@@ -129,6 +129,7 @@ export default function LoginScreen() {
             style={styles.linkButton}
             onPress={() => setIsSignUp(!isSignUp)}
             disabled={loading}
+            activeOpacity={0.6}
           >
             <Text style={styles.linkText}>
               {isSignUp

@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
+import { useLanguage } from "../context/LanguageContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;

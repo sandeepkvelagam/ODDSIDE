@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,13 +37,16 @@ export function RightDrawer({ children, title, rightAction }: Props) {
     <View style={[styles.container, { backgroundColor: colors.surface, paddingTop: insets.top + 12, paddingBottom: insets.bottom }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
+        <Pressable
+          style={({ pressed }) => [
+            styles.glassButton,
+            { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
+            pressed && styles.glassButtonPressed
+          ]}
           onPress={handleClose}
-          activeOpacity={0.7}
         >
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+        </Pressable>
 
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{title}</Text>
 
@@ -67,13 +70,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 18,
   },
-  backButton: {
+  glassButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+  },
+  glassButtonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.92 }],
   },
   headerTitle: {
     fontSize: 17,

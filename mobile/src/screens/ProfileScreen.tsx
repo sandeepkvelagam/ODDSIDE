@@ -365,7 +365,7 @@ export function ProfileScreen() {
             <Text style={[styles.deleteText, { color: colors.danger }]}>Delete account</Text>
           </TouchableOpacity>
 
-          <View style={{ height: 60 }} />
+          <View style={{ height: 30 }} />
         </ScrollView>
     </RightDrawer>
   );
@@ -411,16 +411,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "500",
-    marginBottom: 8,
-    marginTop: 4,
+    marginBottom: 6,
+    marginTop: 0,
   },
   input: {
     borderRadius: 14,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
     borderWidth: 1,
-    marginBottom: 20,
+    marginBottom: 12,
   },
   textArea: {
     borderRadius: 14,
@@ -434,13 +434,13 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 20,
+    marginBottom: 12,
   },
   button: {
     borderRadius: 24,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   buttonText: {
     fontSize: 16,
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    marginVertical: 24,
+    marginVertical: 14,
   },
   deleteButton: {
     flexDirection: "row",

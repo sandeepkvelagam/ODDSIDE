@@ -892,6 +892,21 @@ async def get_group_invites(group_id: str, user: User = Depends(get_current_user
     
     return invites
 
+@api_router.put("/users/me")
+async def update_user_profile(data: dict, user: User = Depends(get_current_user)):
+    """Update current user's profile."""
+    allowed_fields = {"name", "nickname", "preferences", "help_improve_ai"}
+    update_data = {k: v for k, v in data.items() if k in allowed_fields}
+
+    if update_data:
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$set": update_data}
+        )
+
+    updated_user = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    return updated_user or {"status": "updated"}
+
 @api_router.get("/users/search")
 async def search_users(query: str, user: User = Depends(get_current_user)):
     """Search for users by name or email."""

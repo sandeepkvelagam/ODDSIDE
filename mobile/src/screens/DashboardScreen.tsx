@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Pressable,
   Animated,
+  Modal,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -37,6 +38,7 @@ export function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // Animated pulse for live indicator
   const pulseAnim = useState(new Animated.Value(1))[0];
@@ -159,7 +161,7 @@ export function DashboardScreen() {
 
           {/* Center - Logo with tagline */}
           <View style={styles.headerCenter}>
-            <Text style={[styles.logoText, { color: colors.textPrimary }]}>Kvitt</Text>
+            <Text style={[styles.logoText, styles.logoBold, { color: colors.textPrimary }]}>Kvitt</Text>
             <Text style={[styles.logoSubtext, { color: colors.orange }]}>your side, settled</Text>
           </View>
 
@@ -170,6 +172,7 @@ export function DashboardScreen() {
               { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
               pressed && styles.glassButtonPressed
             ]}
+            onPress={() => navigation.navigate("Settings")}
           >
             <Ionicons
               name="notifications-outline"
@@ -203,7 +206,7 @@ export function DashboardScreen() {
             </View>
             <TouchableOpacity
               style={[styles.helpButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-              onPress={() => {/* TODO: Show help/onboarding */}}
+              onPress={() => setShowHelpModal(true)}
               activeOpacity={0.7}
             >
               <Ionicons name="help-circle-outline" size={18} color={colors.textSecondary} />
@@ -337,35 +340,34 @@ export function DashboardScreen() {
                 No active games right now
               </Text>
             ) : (
-              activeGames.slice(0, 3).map((game, index) => (
-                <TouchableOpacity
-                  key={game.game_id || game._id}
-                  style={[
-                    styles.liveGameItem,
-                    index < Math.min(activeGames.length, 3) - 1 && {
-                      borderBottomWidth: 1,
-                      borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
-                    }
-                  ]}
-                  onPress={() => navigation.navigate("GameNight", { gameId: game.game_id || game._id })}
-                  activeOpacity={0.7}
-                >
-                  <Animated.View style={[styles.liveIndicator, { opacity: pulseAnim }]} />
-                  <View style={styles.liveGameInfo}>
-                    <Text style={[styles.liveGameTitle, { color: colors.textPrimary }]}>
-                      {game.title || game.group_name || "Game Night"}
-                    </Text>
-                    <Text style={[styles.liveGameMeta, { color: colors.textMuted }]}>
-                      {game.player_count || 0} players{game.total_pot ? ` · $${game.total_pot} pot` : ''}
-                    </Text>
-                  </View>
-                  <View style={styles.liveBadge}>
-                    <Text style={styles.liveBadgeText}>
-                      {game.status === 'active' ? 'LIVE' : 'SCHEDULED'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))
+              <View style={styles.itemsContainer}>
+                {activeGames.slice(0, 3).map((game) => (
+                  <TouchableOpacity
+                    key={game.game_id || game._id}
+                    style={[
+                      styles.itemCard,
+                      { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
+                    ]}
+                    onPress={() => navigation.navigate("GameNight", { gameId: game.game_id || game._id })}
+                    activeOpacity={0.7}
+                  >
+                    <Animated.View style={[styles.liveIndicator, { opacity: pulseAnim }]} />
+                    <View style={styles.liveGameInfo}>
+                      <Text style={[styles.liveGameTitle, { color: colors.textPrimary }]}>
+                        {game.title || game.group_name || "Game Night"}
+                      </Text>
+                      <Text style={[styles.liveGameMeta, { color: colors.textMuted }]}>
+                        {game.player_count || 0} players{game.total_pot ? ` · $${game.total_pot} pot` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.liveBadge}>
+                      <Text style={styles.liveBadgeText}>
+                        {game.status === 'active' ? 'LIVE' : 'SCHEDULED'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
             <TouchableOpacity
               style={[styles.viewAllButton, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}
@@ -387,36 +389,35 @@ export function DashboardScreen() {
                 No groups yet. Create one!
               </Text>
             ) : (
-              groups.slice(0, 3).map((group, index) => (
-                <TouchableOpacity
-                  key={group.group_id || group._id}
-                  style={[
-                    styles.groupItem,
-                    index < Math.min(groups.length, 3) - 1 && {
-                      borderBottomWidth: 1,
-                      borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
-                    }
-                  ]}
-                  onPress={() => navigation.navigate("Groups")}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.groupInfo}>
-                    <View style={styles.groupNameRow}>
-                      <Text style={[styles.groupName, { color: colors.textPrimary }]}>{group.name}</Text>
-                      {group.user_role === 'admin' && (
-                        <View style={styles.adminBadge}>
-                          <Ionicons name="star" size={10} color="#eab308" />
-                          <Text style={styles.adminText}>Admin</Text>
-                        </View>
-                      )}
+              <View style={styles.itemsContainer}>
+                {groups.slice(0, 3).map((group) => (
+                  <TouchableOpacity
+                    key={group.group_id || group._id}
+                    style={[
+                      styles.itemCard,
+                      { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
+                    ]}
+                    onPress={() => navigation.navigate("Groups")}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.groupInfo}>
+                      <View style={styles.groupNameRow}>
+                        <Text style={[styles.groupName, { color: colors.textPrimary }]}>{group.name}</Text>
+                        {group.user_role === 'admin' && (
+                          <View style={styles.adminBadge}>
+                            <Ionicons name="star" size={10} color="#eab308" />
+                            <Text style={styles.adminText}>Admin</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.groupMeta, { color: colors.textMuted }]}>
+                        {group.member_count || 0} members
+                      </Text>
                     </View>
-                    <Text style={[styles.groupMeta, { color: colors.textMuted }]}>
-                      {group.member_count || 0} members
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                </TouchableOpacity>
-              ))
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
             <TouchableOpacity
               style={[styles.manageButton, { backgroundColor: colors.orange }]}
@@ -437,35 +438,34 @@ export function DashboardScreen() {
                   <Text style={[styles.seeAll, { color: colors.orange }]}>See all</Text>
                 </TouchableOpacity>
               </View>
-              {recentGames.map((game, index) => {
-                const gameResult = game.net_result || game.result || 0;
-                return (
-                  <TouchableOpacity
-                    key={game.game_id || game._id || index}
-                    style={[
-                      styles.recentResultItem,
-                      index < recentGames.length - 1 && {
-                        borderBottomWidth: 1,
-                        borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
-                      }
-                    ]}
-                    onPress={() => navigation.navigate("GameNight", { gameId: game.game_id || game._id })}
-                    activeOpacity={0.7}
-                  >
-                    <View>
-                      <Text style={[styles.recentGameTitle, { color: colors.textPrimary }]}>
-                        {game.title || game.group_name || "Game Night"}
+              <View style={styles.itemsContainer}>
+                {recentGames.map((game, index) => {
+                  const gameResult = game.net_result || game.result || 0;
+                  return (
+                    <TouchableOpacity
+                      key={game.game_id || game._id || index}
+                      style={[
+                        styles.itemCard,
+                        { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
+                      ]}
+                      onPress={() => navigation.navigate("GameNight", { gameId: game.game_id || game._id })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.recentGameTitle, { color: colors.textPrimary }]}>
+                          {game.title || game.group_name || "Game Night"}
+                        </Text>
+                        <Text style={[styles.recentGameDate, { color: colors.textMuted }]}>
+                          {formatDate(game.ended_at || game.date)}
+                        </Text>
+                      </View>
+                      <Text style={[styles.recentResult, { color: gameResult >= 0 ? colors.success : colors.danger }]}>
+                        {gameResult >= 0 ? '+' : ''}{gameResult.toFixed(0)}
                       </Text>
-                      <Text style={[styles.recentGameDate, { color: colors.textMuted }]}>
-                        {formatDate(game.ended_at || game.date)}
-                      </Text>
-                    </View>
-                    <Text style={[styles.recentResult, { color: gameResult >= 0 ? colors.success : colors.danger }]}>
-                      {gameResult >= 0 ? '+' : ''}{gameResult.toFixed(0)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           )}
 
@@ -509,6 +509,77 @@ export function DashboardScreen() {
           {/* Bottom spacing for FAB */}
           <View style={{ height: 100 }} />
         </ScrollView>
+
+        {/* Help Modal */}
+        <Modal
+          visible={showHelpModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowHelpModal(false)}
+        >
+          <Pressable
+            style={styles.helpModalOverlay}
+            onPress={() => setShowHelpModal(false)}
+          >
+            <Pressable style={[styles.helpModalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.helpModalHeader}>
+                <Text style={[styles.helpModalTitle, { color: colors.textPrimary }]}>Getting Started</Text>
+                <TouchableOpacity onPress={() => setShowHelpModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.helpTipsList}>
+                <View style={styles.helpTip}>
+                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(232,132,92,0.15)" }]}>
+                    <Ionicons name="people" size={20} color={colors.orange} />
+                  </View>
+                  <View style={styles.helpTipText}>
+                    <Text style={[styles.helpTipTitle, { color: colors.textPrimary }]}>Create a Group</Text>
+                    <Text style={[styles.helpTipDesc, { color: colors.textSecondary }]}>Start by creating a poker group and inviting friends</Text>
+                  </View>
+                </View>
+
+                <View style={styles.helpTip}>
+                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
+                    <Ionicons name="game-controller" size={20} color="#22c55e" />
+                  </View>
+                  <View style={styles.helpTipText}>
+                    <Text style={[styles.helpTipTitle, { color: colors.textPrimary }]}>Start a Game Night</Text>
+                    <Text style={[styles.helpTipDesc, { color: colors.textSecondary }]}>Track buy-ins, rebuys, and cash-outs in real-time</Text>
+                  </View>
+                </View>
+
+                <View style={styles.helpTip}>
+                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(59,130,246,0.15)" }]}>
+                    <Ionicons name="wallet" size={20} color="#3b82f6" />
+                  </View>
+                  <View style={styles.helpTipText}>
+                    <Text style={[styles.helpTipTitle, { color: colors.textPrimary }]}>Auto Settlement</Text>
+                    <Text style={[styles.helpTipDesc, { color: colors.textSecondary }]}>We calculate who owes whom automatically</Text>
+                  </View>
+                </View>
+
+                <View style={styles.helpTip}>
+                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(139,92,246,0.15)" }]}>
+                    <Ionicons name="chatbubbles" size={20} color="#8b5cf6" />
+                  </View>
+                  <View style={styles.helpTipText}>
+                    <Text style={[styles.helpTipTitle, { color: colors.textPrimary }]}>AI Assistant</Text>
+                    <Text style={[styles.helpTipDesc, { color: colors.textSecondary }]}>Ask questions about your stats and game history</Text>
+                  </View>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.helpModalButton, { backgroundColor: colors.orange }]}
+                onPress={() => setShowHelpModal(false)}
+              >
+                <Text style={styles.helpModalButtonText}>Got it!</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
     </AppDrawer>
   );
@@ -550,8 +621,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logoText: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "500",
+  },
+  logoBold: {
+    fontWeight: "800",
   },
   logoSubtext: {
     fontSize: 11,
@@ -587,6 +661,10 @@ const styles = StyleSheet.create({
   welcomeSubtitle: {
     fontSize: 14,
     marginTop: 4,
+  },
+  welcomeBrand: {
+    fontWeight: "800",
+    color: "#EF6E59",
   },
   helpButton: {
     flexDirection: "row",
@@ -754,6 +832,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
   },
+  // Items container and card for section items
+  itemsContainer: {
+    gap: 8,
+    marginTop: 8,
+  },
+  itemCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+  },
   // Live Games
   liveGameItem: {
     flexDirection: "row",
@@ -897,5 +986,67 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 13,
     fontWeight: "500",
+  },
+  // Help Modal
+  helpModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  helpModalContent: {
+    width: "100%",
+    maxWidth: 360,
+    borderRadius: 20,
+    padding: 24,
+  },
+  helpModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  helpModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  helpTipsList: {
+    gap: 16,
+  },
+  helpTip: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  helpTipIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  helpTipText: {
+    flex: 1,
+  },
+  helpTipTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  helpTipDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  helpModalButton: {
+    marginTop: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  helpModalButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

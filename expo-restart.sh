@@ -2,6 +2,8 @@
 # Expo Server Restart & QR Code Generator
 # Usage: bash /app/expo-restart.sh
 
+set +e  # Don't exit on errors
+
 echo "========================================="
 echo "  Expo Server Restart & QR Generator"
 echo "========================================="
@@ -9,9 +11,7 @@ echo "========================================="
 # 1. Kill existing processes
 echo ""
 echo "1. Killing existing processes..."
-pkill -f "expo" 2>/dev/null
-pkill -f "metro" 2>/dev/null
-pkill -f "ngrok" 2>/dev/null
+killall -9 node 2>/dev/null
 sleep 2
 echo "   Done!"
 
@@ -26,7 +26,7 @@ echo "   Done!"
 echo ""
 echo "3. Starting Expo server with tunnel..."
 cd /app/mobile
-npx expo start --tunnel --clear > /tmp/expo.log 2>&1 &
+nohup npx expo start --tunnel --clear > /tmp/expo.log 2>&1 &
 echo "   Waiting for server to start (40 seconds)..."
 sleep 40
 
@@ -80,3 +80,5 @@ echo "  Latest logs:"
 tail -5 /tmp/expo.log
 echo ""
 echo "========================================="
+
+exit 0

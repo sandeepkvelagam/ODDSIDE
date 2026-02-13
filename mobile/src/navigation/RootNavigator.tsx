@@ -143,7 +143,6 @@ export default function RootNavigator() {
                 options={{
                   headerShown: false,
                   animation: "slide_from_right",
-                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen

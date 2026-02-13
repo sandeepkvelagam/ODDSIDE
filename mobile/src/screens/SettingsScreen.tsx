@@ -215,12 +215,10 @@ export function SettingsScreen() {
   return (
     <View
       testID="settings-screen"
-      style={[styles.container, { backgroundColor: "transparent", paddingTop: insets.top + 4 }]}
+      style={[styles.container, { backgroundColor: colors.surface, paddingTop: insets.top + 12, paddingBottom: insets.bottom }]}
     >
-      {/* Main card */}
-      <View style={[styles.mainCard, { backgroundColor: colors.surface }]}>
-        {/* Header */}
-        <View style={styles.header}>
+      {/* Header */}
+      <View style={styles.header}>
           <Pressable
             testID="settings-close-button"
             style={({ pressed }) => [
@@ -277,8 +275,8 @@ export function SettingsScreen() {
           <TouchableOpacity
             testID="settings-billing-button"
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate("Billing")}
             activeOpacity={0.7}
-            disabled
           >
             <Ionicons name="card-outline" size={22} color={colors.textPrimary} />
             <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>{t.settings.billing}</Text>
@@ -381,7 +379,6 @@ export function SettingsScreen() {
 
           <View style={{ height: 60 }} />
         </ScrollView>
-      </View>
 
       {/* Appearance Popup */}
       <Modal

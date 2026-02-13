@@ -34,7 +34,7 @@ export function RightDrawer({ children, title, rightAction }: Props) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, paddingTop: insets.top + 16, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { backgroundColor: colors.surface, paddingTop: insets.top + 12, paddingBottom: insets.bottom }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

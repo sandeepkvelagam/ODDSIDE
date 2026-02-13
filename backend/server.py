@@ -4744,6 +4744,53 @@ async def get_devices(user: User = Depends(get_current_user)):
         
         return response.json()
 
+@api_router.put("/spotify/shuffle")
+async def set_shuffle(state: bool, device_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Toggle shuffle state."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+
+    async with httpx.AsyncClient() as client:
+        url = f"https://api.spotify.com/v1/me/player/shuffle?state={str(state).lower()}"
+        if device_id:
+            url += f"&device_id={device_id}"
+
+        response = await client.put(
+            url,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+
+        if response.status_code not in [200, 204]:
+            raise HTTPException(status_code=response.status_code, detail="Failed to set shuffle")
+
+        return {"status": "shuffle_set", "state": state}
+
+@api_router.put("/spotify/repeat")
+async def set_repeat(state: str, device_id: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Set repeat mode: off, context, or track."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+
+    if state not in ["off", "context", "track"]:
+        raise HTTPException(status_code=400, detail="Invalid repeat state. Must be: off, context, or track")
+
+    async with httpx.AsyncClient() as client:
+        url = f"https://api.spotify.com/v1/me/player/repeat?state={state}"
+        if device_id:
+            url += f"&device_id={device_id}"
+
+        response = await client.put(
+            url,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+
+        if response.status_code not in [200, 204]:
+            raise HTTPException(status_code=response.status_code, detail="Failed to set repeat")
+
+        return {"status": "repeat_set", "state": state}
+
 
 # ============== ROOT ENDPOINT ==============
 

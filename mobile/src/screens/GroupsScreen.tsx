@@ -41,6 +41,7 @@ function generateRandomName() {
 
 export function GroupsScreen() {
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation<Nav>();
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [loading, setLoading] = useState(true);

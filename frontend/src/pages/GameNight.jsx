@@ -12,10 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { 
+import {
   Play, Square, DollarSign, Plus, Send, Clock,
   Users, MessageSquare, ArrowLeft, Coins, User,
-  HelpCircle, Crown, History, Hand, LogOut, CheckCircle, Wifi, WifiOff
+  HelpCircle, Crown, History, Hand, LogOut, CheckCircle, Wifi, WifiOff, Pencil
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useGameSocket } from "@/hooks/useGameSocket";
@@ -56,6 +56,9 @@ export default function GameNight() {
   const [elapsedTime, setElapsedTime] = useState("0:00:00");
   const [showHandRankings, setShowHandRankings] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [editChipsDialogOpen, setEditChipsDialogOpen] = useState(false);
+  const [editChipsValue, setEditChipsValue] = useState("");
+  const [editChipsReason, setEditChipsReason] = useState("");
 
   // WebSocket for real-time updates
   const { isConnected, on } = useGameSocket(gameId);
@@ -339,6 +342,38 @@ export default function GameNight() {
     }
   };
 
+  // Edit chips for a cashed-out player
+  const handleEditChips = async () => {
+    if (!selectedPlayer) {
+      toast.error("Select a player");
+      return;
+    }
+    const chips = parseInt(editChipsValue);
+    if (isNaN(chips) || chips < 0) {
+      toast.error("Enter a valid chip count");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/games/${gameId}/edit-player-chips`, {
+        user_id: selectedPlayer.user_id,
+        chips_count: chips,
+        reason: editChipsReason || undefined
+      });
+      toast.success(`Chips updated for ${selectedPlayer.user?.name}!`);
+      setEditChipsDialogOpen(false);
+      setEditChipsValue("");
+      setEditChipsReason("");
+      setSelectedPlayer(null);
+      fetchGame();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to edit chips");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!message.trim()) return;
@@ -585,7 +620,7 @@ export default function GameNight() {
         {isSettled && (
           <Card className="bg-card border-border/50 mb-6">
             <CardContent className="p-4 md:p-6 text-center">
-              <p className="text-muted-foreground mb-4">This game has been settled.</p>
+              <p className="text-muted-foreground mb-4">Game over! See who owes whom below.</p>
               <Button onClick={() => navigate(`/games/${gameId}/settlement`)}>
                 View Settlement
               </Button>
@@ -1061,13 +1096,30 @@ export default function GameNight() {
                             
                             <div className="flex items-center gap-2 flex-shrink-0">
                               {player.cashed_out ? (
-                                <div className="text-right">
-                                  <p className={`font-mono text-sm md:text-base font-bold ${
-                                    player.net_result >= 0 ? 'text-green-600' : 'text-destructive'
-                                  }`}>
-                                    {player.net_result >= 0 ? '+' : ''}${player.net_result?.toFixed(0)}
-                                  </p>
-                                  <p className="text-[10px] md:text-xs text-green-600">Cashed out</p>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-right">
+                                    <p className={`font-mono text-sm md:text-base font-bold ${
+                                      player.net_result >= 0 ? 'text-green-600' : 'text-destructive'
+                                    }`}>
+                                      {player.net_result >= 0 ? '+' : ''}${player.net_result?.toFixed(0)}
+                                    </p>
+                                    <p className="text-[10px] md:text-xs text-green-600">Cashed out</p>
+                                  </div>
+                                  {isHost && (isActive || isEnded) && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                      onClick={() => {
+                                        setSelectedPlayer(player);
+                                        setEditChipsValue(String(player.chips_returned || 0));
+                                        setEditChipsReason("");
+                                        setEditChipsDialogOpen(true);
+                                      }}
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </Button>
+                                  )}
                                 </div>
                               ) : isHost && isActive ? (
                                 <div className="flex gap-1">
@@ -1361,13 +1413,100 @@ export default function GameNight() {
                 </div>
               )}
 
-              <Button 
+              <Button
                 className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
                 disabled={!selectedPlayer || !adminCashOutChips || submitting}
                 onClick={handleAdminCashOut}
                 data-testid="confirm-admin-cash-out-btn"
               >
                 {submitting ? "Processing..." : "Confirm Cash Out"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Chips Dialog */}
+        <Dialog open={editChipsDialogOpen} onOpenChange={setEditChipsDialogOpen}>
+          <DialogContent className="bg-card border-border mx-4 max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-heading text-xl md:text-2xl font-bold">EDIT CHIPS</DialogTitle>
+              <DialogDescription>
+                Correct the chip count for {selectedPlayer?.user?.name}. The player will be notified.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              {/* Current Info */}
+              {selectedPlayer && (
+                <div className="p-3 bg-secondary/30 rounded-lg space-y-1">
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">Player:</span>{" "}
+                    <span className="font-medium">{selectedPlayer.user?.name}</span>
+                  </p>
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">Current chips returned:</span>{" "}
+                    <span className="font-mono">{selectedPlayer.chips_returned || 0}</span>
+                  </p>
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">Total buy-in:</span>{" "}
+                    <span className="font-mono">${selectedPlayer.total_buy_in || 0}</span>
+                  </p>
+                </div>
+              )}
+
+              {/* New Chip Count */}
+              <div>
+                <Label htmlFor="editChipsValue">New Chip Count</Label>
+                <Input
+                  id="editChipsValue"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Enter corrected chip count"
+                  value={editChipsValue}
+                  onChange={(e) => setEditChipsValue(e.target.value)}
+                  className="bg-secondary/50 border-border text-xl h-12 font-mono"
+                />
+              </div>
+
+              {/* Reason (optional) */}
+              <div>
+                <Label htmlFor="editChipsReason">Reason (optional)</Label>
+                <Input
+                  id="editChipsReason"
+                  type="text"
+                  placeholder="e.g., Miscount correction"
+                  value={editChipsReason}
+                  onChange={(e) => setEditChipsReason(e.target.value)}
+                  className="bg-secondary/50 border-border"
+                />
+              </div>
+
+              {/* Preview */}
+              {selectedPlayer && editChipsValue && (
+                <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg space-y-1">
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">New cash value:</span>{" "}
+                    <span className="font-mono">${(parseInt(editChipsValue) * chipValue).toFixed(2)}</span>
+                  </p>
+                  <p className="text-sm font-bold">
+                    <span className="text-muted-foreground">New net result:</span>{" "}
+                    <span className={`font-mono ${
+                      (parseInt(editChipsValue) * chipValue) >= (selectedPlayer.total_buy_in || 0)
+                        ? 'text-green-600' : 'text-destructive'
+                    }`}>
+                      {(parseInt(editChipsValue) * chipValue) >= (selectedPlayer.total_buy_in || 0) ? '+' : ''}
+                      ${((parseInt(editChipsValue) * chipValue) - (selectedPlayer.total_buy_in || 0)).toFixed(2)}
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              <Button
+                className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+                disabled={!selectedPlayer || !editChipsValue || submitting}
+                onClick={handleEditChips}
+              >
+                {submitting ? "Updating..." : "Update Chips"}
               </Button>
             </div>
           </DialogContent>

@@ -2991,6 +2991,47 @@ async def mark_paid(ledger_id: str, data: MarkPaidRequest, user: User = Depends(
     
     return {"message": "Status updated"}
 
+@api_router.post("/ledger/{ledger_id}/request-payment")
+async def request_payment(ledger_id: str, user: User = Depends(get_current_user)):
+    """Send payment request notification to debtor."""
+    entry = await db.ledger.find_one({"ledger_id": ledger_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Ledger entry not found")
+
+    # Only creditor can request payment
+    if entry["to_user_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Only the creditor can request payment")
+
+    if entry["status"] == "paid":
+        raise HTTPException(status_code=400, detail="This debt has already been paid")
+
+    # Get debtor info
+    debtor = await db.users.find_one({"user_id": entry["from_user_id"]})
+
+    # Create notification for debtor
+    notification = {
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": entry["from_user_id"],
+        "title": "Payment Requested",
+        "message": f"{user.name} is requesting payment of ${entry['amount']:.2f}",
+        "type": "payment_request",
+        "data": {
+            "ledger_id": ledger_id,
+            "amount": entry["amount"],
+            "creditor_name": user.name,
+            "creditor_id": user.user_id
+        },
+        "channels": ["in_app"],
+        "read": False,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.notifications.insert_one(notification)
+
+    # Send real-time notification via WebSocket
+    await emit_notification(entry["from_user_id"], notification)
+
+    return {"status": "requested", "message": f"Payment request sent to {debtor['name'] if debtor else 'user'}"}
+
 @api_router.put("/ledger/{ledger_id}/edit")
 async def edit_ledger(ledger_id: str, data: LedgerEditRequest, user: User = Depends(get_current_user)):
     """Edit a locked ledger entry (admin only with reason)."""

@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { 
+import {
   User, Mail, TrendingUp, TrendingDown, Trophy,
-  DollarSign, Target, LogOut, ArrowLeft, Moon, Sun
+  DollarSign, Target, LogOut, ArrowLeft, Moon, Sun, Bell
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import UserBadges from "@/components/UserBadges";
@@ -61,6 +61,15 @@ export default function Profile() {
       navigate("/");
     } catch (error) {
       navigate("/");
+    }
+  };
+
+  const handleRequestPayment = async (entry) => {
+    try {
+      await axios.post(`${API}/ledger/${entry.ledger_id}/request-payment`);
+      toast.success(`Payment request sent to ${entry.from_user?.name}`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to send request");
     }
   };
 
@@ -259,7 +268,18 @@ export default function Profile() {
                       <p className="font-medium text-sm sm:text-base">{entry.from_user?.name} owes you</p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">From recent game</p>
                     </div>
-                    <span className="font-mono font-bold text-primary text-sm sm:text-base">${entry.amount.toFixed(2)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-primary text-sm sm:text-base">${entry.amount.toFixed(2)}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => handleRequestPayment(entry)}
+                      >
+                        <Bell className="w-3 h-3 mr-1" />
+                        Request
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Check, X, Lock, CreditCard, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, X, Lock, CreditCard, Loader2, AlertTriangle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -101,6 +101,11 @@ export default function Settlement() {
   const losers = game?.players?.filter(p => (p.net_result || 0) < 0) || [];
   const totalPot = game?.players?.reduce((sum, p) => sum + (p.total_buy_in || 0), 0) || 0;
 
+  // Calculate discrepancy (total in vs total out)
+  const totalIn = game?.players?.reduce((sum, p) => sum + (p.total_buy_in || 0), 0) || 0;
+  const totalOut = game?.players?.reduce((sum, p) => sum + (p.cash_out || 0), 0) || 0;
+  const discrepancy = totalIn - totalOut;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -147,6 +152,24 @@ export default function Settlement() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Discrepancy Warning */}
+        {Math.abs(discrepancy) > 0.01 && (
+          <Card className="bg-amber-500/10 border-amber-500/30 mb-6" data-testid="discrepancy-warning">
+            <CardContent className="p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-amber-500">Chip Discrepancy Detected</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Total buy-ins: ${totalIn.toFixed(2)} | Total cash-outs: ${totalOut.toFixed(2)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Difference: ${Math.abs(discrepancy).toFixed(2)} {discrepancy > 0 ? '(more in than out)' : '(more out than in)'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Results */}
         <Card className="bg-card border-border/50 mb-6" data-testid="results-card">

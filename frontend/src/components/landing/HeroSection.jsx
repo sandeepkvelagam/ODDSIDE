@@ -2,6 +2,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ChevronDown, Clock, Trophy, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarImage,
+} from "@/components/ui/avatar";
 import Logo from "@/components/Logo";
 import TypewriterText from "./TypewriterText";
 import EventFlowAnimation from "./EventFlowAnimation";
@@ -98,6 +104,47 @@ export default function HeroSection() {
             </button>
           </div>
         )}
+
+        {/* Trusted by players */}
+        <div className="flex justify-center mb-8">
+          <div className="border-white/20 rounded-full flex items-center gap-1.5 border p-1 shadow-sm shadow-black/5 bg-white/5 backdrop-blur-sm">
+            <AvatarGroup>
+              <Avatar className="size-7 border-2 border-white/10">
+                <AvatarImage
+                  src="https://images.unsplash.com/photo-1542595913-85d69b0edbaf?w=96&h=96&dpr=2&q=80"
+                  alt="Liam Thompson"
+                />
+                <AvatarFallback>LT</AvatarFallback>
+              </Avatar>
+              <Avatar className="size-7 border-2 border-white/10">
+                <AvatarImage
+                  src="https://images.unsplash.com/photo-1485206412256-701ccc5b93ca?w=96&h=96&dpr=2&q=80"
+                  alt="Nick Johnson"
+                />
+                <AvatarFallback>NJ</AvatarFallback>
+              </Avatar>
+              <Avatar className="size-7 border-2 border-white/10">
+                <AvatarImage
+                  src="https://images.unsplash.com/photo-1620075225255-8c2051b6c015?w=96&h=96&dpr=2&q=80"
+                  alt="Maria Garcia"
+                />
+                <AvatarFallback>MG</AvatarFallback>
+              </Avatar>
+              <Avatar className="size-7 border-2 border-white/10">
+                <AvatarImage
+                  src="https://github.com/leerob.png"
+                  alt="@leerob"
+                />
+                <AvatarFallback>CH</AvatarFallback>
+              </Avatar>
+            </AvatarGroup>
+
+            <p className="text-white/60 me-1.5 text-xs">
+              Trusted by <span className="text-white font-semibold">100K+</span>{" "}
+              players.
+            </p>
+          </div>
+        </div>
 
         {/* Trust badges */}
         <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-16 text-xs sm:text-sm text-white/50">

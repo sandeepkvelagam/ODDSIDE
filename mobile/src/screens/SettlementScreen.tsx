@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Linking,
+  Alert,
 } from "react-native";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +16,7 @@ import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
+import Constants from "expo-constants";
 
 type R = RouteProp<RootStackParamList, "Settlement">;
 
@@ -29,6 +32,7 @@ export function SettlementScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [payingStripe, setPayingStripe] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +65,35 @@ export function SettlementScreen() {
       setError(e?.response?.data?.detail || e?.message || "Failed to update payment");
     } finally {
       setMarkingPaid(null);
+    }
+  };
+
+  const handlePayWithStripe = async (ledgerId: string) => {
+    setPayingStripe(ledgerId);
+    try {
+      // Get the app's base URL for redirects
+      const originUrl = Constants.expoConfig?.extra?.apiUrl || "https://kvitt.app";
+
+      const res = await api.post(`/settlements/${ledgerId}/pay`, {
+        origin_url: originUrl,
+      });
+
+      if (res.data?.url) {
+        // Open Stripe checkout in browser
+        const canOpen = await Linking.canOpenURL(res.data.url);
+        if (canOpen) {
+          await Linking.openURL(res.data.url);
+        } else {
+          Alert.alert("Error", "Unable to open payment page. Please try again.");
+        }
+      } else {
+        Alert.alert("Error", "Failed to create payment link. Please try again.");
+      }
+    } catch (e: any) {
+      const message = e?.response?.data?.detail || e?.message || "Failed to initiate payment";
+      Alert.alert("Payment Error", message);
+    } finally {
+      setPayingStripe(null);
     }
   };
 
@@ -211,33 +244,55 @@ export function SettlementScreen() {
                         </Text>
                         <Text style={[styles.paymentAmount, { color: colors.orange }]}>${payment.amount?.toFixed(2)}</Text>
                       </View>
-                      {canMarkPaid && (
-                        <TouchableOpacity
-                          style={[
-                            styles.markPaidButton,
-                            isPaid
-                              ? { backgroundColor: "rgba(34,197,94,0.15)", borderColor: "rgba(34,197,94,0.3)" }
-                              : { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
-                          ]}
-                          onPress={() => handleMarkPaid(payment.ledger_id, isPaid)}
-                          disabled={markingPaid === payment.ledger_id}
-                        >
-                          {markingPaid === payment.ledger_id ? (
-                            <ActivityIndicator size="small" color={colors.textMuted} />
-                          ) : (
-                            <>
-                              <Ionicons
-                                name={isPaid ? "checkmark-circle" : "checkmark-circle-outline"}
-                                size={18}
-                                color={isPaid ? colors.success : colors.textMuted}
-                              />
-                              <Text style={[styles.markPaidText, { color: isPaid ? colors.success : colors.textMuted }]}>
-                                {isPaid ? "Paid" : "Mark Paid"}
-                              </Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
-                      )}
+                      {/* Action buttons */}
+                      <View style={styles.paymentActions}>
+                        {/* Pay with Stripe button - only for debtor on unpaid debts */}
+                        {isFromUser && !isPaid && (
+                          <TouchableOpacity
+                            style={[styles.stripeButton, { backgroundColor: colors.orange }]}
+                            onPress={() => handlePayWithStripe(payment.ledger_id)}
+                            disabled={payingStripe === payment.ledger_id}
+                          >
+                            {payingStripe === payment.ledger_id ? (
+                              <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                              <>
+                                <Ionicons name="card-outline" size={16} color="#fff" />
+                                <Text style={styles.stripeButtonText}>Pay with Stripe</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        )}
+
+                        {/* Mark as Paid button */}
+                        {canMarkPaid && (
+                          <TouchableOpacity
+                            style={[
+                              styles.markPaidButton,
+                              isPaid
+                                ? { backgroundColor: "rgba(34,197,94,0.15)", borderColor: "rgba(34,197,94,0.3)" }
+                                : { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
+                            ]}
+                            onPress={() => handleMarkPaid(payment.ledger_id, isPaid)}
+                            disabled={markingPaid === payment.ledger_id}
+                          >
+                            {markingPaid === payment.ledger_id ? (
+                              <ActivityIndicator size="small" color={colors.textMuted} />
+                            ) : (
+                              <>
+                                <Ionicons
+                                  name={isPaid ? "checkmark-circle" : "checkmark-circle-outline"}
+                                  size={18}
+                                  color={isPaid ? colors.success : colors.textMuted}
+                                />
+                                <Text style={[styles.markPaidText, { color: isPaid ? colors.success : colors.textMuted }]}>
+                                  {isPaid ? "Paid" : "Mark Paid"}
+                                </Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                     {idx < payments.length - 1 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
                   </View>
@@ -452,5 +507,26 @@ const styles = StyleSheet.create({
   markPaidText: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  paymentActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  stripeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    minWidth: 150,
+  },
+  stripeButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

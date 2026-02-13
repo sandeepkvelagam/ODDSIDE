@@ -8,6 +8,13 @@ import {
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarGroupCount,
+  AvatarImage,
+} from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 const members = [
@@ -272,19 +279,23 @@ export default function GroupDemo() {
                         : `${visibleMembers.length} members`}
                     </p>
                   </div>
-                  <div className="flex -space-x-2">
-                    {visibleMembers.map((m, i) => (
-                      <div
+                  <AvatarGroup>
+                    {visibleMembers.slice(0, 3).map((m, i) => (
+                      <Avatar
                         key={i}
-                        className={cn(
-                          "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white border-2 border-white animate-fade-in-up",
-                          m.color
-                        )}
+                        className="size-7 border-2 border-white animate-fade-in-up"
                       >
-                        {m.avatar}
-                      </div>
+                        <AvatarFallback className={cn("text-[10px] font-bold text-white", m.color)}>
+                          {m.avatar}
+                        </AvatarFallback>
+                      </Avatar>
                     ))}
-                  </div>
+                    {visibleMembers.length > 3 && (
+                      <AvatarGroupCount className="size-7 text-[10px] border-white">
+                        +{visibleMembers.length - 3}
+                      </AvatarGroupCount>
+                    )}
+                  </AvatarGroup>
                 </div>
 
                 {/* Search bar — visible during phase 0 */}

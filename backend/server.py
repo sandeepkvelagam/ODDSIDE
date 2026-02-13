@@ -1588,6 +1588,90 @@ async def start_game(game_id: str, user: User = Depends(get_current_user)):
     
     return {"message": "Game started", "player_count": player_count}
 
+
+async def auto_generate_settlement(game_id: str, game: dict, players: list) -> dict:
+    """
+    Smart Settlement Algorithm - Automatically generates optimized settlement.
+
+    Algorithm: Greedy Debt Minimization
+    - Separates players into winners (positive net) and losers (negative net)
+    - Matches losers to winners to minimize total transactions
+    - Consolidates payments to reduce complexity
+
+    Returns: {"settlements": [...]} with minimized payment list
+    """
+    # Calculate net results for each player
+    all_players = []
+    for p in players:
+        buy_in = p.get("total_buy_in", 0)
+        cash_out = p.get("cash_out", 0)
+        net_result = cash_out - buy_in
+        all_players.append({
+            "user_id": p["user_id"],
+            "net_result": net_result
+        })
+
+    # Separate winners and losers
+    winners = [(p["user_id"], p["net_result"]) for p in all_players if p["net_result"] > 0.01]
+    losers = [(p["user_id"], -p["net_result"]) for p in all_players if p["net_result"] < -0.01]
+
+    # Sort for optimal matching (largest first)
+    winners.sort(key=lambda x: -x[1])
+    losers.sort(key=lambda x: -x[1])
+
+    settlements = []
+
+    # Match losers to winners (greedy algorithm)
+    i, j = 0, 0
+    while i < len(losers) and j < len(winners):
+        loser_id, loser_debt = losers[i]
+        winner_id, winner_credit = winners[j]
+
+        amount = min(loser_debt, winner_credit)
+
+        if amount > 0.01:
+            settlements.append({
+                "from_user_id": loser_id,
+                "to_user_id": winner_id,
+                "amount": round(amount, 2)
+            })
+
+        losers[i] = (loser_id, round(loser_debt - amount, 2))
+        winners[j] = (winner_id, round(winner_credit - amount, 2))
+
+        if losers[i][1] <= 0.01:
+            i += 1
+        if winners[j][1] <= 0.01:
+            j += 1
+
+    # Delete any existing settlements for this game
+    await db.ledger.delete_many({"game_id": game_id})
+
+    # Create ledger entries
+    for s in settlements:
+        entry = LedgerEntry(
+            group_id=game["group_id"],
+            game_id=game_id,
+            from_user_id=s["from_user_id"],
+            to_user_id=s["to_user_id"],
+            amount=s["amount"]
+        )
+        entry_dict = entry.model_dump()
+        entry_dict["created_at"] = entry_dict["created_at"].isoformat()
+        if entry_dict.get("paid_at"):
+            entry_dict["paid_at"] = entry_dict["paid_at"].isoformat()
+        await db.ledger.insert_one(entry_dict)
+
+    # Update game status to settled
+    await db.game_nights.update_one(
+        {"game_id": game_id},
+        {"$set": {"status": "settled", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    logger.info(f"Smart settlement generated for game {game_id}: {len(settlements)} transactions")
+    return {"settlements": settlements}
+
+
 @api_router.post("/games/{game_id}/end")
 async def end_game(game_id: str, user: User = Depends(get_current_user)):
     """End an active game (host/admin only). Validates all players cashed out."""
@@ -1633,7 +1717,7 @@ async def end_game(game_id: str, user: User = Depends(get_current_user)):
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
-    
+
     # Add system message
     message = GameThread(
         game_id=game_id,
@@ -1644,8 +1728,29 @@ async def end_game(game_id: str, user: User = Depends(get_current_user)):
     msg_dict = message.model_dump()
     msg_dict["created_at"] = msg_dict["created_at"].isoformat()
     await db.game_threads.insert_one(msg_dict)
-    
-    return {"message": "Game ended"}
+
+    # Auto-generate settlement (Smart Settlement)
+    settlement_result = await auto_generate_settlement(game_id, game, players_with_buyin)
+
+    # Notify all players about settlement
+    if settlement_result.get("settlements"):
+        for player in players_with_buyin:
+            await db.notifications.insert_one({
+                "notification_id": str(uuid.uuid4()),
+                "user_id": player["user_id"],
+                "type": "settlement_generated",
+                "title": "Settlement Ready",
+                "message": f"Smart settlement has been generated for the game. View your debts and pay via Stripe.",
+                "data": {"game_id": game_id, "group_id": game["group_id"]},
+                "read": False,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+
+    return {
+        "message": "Game ended",
+        "settlement_generated": bool(settlement_result.get("settlements")),
+        "settlement_count": len(settlement_result.get("settlements", []))
+    }
 
 @api_router.put("/games/{game_id}")
 async def update_game(game_id: str, data: GameNightUpdate, user: User = Depends(get_current_user)):
@@ -3908,10 +4013,174 @@ async def get_balances(user: User = Depends(get_current_user)):
     return {
         "total_owes": round(total_owes, 2),
         "total_owed": round(total_owed, 2),
+        # Aliases for mobile compatibility
+        "you_owe": round(total_owes, 2),
+        "owed_to_you": round(total_owed, 2),
         "net_balance": round(total_owed - total_owes, 2),
         "owes": owes,
         "owed": owed
     }
+
+
+@api_router.get("/ledger/consolidated")
+async def get_consolidated_balances(user: User = Depends(get_current_user)):
+    """
+    Get consolidated balances - debts grouped by person across ALL games.
+
+    This endpoint consolidates multiple game debts between the same two players
+    into a single net balance, reducing transaction complexity.
+
+    Example: If you owe John $20 from Game A and John owes you $15 from Game B,
+    the consolidated view shows: You owe John $5 (net).
+    """
+    # Get all pending ledger entries involving this user
+    all_entries = await db.ledger.find(
+        {
+            "$or": [
+                {"from_user_id": user.user_id, "status": "pending"},
+                {"to_user_id": user.user_id, "status": "pending"}
+            ]
+        },
+        {"_id": 0}
+    ).to_list(500)
+
+    # Consolidate by person
+    person_balances = {}  # other_user_id -> net_amount (positive = they owe you)
+
+    for entry in all_entries:
+        if entry["from_user_id"] == user.user_id:
+            # You owe them
+            other_user = entry["to_user_id"]
+            person_balances[other_user] = person_balances.get(other_user, 0) - entry["amount"]
+        else:
+            # They owe you
+            other_user = entry["from_user_id"]
+            person_balances[other_user] = person_balances.get(other_user, 0) + entry["amount"]
+
+    # Build response with user info
+    consolidated = []
+    for other_user_id, net_amount in person_balances.items():
+        if abs(net_amount) < 0.01:
+            continue  # Skip settled balances
+
+        other_user = await db.users.find_one(
+            {"user_id": other_user_id},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
+        )
+
+        consolidated.append({
+            "user": other_user,
+            "net_amount": round(net_amount, 2),
+            "direction": "owed_to_you" if net_amount > 0 else "you_owe",
+            "display_amount": round(abs(net_amount), 2)
+        })
+
+    # Sort by absolute amount (largest debts first)
+    consolidated.sort(key=lambda x: -x["display_amount"])
+
+    # Calculate totals
+    total_you_owe = sum(-b["net_amount"] for b in consolidated if b["net_amount"] < 0)
+    total_owed_to_you = sum(b["net_amount"] for b in consolidated if b["net_amount"] > 0)
+
+    return {
+        "consolidated": consolidated,
+        "total_you_owe": round(total_you_owe, 2),
+        "total_owed_to_you": round(total_owed_to_you, 2),
+        "net_balance": round(total_owed_to_you - total_you_owe, 2),
+        "people_count": len(consolidated)
+    }
+
+
+@api_router.post("/ledger/optimize")
+async def optimize_ledger(user: User = Depends(get_current_user)):
+    """
+    Optimize ledger entries by consolidating cross-game debts between same players.
+
+    This creates new consolidated entries and marks old ones as consolidated.
+    Only processes entries where the current user is involved.
+    """
+    # Get all pending entries for this user
+    all_entries = await db.ledger.find(
+        {
+            "$or": [
+                {"from_user_id": user.user_id, "status": "pending"},
+                {"to_user_id": user.user_id, "status": "pending"}
+            ]
+        },
+        {"_id": 0}
+    ).to_list(500)
+
+    if len(all_entries) <= 1:
+        return {"message": "No optimization needed", "optimized": 0}
+
+    # Group by person and calculate net
+    person_entries = {}  # other_user_id -> list of ledger_ids
+    person_net = {}  # other_user_id -> net_amount
+
+    for entry in all_entries:
+        if entry["from_user_id"] == user.user_id:
+            other_user = entry["to_user_id"]
+            if other_user not in person_entries:
+                person_entries[other_user] = []
+                person_net[other_user] = 0
+            person_entries[other_user].append(entry["ledger_id"])
+            person_net[other_user] -= entry["amount"]
+        else:
+            other_user = entry["from_user_id"]
+            if other_user not in person_entries:
+                person_entries[other_user] = []
+                person_net[other_user] = 0
+            person_entries[other_user].append(entry["ledger_id"])
+            person_net[other_user] += entry["amount"]
+
+    optimized_count = 0
+
+    for other_user_id, entry_ids in person_entries.items():
+        if len(entry_ids) <= 1:
+            continue  # Nothing to consolidate
+
+        net = person_net[other_user_id]
+        if abs(net) < 0.01:
+            # They cancel out - mark all as paid
+            await db.ledger.update_many(
+                {"ledger_id": {"$in": entry_ids}},
+                {"$set": {"status": "consolidated", "consolidated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            optimized_count += len(entry_ids)
+        else:
+            # Create one consolidated entry
+            from_user = user.user_id if net < 0 else other_user_id
+            to_user = other_user_id if net < 0 else user.user_id
+
+            # Mark old entries as consolidated
+            await db.ledger.update_many(
+                {"ledger_id": {"$in": entry_ids}},
+                {"$set": {"status": "consolidated", "consolidated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+
+            # Create new consolidated entry
+            new_entry = LedgerEntry(
+                group_id="consolidated",
+                game_id="consolidated",
+                from_user_id=from_user,
+                to_user_id=to_user,
+                amount=round(abs(net), 2),
+                notes=f"Consolidated from {len(entry_ids)} entries"
+            )
+            entry_dict = new_entry.model_dump()
+            entry_dict["created_at"] = entry_dict["created_at"].isoformat()
+            if entry_dict.get("paid_at"):
+                entry_dict["paid_at"] = entry_dict["paid_at"].isoformat()
+            await db.ledger.insert_one(entry_dict)
+
+            optimized_count += len(entry_ids)
+
+    return {
+        "message": "Ledger optimized",
+        "optimized": optimized_count,
+        "entries_consolidated": optimized_count
+    }
+
 
 # ============== STRIPE PAYMENT ENDPOINTS ==============
 

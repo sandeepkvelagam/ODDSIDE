@@ -31,7 +31,6 @@ export function DashboardScreen() {
   const [stats, setStats] = useState<any>(null);
   const [recentGames, setRecentGames] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [balances, setBalances] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,18 +38,16 @@ export function DashboardScreen() {
   const fetchDashboard = useCallback(async () => {
     try {
       setError(null);
-      const [statsRes, gamesRes, notifRes, balancesRes] = await Promise.all([
+      const [statsRes, gamesRes, notifRes] = await Promise.all([
         api.get("/stats/me").catch(() => ({ data: null })),
         api.get("/games").catch(() => ({ data: [] })),
         api.get("/notifications").catch(() => ({ data: [] })),
-        api.get("/ledger/balances").catch(() => ({ data: null })),
       ]);
       setStats(statsRes.data);
       const games = Array.isArray(gamesRes.data) ? gamesRes.data : [];
       setRecentGames(games.slice(0, 5));
       const notifs = Array.isArray(notifRes.data) ? notifRes.data : [];
       setNotifications(notifs.filter((n: any) => !n.read));
-      setBalances(balancesRes.data);
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load");
     } finally {
@@ -214,28 +211,6 @@ export function DashboardScreen() {
                     ${stats?.best_win ? stats.best_win.toFixed(0) : "0"}
                   </Text>
                   <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Best</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Pending Balances */}
-          {(balances?.you_owe > 0 || balances?.owed_to_you > 0) && (
-            <View style={[styles.balancesCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-              <Text style={[styles.balancesTitle, { color: colors.textSecondary }]}>Pending Balances</Text>
-              <View style={styles.balancesRow}>
-                <View style={styles.balanceItem}>
-                  <Text style={[styles.balanceValue, { color: colors.danger }]}>
-                    ${balances?.you_owe?.toFixed(0) || "0"}
-                  </Text>
-                  <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>You Owe</Text>
-                </View>
-                <View style={[styles.balanceDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.balanceItem}>
-                  <Text style={[styles.balanceValue, { color: colors.success }]}>
-                    ${balances?.owed_to_you?.toFixed(0) || "0"}
-                  </Text>
-                  <Text style={[styles.balanceLabel, { color: colors.textMuted }]}>Owed to You</Text>
                 </View>
               </View>
             </View>
@@ -511,42 +486,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-  },
-  balancesCard: {
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 28,
-    borderWidth: 1,
-  },
-  balancesTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    marginBottom: 16,
-  },
-  balancesRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    gap: 18,
-  },
-  balanceItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  balanceValue: {
-    fontSize: 24,
-    fontWeight: "700",
-    lineHeight: 32,
-  },
-  balanceLabel: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  balanceDivider: {
-    width: 1,
-    height: 40,
   },
   sectionHeader: {
     flexDirection: "row",

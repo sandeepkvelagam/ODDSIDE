@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Pressable,
+  Animated,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -30,24 +31,52 @@ export function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<any>(null);
   const [recentGames, setRecentGames] = useState<any[]>([]);
+  const [activeGames, setActiveGames] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Animated pulse for live indicator
+  const pulseAnim = useState(new Animated.Value(1))[0];
+
+  useEffect(() => {
+    // Pulse animation for live games
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.4,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
   const fetchDashboard = useCallback(async () => {
     try {
       setError(null);
-      const [statsRes, gamesRes, notifRes] = await Promise.all([
+      const [statsRes, gamesRes, notifRes, groupsRes] = await Promise.all([
         api.get("/stats/me").catch(() => ({ data: null })),
         api.get("/games").catch(() => ({ data: [] })),
         api.get("/notifications").catch(() => ({ data: [] })),
+        api.get("/groups").catch(() => ({ data: [] })),
       ]);
       setStats(statsRes.data);
       const games = Array.isArray(gamesRes.data) ? gamesRes.data : [];
+      setActiveGames(games.filter((g: any) => g.status === "active" || g.status === "scheduled"));
       setRecentGames(games.slice(0, 5));
       const notifs = Array.isArray(notifRes.data) ? notifRes.data : [];
       setNotifications(notifs.filter((n: any) => !n.read));
+      setGroups(Array.isArray(groupsRes.data) ? groupsRes.data : []);
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load");
     } finally {
@@ -82,6 +111,24 @@ export function DashboardScreen() {
   const userName = user?.name || user?.email?.split("@")[0] || "Player";
   const userInitial = userName[0]?.toUpperCase() || "?";
 
+  // Calculate performance stats
+  const netProfit = stats?.net_profit || 0;
+  const totalGames = stats?.total_games || 0;
+  const winRate = stats?.win_rate || 0;
+  const wins = totalGames > 0 ? Math.round((winRate / 100) * totalGames) : 0;
+  const losses = totalGames - wins;
+  const avgProfit = totalGames > 0 ? netProfit / totalGames : 0;
+  const bestWin = stats?.best_win || stats?.biggest_win || 0;
+  const worstLoss = stats?.worst_loss || stats?.biggest_loss || 0;
+  const totalBuyIns = stats?.total_buy_ins || 0;
+  const roiPercent = totalBuyIns > 0 ? (netProfit / totalBuyIns) * 100 : 0;
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "Recent";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString();
+  };
+
   return (
     <AppDrawer
       menuItems={menuItems}
@@ -110,10 +157,10 @@ export function DashboardScreen() {
             </View>
           </Pressable>
 
-          {/* Center - Logo */}
+          {/* Center - Logo with tagline */}
           <View style={styles.headerCenter}>
             <Text style={[styles.logoText, { color: colors.textPrimary }]}>Kvitt</Text>
-            <Text style={[styles.logoSubtext, { color: colors.textMuted }]}>Ledger</Text>
+            <Text style={[styles.logoSubtext, { color: colors.orange }]}>your side, settled</Text>
           </View>
 
           {/* Notification Button - Glass style */}
@@ -144,17 +191,23 @@ export function DashboardScreen() {
             />
           }
         >
-          {/* Profile Chip Row */}
-          <View style={styles.profileRow}>
+          {/* Welcome Section with Help Button */}
+          <View style={styles.welcomeRow}>
+            <View style={styles.welcomeTextContainer}>
+              <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>
+                Welcome back, {userName.split(' ')[0]}
+              </Text>
+              <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>
+                Here's your poker overview
+              </Text>
+            </View>
             <TouchableOpacity
-              style={[styles.profileChip, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-              onPress={() => navigation.navigate("Settings")}
+              style={[styles.helpButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
+              onPress={() => {/* TODO: Show help/onboarding */}}
               activeOpacity={0.7}
             >
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{userInitial}</Text>
-              </View>
-              <Text style={[styles.profileName, { color: colors.textPrimary }]}>{userName}</Text>
+              <Ionicons name="help-circle-outline" size={18} color={colors.textSecondary} />
+              <Text style={[styles.helpText, { color: colors.textSecondary }]}>Help</Text>
             </TouchableOpacity>
           </View>
 
@@ -165,125 +218,259 @@ export function DashboardScreen() {
             </View>
           )}
 
-          {/* Stats Cards */}
+          {/* Stats Cards with Icons */}
           <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats?.total_games || 0}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Games</Text>
-            </View>
+            {/* Net Profit Card */}
             <View style={[styles.statCard, styles.statCardAccent, { backgroundColor: colors.glassBg }]}>
-              <Text style={[styles.statValue, { color: (stats?.net_profit || 0) >= 0 ? colors.success : colors.danger }]}>
-                ${stats?.net_profit ? Math.abs(stats.net_profit).toFixed(0) : "0"}
+              <View style={styles.statIconRow}>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Net Profit</Text>
+                <Ionicons
+                  name={netProfit >= 0 ? "trending-up" : "trending-down"}
+                  size={16}
+                  color={netProfit >= 0 ? colors.success : colors.danger}
+                />
+              </View>
+              <Text style={[styles.statValue, { color: netProfit >= 0 ? colors.success : colors.danger }]}>
+                {netProfit >= 0 ? '+' : ''}${Math.abs(netProfit).toFixed(0)}
               </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                {(stats?.net_profit || 0) >= 0 ? "Profit" : "Loss"}
+              <Text style={[styles.statSubtext, { color: colors.textMuted }]}>
+                {totalGames} games
               </Text>
             </View>
+
+            {/* Win Rate Card */}
             <View style={[styles.statCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+              <View style={styles.statIconRow}>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Win Rate</Text>
+                <Ionicons name="analytics-outline" size={16} color={colors.textMuted} />
+              </View>
               <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                {stats?.win_rate ? `${stats.win_rate.toFixed(0)}%` : "0%"}
+                {winRate.toFixed(0)}%
               </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Win Rate</Text>
+              <Text style={[styles.statSubtext, { color: colors.textMuted }]}>
+                Best: +${bestWin.toFixed(0)}
+              </Text>
+            </View>
+
+            {/* Total Games Card */}
+            <View style={[styles.statCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+              <View style={styles.statIconRow}>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Games</Text>
+                <Ionicons name="game-controller-outline" size={16} color={colors.textMuted} />
+              </View>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{totalGames}</Text>
+              <Text style={[styles.statSubtext, { color: colors.textMuted }]}>
+                {wins}W / {losses}L
+              </Text>
             </View>
           </View>
 
           {/* Performance Card */}
-          {stats?.total_games > 0 && (
+          {totalGames > 0 && (
             <View style={[styles.performanceCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-              <Text style={[styles.performanceTitle, { color: colors.textSecondary }]}>Performance</Text>
+              <View style={styles.performanceHeader}>
+                <View style={styles.performanceHeaderLeft}>
+                  <Ionicons name="bar-chart-outline" size={16} color={colors.orange} />
+                  <Text style={[styles.performanceTitle, { color: colors.textSecondary }]}>PERFORMANCE</Text>
+                </View>
+                <Text style={[styles.gamesCount, { color: colors.textMuted }]}>{totalGames} games</Text>
+              </View>
               <View style={styles.performanceGrid}>
-                <View style={styles.performanceItem}>
-                  <Text style={[styles.perfValue, { color: colors.success }]}>{stats?.wins || 0}</Text>
-                  <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Wins</Text>
+                <View style={[styles.performanceItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                  <Text style={styles.perfValue}>
+                    <Text style={{ color: colors.success }}>{wins}</Text>
+                    <Text style={{ color: colors.textMuted }}>/</Text>
+                    <Text style={{ color: colors.danger }}>{losses}</Text>
+                  </Text>
+                  <Text style={[styles.perfLabel, { color: colors.textMuted }]}>W/L</Text>
                 </View>
-                <View style={styles.performanceItem}>
-                  <Text style={[styles.perfValue, { color: colors.danger }]}>{stats?.losses || 0}</Text>
-                  <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Losses</Text>
-                </View>
-                <View style={styles.performanceItem}>
-                  <Text style={[styles.perfValue, { color: colors.textPrimary }]}>
-                    ${stats?.avg_profit ? Math.abs(stats.avg_profit).toFixed(0) : "0"}
+                <View style={[styles.performanceItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                  <Text style={[styles.perfValue, { color: avgProfit >= 0 ? colors.success : colors.danger }]}>
+                    {avgProfit >= 0 ? '+' : ''}${Math.abs(avgProfit).toFixed(0)}
                   </Text>
                   <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Avg</Text>
                 </View>
-                <View style={styles.performanceItem}>
+                <View style={[styles.performanceItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
                   <Text style={[styles.perfValue, { color: colors.success }]}>
-                    ${stats?.best_win ? stats.best_win.toFixed(0) : "0"}
+                    +${bestWin.toFixed(0)}
                   </Text>
                   <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Best</Text>
                 </View>
+                <View style={[styles.performanceItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                  <Text style={[styles.perfValue, { color: colors.danger }]}>
+                    -${Math.abs(worstLoss).toFixed(0)}
+                  </Text>
+                  <Text style={[styles.perfLabel, { color: colors.textMuted }]}>Worst</Text>
+                </View>
+              </View>
+              {/* ROI Progress Bar */}
+              <View style={styles.roiRow}>
+                <Text style={[styles.roiLabel, { color: colors.textMuted }]}>ROI:</Text>
+                <View style={[styles.roiBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                  <View
+                    style={[
+                      styles.roiProgress,
+                      {
+                        backgroundColor: roiPercent >= 0 ? colors.success : colors.danger,
+                        width: `${Math.min(Math.abs(roiPercent), 100)}%`
+                      }
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.roiValue, { color: roiPercent >= 0 ? colors.success : colors.danger }]}>
+                  {roiPercent >= 0 ? '+' : ''}{roiPercent.toFixed(0)}%
+                </Text>
               </View>
             </View>
           )}
 
-          {/* Recent Games */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Recent Games</Text>
-            {recentGames.length > 0 && (
-              <TouchableOpacity onPress={() => navigation.navigate("Groups")}>
-                <Text style={[styles.seeAll, { color: colors.orange }]}>See all</Text>
-              </TouchableOpacity>
+          {/* Live Games Section */}
+          <View style={[styles.sectionCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>LIVE GAMES</Text>
+              <Animated.View style={{ opacity: pulseAnim }}>
+                <Ionicons name="play" size={16} color={colors.orange} />
+              </Animated.View>
+            </View>
+            {activeGames.length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.textSecondary, paddingVertical: 16 }]}>
+                No active games right now
+              </Text>
+            ) : (
+              activeGames.slice(0, 3).map((game, index) => (
+                <TouchableOpacity
+                  key={game.game_id || game._id}
+                  style={[
+                    styles.liveGameItem,
+                    index < Math.min(activeGames.length, 3) - 1 && {
+                      borderBottomWidth: 1,
+                      borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
+                    }
+                  ]}
+                  onPress={() => navigation.navigate("GameNight", { gameId: game.game_id || game._id })}
+                  activeOpacity={0.7}
+                >
+                  <Animated.View style={[styles.liveIndicator, { opacity: pulseAnim }]} />
+                  <View style={styles.liveGameInfo}>
+                    <Text style={[styles.liveGameTitle, { color: colors.textPrimary }]}>
+                      {game.title || game.group_name || "Game Night"}
+                    </Text>
+                    <Text style={[styles.liveGameMeta, { color: colors.textMuted }]}>
+                      {game.player_count || 0} players{game.total_pot ? ` · $${game.total_pot} pot` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.liveBadge}>
+                    <Text style={styles.liveBadgeText}>
+                      {game.status === 'active' ? 'LIVE' : 'SCHEDULED'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
             )}
+            <TouchableOpacity
+              style={[styles.viewAllButton, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}
+              onPress={() => navigation.navigate("Groups")}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.viewAllText, { color: colors.orange }]}>View All Games</Text>
+            </TouchableOpacity>
           </View>
 
-          {recentGames.length === 0 ? (
-            <View style={[styles.emptyCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-              <Ionicons
-                name="game-controller-outline"
-                size={32}
-                color={colors.textMuted}
-              />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No games yet</Text>
-              <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
-                Join a group and start playing
-              </Text>
+          {/* My Groups Section */}
+          <View style={[styles.sectionCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>MY GROUPS</Text>
+              <Ionicons name="people" size={16} color={colors.textMuted} />
             </View>
-          ) : (
-            recentGames.map((game: any) => (
-              <TouchableOpacity
-                key={game.game_id || game._id}
-                style={[styles.gameCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-                onPress={() =>
-                  navigation.navigate("GameNight", {
-                    gameId: game.game_id || game._id,
-                  })
-                }
-                activeOpacity={0.7}
-              >
-                <View style={styles.gameInfo}>
-                  <Text style={[styles.gameTitle, { color: colors.textPrimary }]}>
-                    {game.title || game.group_name || "Game Night"}
-                  </Text>
-                  <Text style={[styles.gameSubtext, { color: colors.textSecondary }]}>
-                    {game.player_count || 0} players
-                    {game.total_pot ? ` · $${game.total_pot} pot` : ""}
-                  </Text>
-                </View>
-                <View
+            {groups.length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.textSecondary, paddingVertical: 16 }]}>
+                No groups yet. Create one!
+              </Text>
+            ) : (
+              groups.slice(0, 3).map((group, index) => (
+                <TouchableOpacity
+                  key={group.group_id || group._id}
                   style={[
-                    styles.statusBadge,
-                    game.status === "active"
-                      ? styles.statusActive
-                      : styles.statusEnded,
+                    styles.groupItem,
+                    index < Math.min(groups.length, 3) - 1 && {
+                      borderBottomWidth: 1,
+                      borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
+                    }
                   ]}
+                  onPress={() => navigation.navigate("Groups")}
+                  activeOpacity={0.7}
                 >
-                  <Text
+                  <View style={styles.groupInfo}>
+                    <View style={styles.groupNameRow}>
+                      <Text style={[styles.groupName, { color: colors.textPrimary }]}>{group.name}</Text>
+                      {group.user_role === 'admin' && (
+                        <View style={styles.adminBadge}>
+                          <Ionicons name="star" size={10} color="#eab308" />
+                          <Text style={styles.adminText}>Admin</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.groupMeta, { color: colors.textMuted }]}>
+                      {group.member_count || 0} members
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              ))
+            )}
+            <TouchableOpacity
+              style={[styles.manageButton, { backgroundColor: colors.orange }]}
+              onPress={() => navigation.navigate("Groups")}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={18} color="#fff" />
+              <Text style={styles.manageButtonText}>Manage Groups</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Recent Results Section */}
+          {recentGames.length > 0 && (
+            <View style={[styles.sectionCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>RECENT RESULTS</Text>
+                <TouchableOpacity onPress={() => navigation.navigate("Groups")}>
+                  <Text style={[styles.seeAll, { color: colors.orange }]}>See all</Text>
+                </TouchableOpacity>
+              </View>
+              {recentGames.map((game, index) => {
+                const gameResult = game.net_result || game.result || 0;
+                return (
+                  <TouchableOpacity
+                    key={game.game_id || game._id || index}
                     style={[
-                      styles.statusText,
-                      game.status === "active"
-                        ? styles.statusActiveText
-                        : styles.statusEndedText,
+                      styles.recentResultItem,
+                      index < recentGames.length - 1 && {
+                        borderBottomWidth: 1,
+                        borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
+                      }
                     ]}
+                    onPress={() => navigation.navigate("GameNight", { gameId: game.game_id || game._id })}
+                    activeOpacity={0.7}
                   >
-                    {game.status === "active" ? "Live" : "Ended"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
+                    <View>
+                      <Text style={[styles.recentGameTitle, { color: colors.textPrimary }]}>
+                        {game.title || game.group_name || "Game Night"}
+                      </Text>
+                      <Text style={[styles.recentGameDate, { color: colors.textMuted }]}>
+                        {formatDate(game.ended_at || game.date)}
+                      </Text>
+                    </View>
+                    <Text style={[styles.recentResult, { color: gameResult >= 0 ? colors.success : colors.danger }]}>
+                      {gameResult >= 0 ? '+' : ''}{gameResult.toFixed(0)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           )}
 
           {/* Quick Actions */}
-          <Text style={[styles.sectionTitle, { marginTop: 28, color: colors.textSecondary }]}>
+          <Text style={[styles.quickActionsTitle, { color: colors.textSecondary }]}>
             Quick Actions
           </Text>
           <View style={styles.actionsRow}>
@@ -304,18 +491,18 @@ export function DashboardScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-              onPress={() => navigation.navigate("Settings")}
+              onPress={() => navigation.navigate("AIAssistant")}
               activeOpacity={0.7}
             >
               <View
                 style={[
                   styles.actionIconBox,
-                  { backgroundColor: "rgba(59,130,246,0.15)" },
+                  { backgroundColor: "rgba(139,92,246,0.15)" },
                 ]}
               >
-                <Ionicons name="settings" size={24} color="#3b82f6" />
+                <Ionicons name="chatbubbles" size={24} color="#8b5cf6" />
               </View>
-              <Text style={[styles.actionText, { color: colors.textPrimary }]}>Settings</Text>
+              <Text style={[styles.actionText, { color: colors.textPrimary }]}>AI Chat</Text>
             </TouchableOpacity>
           </View>
 
@@ -367,8 +554,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   logoSubtext: {
-    fontSize: 13,
-    marginTop: -1,
+    fontSize: 11,
+    marginTop: 0,
+    fontWeight: "500",
   },
   notifDot: {
     position: "absolute",
@@ -379,37 +567,38 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   content: {
-    padding: 28,
+    padding: 20,
     paddingBottom: 32,
   },
-  profileRow: {
-    marginBottom: 28,
+  // Welcome Section
+  welcomeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
   },
-  profileChip: {
+  welcomeTextContainer: {
+    flex: 1,
+  },
+  welcomeTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  welcomeSubtitle: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  helpButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 999,
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
-    alignSelf: "flex-start",
   },
-  avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#000",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  profileName: {
-    fontSize: 16,
+  helpText: {
+    fontSize: 12,
     fontWeight: "500",
   },
   errorBanner: {
@@ -428,140 +617,267 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
   },
+  // Stats Row
   statsRow: {
     flexDirection: "row",
-    gap: 18,
-    marginBottom: 28,
+    gap: 12,
+    marginBottom: 16,
   },
   statCard: {
     flex: 1,
     borderRadius: 16,
-    padding: 18,
-    alignItems: "center",
+    padding: 14,
     borderWidth: 1,
   },
   statCardAccent: {
     borderColor: "rgba(232,132,92,0.3)",
   },
+  statIconRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   statValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "700",
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500",
-    marginTop: 4,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+  statSubtext: {
+    fontSize: 10,
+    marginTop: 4,
+  },
+  // Performance Card
   performanceCard: {
     borderRadius: 16,
-    padding: 24,
-    marginBottom: 28,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
   },
+  performanceHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  performanceHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   performanceTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     letterSpacing: 0.5,
     textTransform: "uppercase",
-    marginBottom: 16,
+  },
+  gamesCount: {
+    fontSize: 11,
   },
   performanceGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 18,
+    gap: 8,
   },
   performanceItem: {
     alignItems: "center",
     flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   perfValue: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "700",
-    lineHeight: 28,
+    lineHeight: 22,
   },
   perfLabel: {
-    fontSize: 11,
-    marginTop: 4,
+    fontSize: 9,
+    marginTop: 2,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  // ROI Row
+  roiRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  roiLabel: {
+    fontSize: 11,
+  },
+  roiBar: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  roiProgress: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  roiValue: {
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: "monospace",
+    minWidth: 45,
+    textAlign: "right",
+  },
+  // Section Card (Live Games, Groups, Recent)
+  sectionCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  seeAll: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  emptyText: {
+    fontSize: 13,
+    textAlign: "center",
+  },
+  // Live Games
+  liveGameItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  liveIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#22c55e",
+    marginRight: 12,
+  },
+  liveGameInfo: {
+    flex: 1,
+  },
+  liveGameTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  liveGameMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  liveBadge: {
+    backgroundColor: "rgba(34,197,94,0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  liveBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#22c55e",
+  },
+  viewAllButton: {
+    paddingTop: 12,
+    alignItems: "center",
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  // Groups
+  groupItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  groupInfo: {
+    flex: 1,
+  },
+  groupNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  groupName: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  groupMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  adminBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(234,179,8,0.15)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  adminText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: "#eab308",
+  },
+  manageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 12,
+    gap: 6,
+  },
+  manageButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  // Recent Results
+  recentResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+  },
+  recentGameTitle: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  recentGameDate: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  recentResult: {
+    fontSize: 15,
+    fontWeight: "700",
+    fontFamily: "monospace",
+  },
+  // Quick Actions
+  quickActionsTitle: {
     fontSize: 13,
     fontWeight: "600",
     letterSpacing: 0.5,
     marginBottom: 12,
-  },
-  seeAll: {
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  emptyCard: {
-    borderRadius: 16,
-    padding: 32,
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  emptyText: {
-    fontSize: 15,
-    marginTop: 12,
-  },
-  emptySubtext: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  gameCard: {
-    borderRadius: 16,
-    padding: 18,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-    borderWidth: 1,
-  },
-  gameInfo: {
-    flex: 1,
-  },
-  gameTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  gameSubtext: {
-    fontSize: 12,
-    marginTop: 3,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginLeft: 12,
-  },
-  statusActive: {
-    backgroundColor: "rgba(34,197,94,0.15)",
-  },
-  statusEnded: {
-    backgroundColor: "rgba(128,128,128,0.15)",
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  statusActiveText: {
-    color: "#22c55e",
-  },
-  statusEndedText: {
-    color: "#888",
+    marginTop: 8,
   },
   actionsRow: {
     flexDirection: "row",
-    gap: 18,
+    gap: 12,
   },
   actionCard: {
     flex: 1,

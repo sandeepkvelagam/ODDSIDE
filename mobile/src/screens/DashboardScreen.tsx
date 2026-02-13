@@ -18,6 +18,7 @@ import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useDrawer } from "../context/DrawerContext";
 import { useTheme } from "../context/ThemeContext";
+import { useLanguage } from "../context/LanguageContext";
 import { AppDrawer } from "../components/AppDrawer";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 

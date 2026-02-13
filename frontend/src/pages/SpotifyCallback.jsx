@@ -1,45 +1,108 @@
-import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Loader2, CheckCircle, XCircle } from "lucide-react";
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 export default function SpotifyCallback() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState("processing"); // processing, success, error
+  const [message, setMessage] = useState("Connecting to Spotify...");
 
   useEffect(() => {
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
-    const error = searchParams.get("error");
+    const exchangeToken = async () => {
+      const code = searchParams.get("code");
+      const error = searchParams.get("error");
 
-    if (error) {
-      // Redirect back to dashboard with error
-      navigate("/dashboard?spotify_error=" + error);
-      return;
-    }
-
-    if (code) {
-      // The state contains the encoded return URL or game ID
-      // For now, redirect back to dashboard with the code in sessionStorage
-      sessionStorage.setItem("spotify_auth_code", code);
-      
-      // Try to decode state to get return URL
-      try {
-        const returnPath = state ? atob(state) : "/dashboard";
-        // Append code as query param for the page to handle
-        navigate(returnPath + "?spotify_code=" + code);
-      } catch {
-        navigate("/dashboard?spotify_code=" + code);
+      if (error) {
+        setStatus("error");
+        setMessage("Spotify authorization was denied");
+        setTimeout(() => {
+          if (window.opener) {
+            window.opener.postMessage({ type: "SPOTIFY_CALLBACK", error: true }, "*");
+            window.close();
+          }
+        }, 2000);
+        return;
       }
-    } else {
-      navigate("/dashboard");
-    }
-  }, [searchParams, navigate]);
+
+      if (!code) {
+        setStatus("error");
+        setMessage("No authorization code received");
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem("token");
+        
+        const response = await fetch(`${API_URL}/api/spotify/token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ code }),
+        });
+
+        if (response.ok) {
+          setStatus("success");
+          setMessage("Successfully connected to Spotify!");
+          
+          // Notify parent window and close
+          setTimeout(() => {
+            if (window.opener) {
+              window.opener.postMessage({ type: "SPOTIFY_CALLBACK", success: true }, "*");
+              window.close();
+            } else {
+              // If not a popup, redirect to dashboard
+              window.location.href = "/dashboard";
+            }
+          }, 1500);
+        } else {
+          const data = await response.json();
+          setStatus("error");
+          setMessage(data.detail || "Failed to connect to Spotify");
+        }
+      } catch (err) {
+        console.error("Error exchanging token:", err);
+        setStatus("error");
+        setMessage("An error occurred while connecting to Spotify");
+      }
+    };
+
+    exchangeToken();
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center">
-        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-        <p className="text-muted-foreground">Connecting to Spotify...</p>
+      <div className="text-center p-8 rounded-2xl bg-zinc-900/50 border border-zinc-800">
+        {status === "processing" && (
+          <>
+            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-green-500" />
+            <p className="text-foreground font-medium">{message}</p>
+          </>
+        )}
+        
+        {status === "success" && (
+          <>
+            <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
+            <p className="text-foreground font-medium">{message}</p>
+            <p className="text-muted-foreground text-sm mt-2">This window will close automatically...</p>
+          </>
+        )}
+        
+        {status === "error" && (
+          <>
+            <XCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+            <p className="text-foreground font-medium">{message}</p>
+            <button
+              onClick={() => window.close()}
+              className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-foreground transition-colors"
+            >
+              Close Window
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

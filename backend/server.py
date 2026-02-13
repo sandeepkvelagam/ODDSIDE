@@ -4485,10 +4485,45 @@ async def get_spotify_status(user: User = Depends(get_current_user)):
     if not token_data:
         return {"connected": False}
     
+    # Check if token needs refresh
+    expires_at = token_data.get("expires_at")
+    access_token = token_data.get("access_token")
+    
+    if expires_at and datetime.utcnow().timestamp() > expires_at:
+        # Token expired, try to refresh
+        refresh_token = token_data.get("refresh_token")
+        if refresh_token:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        "https://accounts.spotify.com/api/token",
+                        data={
+                            "grant_type": "refresh_token",
+                            "refresh_token": refresh_token,
+                            "client_id": SPOTIFY_CLIENT_ID,
+                            "client_secret": SPOTIFY_CLIENT_SECRET,
+                        },
+                    )
+                    if response.status_code == 200:
+                        token_info = response.json()
+                        access_token = token_info["access_token"]
+                        new_expires_at = datetime.utcnow().timestamp() + token_info.get("expires_in", 3600)
+                        
+                        await db.spotify_tokens.update_one(
+                            {"user_id": user.user_id},
+                            {"$set": {
+                                "access_token": access_token,
+                                "expires_at": new_expires_at
+                            }}
+                        )
+            except Exception as e:
+                print(f"Error refreshing Spotify token: {e}")
+    
     return {
         "connected": True,
         "spotify_user": token_data.get("spotify_display_name"),
-        "is_premium": token_data.get("is_premium", False)
+        "is_premium": token_data.get("is_premium", False),
+        "access_token": access_token
     }
 
 @api_router.delete("/spotify/disconnect")

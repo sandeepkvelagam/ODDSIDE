@@ -233,6 +233,7 @@ export function GroupsScreen() {
               <TouchableOpacity
                 style={[styles.randomButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
                 onPress={handleRandomName}
+                activeOpacity={0.7}
               >
                 <Ionicons name="dice" size={20} color={colors.orange} />
               </TouchableOpacity>
@@ -252,6 +253,7 @@ export function GroupsScreen() {
               <TouchableOpacity
                 style={[styles.cancelButton, { borderColor: colors.glassBorder }]}
                 onPress={() => setShowCreateSheet(false)}
+                activeOpacity={0.7}
               >
                 <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>

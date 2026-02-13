@@ -436,7 +436,7 @@ export function DashboardScreen() {
             <View style={[styles.sectionCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
               <View style={styles.sectionHeader}>
                 <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>RECENT RESULTS</Text>
-                <TouchableOpacity onPress={() => navigation.navigate("Groups")}>
+                <TouchableOpacity onPress={() => navigation.navigate("Groups")} activeOpacity={0.6}>
                   <Text style={[styles.seeAll, { color: colors.orange }]}>See all</Text>
                 </TouchableOpacity>
               </View>
@@ -526,7 +526,7 @@ export function DashboardScreen() {
             <Pressable style={[styles.helpModalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
               <View style={styles.helpModalHeader}>
                 <Text style={[styles.helpModalTitle, { color: colors.textPrimary }]}>Getting Started</Text>
-                <TouchableOpacity onPress={() => setShowHelpModal(false)}>
+                <TouchableOpacity onPress={() => setShowHelpModal(false)} activeOpacity={0.7}>
                   <Ionicons name="close" size={24} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>

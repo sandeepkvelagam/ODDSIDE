@@ -10,12 +10,11 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { api } from "../api/client";
+import { RightDrawer } from "../components/RightDrawer";
 
 type ConsolidatedBalance = {
   user: { user_id: string; name: string; picture?: string };
@@ -25,8 +24,6 @@ type ConsolidatedBalance = {
 };
 
 export function ProfileScreen() {
-  const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { user, refreshUser } = useAuth();
   const { isDark, colors } = useTheme();
 
@@ -158,24 +155,8 @@ export function ProfileScreen() {
   const preferencesChanged = preferences !== (user?.preferences || "");
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 4 }]}>
-      {/* Main card - no border radius, sits inside the curved outer container */}
-      <View style={[styles.mainCard, { backgroundColor: colors.surface }]}>
-        {/* Header inside the card */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Profile</Text>
-
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <ScrollView
+    <RightDrawer title="Profile">
+      <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -386,8 +367,7 @@ export function ProfileScreen() {
 
           <View style={{ height: 60 }} />
         </ScrollView>
-      </View>
-    </View>
+    </RightDrawer>
   );
 }
 

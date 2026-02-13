@@ -5,6 +5,7 @@ import { AuthProvider } from "./src/context/AuthContext";
 import { DrawerProvider } from "./src/context/DrawerContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { LanguageProvider } from "./src/context/LanguageContext";
+import { HapticsProvider } from "./src/context/HapticsContext";
 import RootNavigator from "./src/navigation/RootNavigator";
 
 function AppContent() {
@@ -25,7 +26,9 @@ export default function App() {
           <LanguageProvider>
             <AuthProvider>
               <DrawerProvider>
-                <AppContent />
+                <HapticsProvider>
+                  <AppContent />
+                </HapticsProvider>
               </DrawerProvider>
             </AuthProvider>
           </LanguageProvider>

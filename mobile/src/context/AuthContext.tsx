@@ -10,6 +10,7 @@ type AuthUser = {
   supabase_id: string;
   nickname?: string;
   preferences?: string;
+  help_improve_ai?: boolean;
 };
 
 type AuthContextType = {

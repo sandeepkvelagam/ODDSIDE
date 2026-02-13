@@ -211,7 +211,7 @@ export function AppDrawer({
               }}
               activeOpacity={0.9}
             >
-              <Ionicons name="add" size={22} color="#fff" />
+              <Ionicons name="add" size={26} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -352,9 +352,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#000",
     alignItems: "center",
     justifyContent: "center",
@@ -362,16 +362,16 @@ const styles = StyleSheet.create({
   avatarText: {
     color: "#fff",
     fontWeight: "600",
-    fontSize: 13,
+    fontSize: 15,
   },
   profileName: {
     fontSize: 14,
     fontWeight: "500",
   },
   fab: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },

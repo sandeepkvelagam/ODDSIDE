@@ -151,9 +151,8 @@ export default function RootNavigator() {
                 component={ProfileScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "none",
                   presentation: "transparentModal",
-                  gestureDirection: "horizontal",
                 }}
               />
               <Stack.Screen
@@ -161,7 +160,8 @@ export default function RootNavigator() {
                 component={NotificationsScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "none",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -169,7 +169,8 @@ export default function RootNavigator() {
                 component={PrivacyScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "none",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -177,7 +178,8 @@ export default function RootNavigator() {
                 component={BillingScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "none",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -185,7 +187,8 @@ export default function RootNavigator() {
                 component={LanguageScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "none",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen

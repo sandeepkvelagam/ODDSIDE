@@ -4331,8 +4331,8 @@ SPOTIFY_CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID', '')
 SPOTIFY_CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET', '')
 SPOTIFY_REDIRECT_URI = os.environ.get('SPOTIFY_REDIRECT_URI', os.environ.get('APP_URL', '') + '/spotify/callback')
 
-# Spotify scopes needed for playback
-SPOTIFY_SCOPES = "user-read-playback-state user-modify-playback-state user-read-private streaming user-read-currently-playing"
+# Spotify scopes needed for playback and library access
+SPOTIFY_SCOPES = "user-read-playback-state user-modify-playback-state user-read-private streaming user-read-currently-playing playlist-read-private playlist-read-collaborative user-library-read"
 
 class SpotifyTokenRequest(BaseModel):
     code: str
@@ -4790,6 +4790,122 @@ async def set_repeat(state: str, device_id: Optional[str] = None, user: User = D
             raise HTTPException(status_code=response.status_code, detail="Failed to set repeat")
 
         return {"status": "repeat_set", "state": state}
+
+@api_router.get("/spotify/me/playlists")
+async def get_user_playlists(limit: int = 50, offset: int = 0, user: User = Depends(get_current_user)):
+    """Get current user's playlists."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://api.spotify.com/v1/me/playlists?limit={limit}&offset={offset}",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Failed to get playlists")
+
+        data = response.json()
+        # Return simplified playlist data
+        playlists = []
+        for item in data.get("items", []):
+            playlists.append({
+                "id": item["id"],
+                "name": item["name"],
+                "description": item.get("description", ""),
+                "image": item["images"][0]["url"] if item.get("images") else None,
+                "track_count": item["tracks"]["total"],
+                "owner": item["owner"]["display_name"],
+                "uri": item["uri"]
+            })
+
+        return {
+            "playlists": playlists,
+            "total": data.get("total", 0),
+            "offset": offset,
+            "limit": limit
+        }
+
+@api_router.get("/spotify/playlists/{playlist_id}/tracks")
+async def get_playlist_tracks(playlist_id: str, limit: int = 50, offset: int = 0, user: User = Depends(get_current_user)):
+    """Get tracks from a specific playlist."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks?limit={limit}&offset={offset}",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Failed to get playlist tracks")
+
+        data = response.json()
+        # Return simplified track data
+        tracks = []
+        for item in data.get("items", []):
+            track = item.get("track")
+            if track and track.get("id"):  # Skip local files and null tracks
+                tracks.append({
+                    "id": track["id"],
+                    "name": track["name"],
+                    "artists": [a["name"] for a in track.get("artists", [])],
+                    "album": track["album"]["name"] if track.get("album") else "",
+                    "album_image": track["album"]["images"][0]["url"] if track.get("album", {}).get("images") else None,
+                    "duration_ms": track["duration_ms"],
+                    "uri": track["uri"]
+                })
+
+        return {
+            "tracks": tracks,
+            "total": data.get("total", 0),
+            "offset": offset,
+            "limit": limit
+        }
+
+@api_router.get("/spotify/me/tracks")
+async def get_saved_tracks(limit: int = 50, offset: int = 0, user: User = Depends(get_current_user)):
+    """Get user's saved/liked tracks."""
+    token_data = await db.spotify_tokens.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Spotify not connected")
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://api.spotify.com/v1/me/tracks?limit={limit}&offset={offset}",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"}
+        )
+
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Failed to get saved tracks")
+
+        data = response.json()
+        # Return simplified track data
+        tracks = []
+        for item in data.get("items", []):
+            track = item.get("track")
+            if track and track.get("id"):
+                tracks.append({
+                    "id": track["id"],
+                    "name": track["name"],
+                    "artists": [a["name"] for a in track.get("artists", [])],
+                    "album": track["album"]["name"] if track.get("album") else "",
+                    "album_image": track["album"]["images"][0]["url"] if track.get("album", {}).get("images") else None,
+                    "duration_ms": track["duration_ms"],
+                    "uri": track["uri"],
+                    "added_at": item.get("added_at")
+                })
+
+        return {
+            "tracks": tracks,
+            "total": data.get("total", 0),
+            "offset": offset,
+            "limit": limit
+        }
 
 
 # ============== ROOT ENDPOINT ==============

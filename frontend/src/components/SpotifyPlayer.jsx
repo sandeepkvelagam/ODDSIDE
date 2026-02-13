@@ -4,10 +4,13 @@ import {
   Volume2, Volume1, VolumeX,
   Shuffle, Repeat,
   Maximize2, Minimize2,
-  ExternalLink, LogOut, Loader2
+  ExternalLink, LogOut, Loader2,
+  Search, Library, Heart, ChevronLeft, X, ListMusic
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Slider } from "./ui/slider";
+import { Input } from "./ui/input";
+import { ScrollArea } from "./ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -50,6 +53,21 @@ export default function SpotifyPlayer({ isHost = false }) {
 
   // UI state
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Music Browser state
+  const [showBrowser, setShowBrowser] = useState(false);
+  const [activeTab, setActiveTab] = useState("search"); // 'search' | 'playlists' | 'liked'
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [playlists, setPlaylists] = useState([]);
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+  const [likedSongs, setLikedSongs] = useState([]);
+  const [loadingLiked, setLoadingLiked] = useState(false);
+  const [selectedPlaylist, setSelectedPlaylist] = useState(null);
+  const [playlistTracks, setPlaylistTracks] = useState([]);
+  const [loadingPlaylistTracks, setLoadingPlaylistTracks] = useState(false);
+  const searchTimeout = useRef(null);
 
   // Check Spotify connection status
   const checkSpotifyStatus = useCallback(async () => {
@@ -295,6 +313,171 @@ export default function SpotifyPlayer({ isHost = false }) {
     }
   };
 
+  // ==================== MUSIC BROWSER FUNCTIONS ====================
+
+  // Search tracks
+  const searchTracks = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_URL}/api/spotify/search?q=${encodeURIComponent(query)}&type=track&limit=20`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const tracks = data.tracks?.items?.map((track) => ({
+          id: track.id,
+          name: track.name,
+          artists: track.artists.map((a) => a.name),
+          album: track.album.name,
+          album_image: track.album.images?.[0]?.url,
+          duration_ms: track.duration_ms,
+          uri: track.uri,
+        })) || [];
+        setSearchResults(tracks);
+      }
+    } catch (error) {
+      console.error("Error searching:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounced search
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    searchTimeout.current = setTimeout(() => {
+      searchTracks(query);
+    }, 300);
+  };
+
+  // Fetch user's playlists
+  const fetchPlaylists = async () => {
+    setLoadingPlaylists(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/api/spotify/me/playlists?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPlaylists(data.playlists || []);
+      }
+    } catch (error) {
+      console.error("Error fetching playlists:", error);
+    } finally {
+      setLoadingPlaylists(false);
+    }
+  };
+
+  // Fetch playlist tracks
+  const fetchPlaylistTracks = async (playlist) => {
+    setSelectedPlaylist(playlist);
+    setLoadingPlaylistTracks(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_URL}/api/spotify/playlists/${playlist.id}/tracks?limit=50`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setPlaylistTracks(data.tracks || []);
+      }
+    } catch (error) {
+      console.error("Error fetching playlist tracks:", error);
+    } finally {
+      setLoadingPlaylistTracks(false);
+    }
+  };
+
+  // Fetch liked songs
+  const fetchLikedSongs = async () => {
+    setLoadingLiked(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/api/spotify/me/tracks?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLikedSongs(data.tracks || []);
+      }
+    } catch (error) {
+      console.error("Error fetching liked songs:", error);
+    } finally {
+      setLoadingLiked(false);
+    }
+  };
+
+  // Play a track
+  const playTrack = async (trackUri) => {
+    try {
+      const token = localStorage.getItem("token");
+      await fetch(`${API_URL}/api/spotify/play`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          track_uri: trackUri,
+          device_id: deviceId,
+        }),
+      });
+    } catch (error) {
+      console.error("Error playing track:", error);
+    }
+  };
+
+  // Play a playlist
+  const playPlaylist = async (playlistUri) => {
+    try {
+      const token = localStorage.getItem("token");
+      await fetch(`${API_URL}/api/spotify/play`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          context_uri: playlistUri,
+          device_id: deviceId,
+        }),
+      });
+      setShowBrowser(false);
+    } catch (error) {
+      console.error("Error playing playlist:", error);
+    }
+  };
+
+  // Load data when tab changes
+  useEffect(() => {
+    if (!showBrowser) return;
+
+    if (activeTab === "playlists" && playlists.length === 0) {
+      fetchPlaylists();
+    } else if (activeTab === "liked" && likedSongs.length === 0) {
+      fetchLikedSongs();
+    }
+  }, [showBrowser, activeTab]);
+
   // Get volume icon based on state
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
@@ -384,6 +567,301 @@ export default function SpotifyPlayer({ isHost = false }) {
     );
   }
 
+  // ==================== TRACK ITEM COMPONENT ====================
+  const TrackItem = ({ track, showAlbumArt = true }) => (
+    <div
+      className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-700/50 cursor-pointer group transition-colors"
+      onClick={() => playTrack(track.uri)}
+    >
+      {showAlbumArt && (
+        <div className="relative w-10 h-10 flex-shrink-0">
+          {track.album_image ? (
+            <img
+              src={track.album_image}
+              alt={track.album}
+              className="w-10 h-10 rounded object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded bg-zinc-700 flex items-center justify-center">
+              <Music className="w-5 h-5 text-zinc-500" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-black/60 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <Play className="w-4 h-4 text-white" />
+          </div>
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-white truncate">{track.name}</p>
+        <p className="text-xs text-zinc-400 truncate">
+          {Array.isArray(track.artists) ? track.artists.join(", ") : track.artists}
+        </p>
+      </div>
+      <span className="text-xs text-zinc-500">{formatTime(track.duration_ms)}</span>
+    </div>
+  );
+
+  // ==================== MUSIC BROWSER ====================
+  if (showBrowser) {
+    return (
+      <div className="rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 border border-zinc-700/50 rounded-2xl">
+          {/* Browser Header */}
+          <div className="px-4 py-3 flex items-center justify-between border-b border-zinc-700/30">
+            <div className="flex items-center gap-2">
+              {selectedPlaylist ? (
+                <button
+                  onClick={() => {
+                    setSelectedPlaylist(null);
+                    setPlaylistTracks([]);
+                  }}
+                  className="text-zinc-400 hover:text-white transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              ) : (
+                <div className="w-6 h-6 rounded bg-green-500/20 flex items-center justify-center">
+                  <Music className="w-3 h-3 text-green-500" />
+                </div>
+              )}
+              <span className="text-sm font-medium text-white">
+                {selectedPlaylist ? selectedPlaylist.name : "Browse Music"}
+              </span>
+            </div>
+            <Button
+              onClick={() => {
+                setShowBrowser(false);
+                setSelectedPlaylist(null);
+                setPlaylistTracks([]);
+              }}
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-zinc-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* If viewing playlist tracks */}
+          {selectedPlaylist ? (
+            <div className="p-4">
+              {/* Playlist Header */}
+              <div className="flex items-center gap-4 mb-4">
+                {selectedPlaylist.image ? (
+                  <img
+                    src={selectedPlaylist.image}
+                    alt={selectedPlaylist.name}
+                    className="w-20 h-20 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-lg bg-zinc-700 flex items-center justify-center">
+                    <ListMusic className="w-8 h-8 text-zinc-500" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-zinc-400">{selectedPlaylist.track_count} tracks</p>
+                  <Button
+                    onClick={() => playPlaylist(selectedPlaylist.uri)}
+                    className="mt-2 bg-green-500 hover:bg-green-400 text-black text-xs h-8"
+                    size="sm"
+                  >
+                    <Play className="w-3 h-3 mr-1" />
+                    Play All
+                  </Button>
+                </div>
+              </div>
+
+              {/* Playlist Tracks */}
+              <ScrollArea className="h-64">
+                {loadingPlaylistTracks ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-green-500" />
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {playlistTracks.map((track) => (
+                      <TrackItem key={track.id} track={track} />
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          ) : (
+            <>
+              {/* Tabs */}
+              <div className="flex border-b border-zinc-700/30">
+                <button
+                  onClick={() => setActiveTab("search")}
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1.5",
+                    activeTab === "search"
+                      ? "text-green-500 border-b-2 border-green-500"
+                      : "text-zinc-400 hover:text-white"
+                  )}
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  Search
+                </button>
+                <button
+                  onClick={() => setActiveTab("playlists")}
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1.5",
+                    activeTab === "playlists"
+                      ? "text-green-500 border-b-2 border-green-500"
+                      : "text-zinc-400 hover:text-white"
+                  )}
+                >
+                  <Library className="w-3.5 h-3.5" />
+                  Playlists
+                </button>
+                <button
+                  onClick={() => setActiveTab("liked")}
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1.5",
+                    activeTab === "liked"
+                      ? "text-green-500 border-b-2 border-green-500"
+                      : "text-zinc-400 hover:text-white"
+                  )}
+                >
+                  <Heart className="w-3.5 h-3.5" />
+                  Liked
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="p-4">
+                {/* Search Tab */}
+                {activeTab === "search" && (
+                  <div>
+                    <div className="relative mb-4">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                      <Input
+                        type="text"
+                        placeholder="Search for songs..."
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                        className="pl-9 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 h-9"
+                      />
+                    </div>
+                    <ScrollArea className="h-64">
+                      {isSearching ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-5 h-5 animate-spin text-green-500" />
+                        </div>
+                      ) : searchResults.length > 0 ? (
+                        <div className="space-y-1">
+                          {searchResults.map((track) => (
+                            <TrackItem key={track.id} track={track} />
+                          ))}
+                        </div>
+                      ) : searchQuery ? (
+                        <p className="text-center text-zinc-500 text-sm py-8">No results found</p>
+                      ) : (
+                        <p className="text-center text-zinc-500 text-sm py-8">
+                          Search for your favorite songs
+                        </p>
+                      )}
+                    </ScrollArea>
+                  </div>
+                )}
+
+                {/* Playlists Tab */}
+                {activeTab === "playlists" && (
+                  <ScrollArea className="h-72">
+                    {loadingPlaylists ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-5 h-5 animate-spin text-green-500" />
+                      </div>
+                    ) : playlists.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {playlists.map((playlist) => (
+                          <div
+                            key={playlist.id}
+                            onClick={() => fetchPlaylistTracks(playlist)}
+                            className="p-3 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 cursor-pointer transition-colors group"
+                          >
+                            <div className="relative mb-2">
+                              {playlist.image ? (
+                                <img
+                                  src={playlist.image}
+                                  alt={playlist.name}
+                                  className="w-full aspect-square rounded object-cover"
+                                />
+                              ) : (
+                                <div className="w-full aspect-square rounded bg-zinc-700 flex items-center justify-center">
+                                  <ListMusic className="w-8 h-8 text-zinc-500" />
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                                  <Play className="w-5 h-5 text-black ml-0.5" />
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-sm font-medium text-white truncate">{playlist.name}</p>
+                            <p className="text-xs text-zinc-400">{playlist.track_count} tracks</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-zinc-500 text-sm py-8">No playlists found</p>
+                    )}
+                  </ScrollArea>
+                )}
+
+                {/* Liked Songs Tab */}
+                {activeTab === "liked" && (
+                  <ScrollArea className="h-72">
+                    {loadingLiked ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-5 h-5 animate-spin text-green-500" />
+                      </div>
+                    ) : likedSongs.length > 0 ? (
+                      <div className="space-y-1">
+                        {likedSongs.map((track) => (
+                          <TrackItem key={track.id} track={track} />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-zinc-500 text-sm py-8">No liked songs found</p>
+                    )}
+                  </ScrollArea>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Now Playing Mini Bar */}
+          {currentTrack && (
+            <div className="px-4 py-3 border-t border-zinc-700/30 flex items-center gap-3">
+              <img
+                src={currentTrack.album.images[0]?.url}
+                alt={currentTrack.name}
+                className="w-10 h-10 rounded"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white truncate">{currentTrack.name}</p>
+                <p className="text-xs text-zinc-400 truncate">
+                  {currentTrack.artists.map((a) => a.name).join(", ")}
+                </p>
+              </div>
+              <button
+                onClick={togglePlay}
+                className="w-8 h-8 rounded-full bg-green-500 hover:bg-green-400 flex items-center justify-center transition-colors"
+              >
+                {isPlaying ? (
+                  <Pause className="w-4 h-4 text-black" />
+                ) : (
+                  <Play className="w-4 h-4 text-black ml-0.5" />
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ==================== EXPANDED MODE ====================
   if (isExpanded) {
     return (
@@ -398,6 +876,15 @@ export default function SpotifyPlayer({ isHost = false }) {
               <span className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Now Playing</span>
             </div>
             <div className="flex items-center gap-1">
+              <Button
+                onClick={() => setShowBrowser(true)}
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-zinc-400 hover:text-white"
+              >
+                <Library className="w-3 h-3 mr-1" />
+                Browse
+              </Button>
               <Button
                 onClick={() => setIsExpanded(false)}
                 variant="ghost"
@@ -438,7 +925,7 @@ export default function SpotifyPlayer({ isHost = false }) {
               {currentTrack?.name || "No track playing"}
             </p>
             <p className="text-sm text-zinc-400 truncate mt-1">
-              {currentTrack?.artists.map((a) => a.name).join(", ") || "Start playing from Spotify"}
+              {currentTrack?.artists.map((a) => a.name).join(", ") || "Browse music to start playing"}
             </p>
             {currentTrack?.album?.name && (
               <p className="text-xs text-zinc-500 truncate mt-1">
@@ -563,6 +1050,15 @@ export default function SpotifyPlayer({ isHost = false }) {
           </div>
           <div className="flex items-center gap-1">
             <Button
+              onClick={() => setShowBrowser(true)}
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Library className="w-3 h-3 mr-1" />
+              Browse
+            </Button>
+            <Button
               onClick={() => setIsExpanded(true)}
               variant="ghost"
               size="sm"
@@ -599,14 +1095,17 @@ export default function SpotifyPlayer({ isHost = false }) {
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-3 mb-3">
+          <div
+            className="flex items-center gap-3 mb-3 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => setShowBrowser(true)}
+          >
             <div className="w-12 h-12 rounded-lg bg-zinc-800 flex items-center justify-center">
               <Music className="w-6 h-6 text-zinc-600" />
             </div>
             <div className="flex-1">
               <p className="text-muted-foreground text-sm">No track playing</p>
-              <p className="text-muted-foreground text-xs">
-                Start playing from the Spotify app
+              <p className="text-green-500 text-xs">
+                Click to browse music
               </p>
             </div>
           </div>

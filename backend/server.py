@@ -2823,13 +2823,62 @@ async def edit_player_chips(game_id: str, data: EditPlayerChipsRequest, user: Us
     audit_dict = audit.model_dump()
     audit_dict["timestamp"] = audit_dict["timestamp"].isoformat()
     await db.audit_logs.insert_one(audit_dict)
-    
+
+    # If game is settled, regenerate settlement and notify all players
+    settlement_regenerated = False
+    if game["status"] == "settled":
+        # Get all players for regeneration
+        all_players = await db.players.find({"game_id": game_id}).to_list(100)
+
+        # Delete old ledger entries
+        await db.ledger.delete_many({"game_id": game_id})
+
+        # Get updated game data (with new totals)
+        updated_game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+
+        # Regenerate settlement
+        await auto_generate_settlement(game_id, updated_game, all_players)
+        settlement_regenerated = True
+
+        # Add system message about regeneration
+        regen_message = GameThread(
+            game_id=game_id,
+            user_id=user.user_id,
+            content=f"🔄 Settlement regenerated after chip edit for {player_name}. All players notified.",
+            type="system"
+        )
+        regen_msg_dict = regen_message.model_dump()
+        regen_msg_dict["created_at"] = regen_msg_dict["created_at"].isoformat()
+        await db.game_threads.insert_one(regen_msg_dict)
+
+        # Notify ALL players about settlement regeneration (except the edited player who was already notified)
+        for p in all_players:
+            if p["user_id"] != data.user_id:  # Already notified the edited player
+                await db.notifications.insert_one({
+                    "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+                    "user_id": p["user_id"],
+                    "type": "settlement_regenerated",
+                    "title": "Settlement Updated",
+                    "message": f"The settlement for {game.get('title', 'the game')} has been recalculated after a chip edit.",
+                    "data": {"game_id": game_id, "group_id": game.get("group_id")},
+                    "read": False,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                })
+
+        # WebSocket notification to all connected clients
+        await emit_game_event(game_id, 'settlement_regenerated', {
+            'message': 'Settlement has been recalculated',
+            'edited_player': player_name,
+            'edited_by': user.name
+        })
+
     return {
         "message": f"Chips updated for {player_name}",
         "old_chips": old_chips,
         "new_chips": data.chips_count,
         "new_cash_value": new_cash_value,
-        "new_net_result": new_net_result
+        "new_net_result": new_net_result,
+        "settlement_regenerated": settlement_regenerated
     }
 
 # ============== SETTLEMENT ENDPOINTS ==============

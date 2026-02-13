@@ -26,6 +26,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function DashboardScreen() {
   const { isDark, colors } = useTheme();
+  const { t } = useLanguage();
 
   const navigation = useNavigation<NavigationProp>();
   const { user, signOut } = useAuth();

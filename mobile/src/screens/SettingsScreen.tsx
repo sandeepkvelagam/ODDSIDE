@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
   },
   glassButtonPressed: {
     opacity: 0.7,
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.92 }],
   },
   headerTitle: {
     fontSize: 17,

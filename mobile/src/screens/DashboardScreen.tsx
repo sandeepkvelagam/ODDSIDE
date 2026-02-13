@@ -99,9 +99,9 @@ export function DashboardScreen() {
   }, [fetchDashboard]);
 
   const menuItems = [
-    { icon: "home-outline" as const, label: "Dashboard", onPress: () => {} },
+    { icon: "home-outline" as const, label: t.nav.dashboard, onPress: () => {} },
     { icon: "chatbubble-outline" as const, label: "Chats", onPress: () => navigation.navigate("Groups") },
-    { icon: "people-outline" as const, label: "Groups", onPress: () => navigation.navigate("Groups") },
+    { icon: "people-outline" as const, label: t.nav.groups, onPress: () => navigation.navigate("Groups") },
     { icon: "game-controller-outline" as const, label: "Games", onPress: () => navigation.navigate("Groups") },
   ];
 

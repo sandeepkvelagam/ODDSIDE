@@ -11,8 +11,10 @@ import {
   Platform,
 } from "react-native";
 import { supabase } from "../lib/supabase";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function LoginScreen() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

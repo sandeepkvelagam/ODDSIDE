@@ -4573,10 +4573,16 @@ class SpotifyVolumeRequest(BaseModel):
     device_id: Optional[str] = None
 
 @api_router.get("/spotify/auth-url")
-async def get_spotify_auth_url(user: User = Depends(get_current_user)):
+async def get_spotify_auth_url(
+    user: User = Depends(get_current_user),
+    redirect_uri: str = None
+):
     """Get Spotify authorization URL for OAuth flow."""
     if not SPOTIFY_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Spotify integration not configured. Please add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to environment.")
+    
+    # Use provided redirect_uri or fall back to environment variable
+    final_redirect_uri = redirect_uri or SPOTIFY_REDIRECT_URI
     
     # Create state with user_id for security
     state = base64.urlsafe_b64encode(user.user_id.encode()).decode()
@@ -4585,12 +4591,12 @@ async def get_spotify_auth_url(user: User = Depends(get_current_user)):
         f"https://accounts.spotify.com/authorize?"
         f"client_id={SPOTIFY_CLIENT_ID}&"
         f"response_type=code&"
-        f"redirect_uri={SPOTIFY_REDIRECT_URI}&"
+        f"redirect_uri={final_redirect_uri}&"
         f"scope={SPOTIFY_SCOPES.replace(' ', '%20')}&"
         f"state={state}"
     )
     
-    return {"auth_url": auth_url, "redirect_uri": SPOTIFY_REDIRECT_URI}
+    return {"auth_url": auth_url, "redirect_uri": final_redirect_uri}
 
 @api_router.post("/spotify/token")
 async def exchange_spotify_token(data: SpotifyTokenRequest, user: User = Depends(get_current_user)):

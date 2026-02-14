@@ -418,6 +418,20 @@ export default function GameNight() {
     );
   }
 
+  // Format message timestamp: "Feb 13, 26 5:13 PM"
+  const formatMessageTime = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: '2-digit'
+    }) + ' ' + date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   const isHost = game?.is_host;
   const currentPlayer = game?.current_player;
   const isActive = game?.status === "active";
@@ -1213,13 +1227,18 @@ export default function GameNight() {
                             </Avatar>
                             <span className="text-xs md:text-sm font-medium truncate">{msg.user?.name}</span>
                             <span className="text-[10px] md:text-xs text-muted-foreground">
-                              {new Date(msg.created_at).toLocaleTimeString()}
+                              {formatMessageTime(msg.created_at)}
                             </span>
                           </div>
                         )}
                         <p className={`text-xs md:text-sm ${msg.type === 'system' ? 'text-primary' : ''}`}>
                           {msg.content}
                         </p>
+                        {msg.type === 'system' && (
+                          <p className="text-[9px] text-muted-foreground mt-1">
+                            {formatMessageTime(msg.created_at)}
+                          </p>
+                        )}
                       </div>
                     ))
                   )}

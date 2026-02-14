@@ -4080,6 +4080,45 @@ async def get_frequent_players(group_id: str, user: User = Depends(get_current_u
         "games_analyzed": len(games)
     }
 
+# ============== WALLET ENDPOINTS ==============
+
+@api_router.get("/wallet")
+async def get_wallet(user: User = Depends(get_current_user)):
+    """Get user's Kvitt wallet balance and transaction history."""
+    wallet = await db.wallets.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not wallet:
+        # Return empty wallet if doesn't exist
+        wallet = {
+            "user_id": user.user_id,
+            "balance": 0.00,
+            "currency": "usd",
+            "transactions": []
+        }
+    return wallet
+
+
+@api_router.get("/wallet/transactions")
+async def get_wallet_transactions(
+    user: User = Depends(get_current_user),
+    limit: int = 20,
+    offset: int = 0
+):
+    """Get paginated wallet transaction history."""
+    wallet = await db.wallets.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not wallet:
+        return {"transactions": [], "total": 0, "balance": 0.00}
+
+    transactions = wallet.get("transactions", [])
+    # Sort by created_at descending (most recent first)
+    transactions.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    return {
+        "transactions": transactions[offset:offset + limit],
+        "total": len(transactions),
+        "balance": wallet.get("balance", 0.00)
+    }
+
+
 # ============== LEDGER SUMMARY ENDPOINTS ==============
 
 @api_router.get("/ledger/balances")

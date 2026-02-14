@@ -418,31 +418,49 @@ async def create_debt_payment_link(
     db
 ) -> Dict[str, Any]:
     """Create a Stripe payment link for settling a debt between players"""
-    from emergentintegrations.payments.stripe.checkout import (
-        StripeCheckout, 
-        CheckoutSessionRequest,
-        CheckoutSessionResponse
-    )
-    
+    import stripe
+
     api_key = os.environ.get('STRIPE_API_KEY')
-    
+
     if not api_key:
         raise HTTPException(status_code=500, detail="Payment service not configured")
-    
-    # Create Stripe checkout for the debt amount
-    webhook_url = f"{origin_url}/api/webhook/stripe-debt"
-    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
-    
+
+    stripe.api_key = api_key
+
+    # Get game details for description
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0, "title": 1, "ended_at": 1})
+    game_title = game.get("title", "Poker Game") if game else "Poker Game"
+    game_date = ""
+    if game and game.get("ended_at"):
+        try:
+            game_date = datetime.fromisoformat(game["ended_at"].replace("Z", "+00:00")).strftime("%b %d, %Y")
+        except:
+            game_date = ""
+
+    description = f"{game_title} • {game_date}" if game_date else game_title
+
     # Build URLs
     success_url = f"{origin_url}/games/{game_id}/settlement?payment=success&ledger_id={ledger_id}"
     cancel_url = f"{origin_url}/games/{game_id}/settlement?payment=cancelled"
-    
-    # Create checkout request
-    checkout_request = CheckoutSessionRequest(
-        amount=float(amount),
-        currency="usd",
+
+    # Create Stripe checkout session with line items for better UX
+    session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[{
+            'price_data': {
+                'currency': 'usd',
+                'product_data': {
+                    'name': f'Payment to {to_user_name}',
+                    'description': description,
+                },
+                'unit_amount': int(amount * 100),  # Stripe uses cents
+            },
+            'quantity': 1,
+        }],
+        mode='payment',
         success_url=success_url,
         cancel_url=cancel_url,
+        customer_email=from_user_email,
         metadata={
             "type": "debt_settlement",
             "ledger_id": ledger_id,
@@ -454,13 +472,10 @@ async def create_debt_payment_link(
         }
     )
     
-    # Create session
-    session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_request)
-    
     # Create debt payment record
     debt_payment = {
         "payment_id": f"debt_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{ledger_id[:8]}",
-        "session_id": session.session_id,
+        "session_id": session.id,  # Stripe SDK uses .id
         "ledger_id": ledger_id,
         "from_user_id": from_user_id,
         "from_user_email": from_user_email,
@@ -474,14 +489,14 @@ async def create_debt_payment_link(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
-    
+
     await db.debt_payments.insert_one(debt_payment)
-    
+
     logger.info(f"Created debt payment session for ledger {ledger_id}, amount ${amount}")
-    
+
     return {
         "checkout_url": session.url,
-        "session_id": session.session_id,
+        "session_id": session.id,  # Stripe SDK uses .id
         "amount": amount,
         "to_user_name": to_user_name
     }
@@ -547,23 +562,61 @@ async def handle_debt_payment_webhook(
                     )
                     
                     logger.info(f"Debt payment completed for ledger {ledger_id}")
-                    
-                    # Send notification to recipient
+
+                    # Credit creditor's Kvitt wallet
+                    to_user_id = debt_payment["to_user_id"]
+                    payment_amount = debt_payment["amount"]
+                    from_user_id = debt_payment["from_user_id"]
+
+                    # Get payer's name
                     from_user = await db.users.find_one(
-                        {"user_id": debt_payment["from_user_id"]},
+                        {"user_id": from_user_id},
                         {"_id": 0, "name": 1}
                     )
-                    
+                    from_user_name = from_user.get('name', 'Someone') if from_user else 'Someone'
+
+                    # Credit wallet (upsert if doesn't exist)
+                    wallet_result = await db.wallets.find_one_and_update(
+                        {"user_id": to_user_id},
+                        {
+                            "$inc": {"balance": payment_amount},
+                            "$push": {
+                                "transactions": {
+                                    "transaction_id": f"txn_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{ledger_id[:8]}",
+                                    "type": "credit",
+                                    "amount": payment_amount,
+                                    "from_user_id": from_user_id,
+                                    "from_user_name": from_user_name,
+                                    "ledger_id": ledger_id,
+                                    "description": f"Payment from {from_user_name}",
+                                    "created_at": datetime.now(timezone.utc).isoformat()
+                                }
+                            },
+                            "$setOnInsert": {
+                                "user_id": to_user_id,
+                                "currency": "usd",
+                                "created_at": datetime.now(timezone.utc).isoformat()
+                            }
+                        },
+                        upsert=True,
+                        return_document=True
+                    )
+
+                    new_balance = wallet_result.get("balance", payment_amount) if wallet_result else payment_amount
+                    logger.info(f"Credited ${payment_amount:.2f} to wallet for user {to_user_id}. New balance: ${new_balance:.2f}")
+
+                    # Send notification to recipient with wallet balance
                     notification = {
                         "notification_id": f"notif_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
-                        "user_id": debt_payment["to_user_id"],
+                        "user_id": to_user_id,
                         "type": "payment_received",
                         "title": "Payment Received!",
-                        "message": f"{from_user.get('name', 'Someone')} paid you ${debt_payment['amount']:.2f} via Stripe",
+                        "message": f"{from_user_name} paid you ${payment_amount:.2f} via Stripe. Your Kvitt balance: ${new_balance:.2f}",
                         "data": {
                             "ledger_id": ledger_id,
                             "game_id": debt_payment["game_id"],
-                            "amount": debt_payment["amount"]
+                            "amount": payment_amount,
+                            "new_balance": new_balance
                         },
                         "read": False,
                         "created_at": datetime.now(timezone.utc).isoformat()

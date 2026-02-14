@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
   User, Mail, TrendingUp, TrendingDown, Trophy,
-  DollarSign, Target, LogOut, ArrowLeft, Moon, Sun, Bell
+  DollarSign, Target, LogOut, ArrowLeft, Moon, Sun, Bell, CreditCard, Loader2, Wallet, Sparkles
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import UserBadges from "@/components/UserBadges";
@@ -22,6 +22,8 @@ export default function Profile() {
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isDark, setIsDark] = useState(false);
+  const [payingLedgerId, setPayingLedgerId] = useState(null);
+  const [wallet, setWallet] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -41,12 +43,14 @@ export default function Profile() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, balancesRes] = await Promise.all([
+      const [statsRes, balancesRes, walletRes] = await Promise.all([
         axios.get(`${API}/stats/me`, { withCredentials: true }),
-        axios.get(`${API}/ledger/balances`, { withCredentials: true })
+        axios.get(`${API}/ledger/balances`, { withCredentials: true }),
+        axios.get(`${API}/wallet`, { withCredentials: true })
       ]);
       setStats(statsRes.data);
       setBalances(balancesRes.data);
+      setWallet(walletRes.data);
     } catch (error) {
       toast.error("Failed to load profile");
     } finally {
@@ -70,6 +74,24 @@ export default function Profile() {
       toast.success(`Payment request sent to ${entry.from_user?.name}`);
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to send request");
+    }
+  };
+
+  const handlePayWithStripe = async (ledgerId) => {
+    setPayingLedgerId(ledgerId);
+    try {
+      const response = await axios.post(`${API}/settlements/${ledgerId}/pay`, {
+        origin_url: window.location.origin
+      });
+      if (response.data.checkout_url) {
+        window.location.href = response.data.checkout_url;
+      } else {
+        toast.error("Could not create payment link");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to create payment");
+    } finally {
+      setPayingLedgerId(null);
     }
   };
 
@@ -229,6 +251,47 @@ export default function Profile() {
           </CardContent>
         </Card>
 
+        {/* Kvitt Wallet */}
+        <Card className="bg-gradient-to-r from-primary/20 to-primary/5 border-primary/30 mb-4 sm:mb-6" data-testid="kvitt-wallet">
+          <CardHeader className="px-4 sm:px-6 py-3 sm:py-4">
+            <CardTitle className="font-heading text-base sm:text-xl font-bold flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-primary" />
+              KVITT WALLET
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+            <div className="text-center p-6 sm:p-8">
+              <p className="text-muted-foreground text-sm mb-2">Available Balance</p>
+              <p className="font-mono text-3xl sm:text-4xl font-bold text-primary">
+                ${wallet?.balance?.toFixed(2) || '0.00'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                {wallet?.transactions?.length || 0} transaction(s)
+              </p>
+              <Button size="sm" className="mt-4" disabled>
+                <Sparkles className="w-3 h-3 mr-1" />
+                Withdraw (Coming Soon)
+              </Button>
+            </div>
+            {/* Recent Transactions */}
+            {wallet?.transactions?.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-primary/20">
+                <p className="text-xs text-muted-foreground mb-2">Recent Transactions</p>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {wallet.transactions.slice(-3).reverse().map((txn, i) => (
+                    <div key={txn.transaction_id || i} className="flex items-center justify-between text-xs p-2 bg-background/50 rounded">
+                      <span className="text-muted-foreground">{txn.description}</span>
+                      <span className={`font-mono font-bold ${txn.type === 'credit' ? 'text-primary' : 'text-destructive'}`}>
+                        {txn.type === 'credit' ? '+' : '-'}${txn.amount?.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Pending Balances */}
         <Card className="bg-card border-border/50" data-testid="pending-balances">
           <CardHeader className="px-4 sm:px-6 py-3 sm:py-4">
@@ -259,7 +322,21 @@ export default function Profile() {
                       <p className="font-medium text-sm sm:text-base">You owe {entry.to_user?.name}</p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">From recent game</p>
                     </div>
-                    <span className="font-mono font-bold text-destructive text-sm sm:text-base">${entry.amount.toFixed(2)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-destructive text-sm sm:text-base">${entry.amount.toFixed(2)}</span>
+                      <Button
+                        size="sm"
+                        onClick={() => handlePayWithStripe(entry.ledger_id)}
+                        disabled={payingLedgerId === entry.ledger_id}
+                        className="h-7 text-xs bg-[#635bff] hover:bg-[#5851db] text-white"
+                      >
+                        {payingLedgerId === entry.ledger_id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <><CreditCard className="w-3 h-3 mr-1" /> Pay</>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {balances?.owed?.map(entry => (

@@ -140,7 +140,7 @@ export default function AIAssistantDemo() {
 
           {/* Demo card */}
           <div className="order-1 md:order-2 scroll-animate-scale">
-            <div className="relative rounded-2xl border-2 border-dashed border-gray-200/60 overflow-hidden bg-white/90 backdrop-blur-sm shadow-[6px_6px_16px_rgba(0,0,0,0.05),-4px_-4px_12px_rgba(255,255,255,0.85),inset_2px_2px_4px_rgba(255,255,255,0.7),inset_-1px_-1px_2px_rgba(0,0,0,0.02)]">
+            <div className="relative rounded-2xl border-2 border-dashed border-gray-200/60 overflow-hidden bg-white/95 shadow-lg md:shadow-[6px_6px_16px_rgba(0,0,0,0.05),-4px_-4px_12px_rgba(255,255,255,0.85),inset_2px_2px_4px_rgba(255,255,255,0.7),inset_-1px_-1px_2px_rgba(0,0,0,0.02)]">
               {/* Coming Soon badge */}
               <div className="absolute top-3 right-3 z-20">
                 <span className="text-[10px] font-semibold bg-[#EF6E59] text-white px-2.5 py-1 rounded-full shadow-sm">

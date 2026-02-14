@@ -8,7 +8,16 @@ export default function StickyHeader() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 80);
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setScrolled(window.scrollY > 80);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -20,7 +29,7 @@ export default function StickyHeader() {
         className={cn(
           "hidden md:block fixed top-0 left-0 right-0 z-50 transition-all duration-300",
           scrolled
-            ? "bg-white/90 backdrop-blur-lg border-b border-border/30 shadow-sm"
+            ? "bg-white/95 md:bg-white/90 md:backdrop-blur-lg border-b border-border/30 shadow-sm"
             : "bg-transparent"
         )}
       >

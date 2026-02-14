@@ -179,7 +179,7 @@ export default function LiveGameDemo() {
         <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
           {/* Demo card */}
           <div className="scroll-animate-scale transition-all duration-700 ease-out">
-            <div className="bg-white rounded-2xl border border-gray-100/50 overflow-hidden shadow-[8px_8px_20px_rgba(0,0,0,0.06),-6px_-6px_16px_rgba(255,255,255,0.9),inset_2px_2px_4px_rgba(255,255,255,0.8),inset_-1px_-1px_3px_rgba(0,0,0,0.03)]">
+            <div className="bg-white rounded-2xl border border-gray-100/50 overflow-hidden shadow-lg md:shadow-[8px_8px_20px_rgba(0,0,0,0.06),-6px_-6px_16px_rgba(255,255,255,0.9),inset_2px_2px_4px_rgba(255,255,255,0.8),inset_-1px_-1px_3px_rgba(0,0,0,0.03)]">
               {/* Game header */}
               <div className="px-4 py-3 border-b border-border/20 flex items-center justify-between">
                 <div className="flex items-center gap-2">

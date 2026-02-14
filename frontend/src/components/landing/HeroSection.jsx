@@ -19,13 +19,13 @@ export default function HeroSection() {
 
   return (
     <section className="bg-dark-hero relative overflow-hidden min-h-[calc(100vh-4rem)] flex flex-col justify-center">
-      {/* Glowing orbs */}
+      {/* Glowing orbs - hidden on mobile for performance */}
       <div
-        className="glow-orb w-[300px] h-[300px] bg-[#EF6E59]/12 top-[10%] left-[5%] animate-glow-pulse"
+        className="glow-orb hidden md:block w-[300px] h-[300px] bg-[#EF6E59]/12 top-[10%] left-[5%] animate-glow-pulse"
         aria-hidden="true"
       />
       <div
-        className="glow-orb w-[200px] h-[200px] bg-[#EF6E59]/8 bottom-[20%] right-[5%] animate-glow-pulse"
+        className="glow-orb hidden md:block w-[200px] h-[200px] bg-[#EF6E59]/8 bottom-[20%] right-[5%] animate-glow-pulse"
         style={{ animationDelay: "2s" }}
         aria-hidden="true"
       />
@@ -37,7 +37,7 @@ export default function HeroSection() {
           <div className="flex-1 text-center lg:text-left">
             {/* Urgency banner */}
             <div className="mb-4 flex justify-center lg:justify-start">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#EF6E59]/20 to-amber-500/20 border border-[#EF6E59]/30 backdrop-blur-sm">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#EF6E59]/20 to-amber-500/20 border border-[#EF6E59]/30">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>

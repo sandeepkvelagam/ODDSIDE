@@ -32,8 +32,8 @@ export default function CompactFeatureCards({ className }) {
         <div
           key={i}
           className={cn(
-            "bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 transition-all hover:bg-white/15 hover:border-white/30",
-            "shadow-[inset_2px_2px_4px_rgba(255,255,255,0.1),inset_-2px_-2px_4px_rgba(0,0,0,0.2),4px_4px_12px_rgba(0,0,0,0.3)]",
+            "bg-white/10 rounded-2xl p-4 border border-white/20 transition-all hover:bg-white/15 hover:border-white/30",
+            "shadow-lg md:shadow-[inset_2px_2px_4px_rgba(255,255,255,0.1),inset_-2px_-2px_4px_rgba(0,0,0,0.2),4px_4px_12px_rgba(0,0,0,0.3)]",
             feature.badge && "relative overflow-hidden"
           )}
         >

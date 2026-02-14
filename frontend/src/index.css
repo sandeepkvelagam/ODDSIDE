@@ -271,8 +271,14 @@ code {
 .glow-orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(60px);
+    filter: blur(30px);
     pointer-events: none;
+}
+
+@media (min-width: 768px) {
+    .glow-orb {
+        filter: blur(60px);
+    }
 }
 
 .typewriter-cursor {

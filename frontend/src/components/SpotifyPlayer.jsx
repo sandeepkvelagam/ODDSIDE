@@ -170,23 +170,30 @@ export default function SpotifyPlayer({ isHost = false }) {
   const connectSpotify = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/api/spotify/auth-url`, {
+      const redirectUri = `${window.location.origin}/spotify/callback`;
+      
+      const response = await fetch(`${API_URL}/api/spotify/auth-url?redirect_uri=${encodeURIComponent(redirectUri)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
+      
       if (response.ok) {
         const data = await response.json();
+        // Store redirect_uri for token exchange
+        sessionStorage.setItem("spotify_redirect_uri", redirectUri);
+        
+        // Open Spotify auth in popup
         const width = 450;
         const height = 730;
         const left = window.screen.width / 2 - width / 2;
         const top = window.screen.height / 2 - height / 2;
-
+        
         window.open(
           data.auth_url,
           "Spotify Login",
           `width=${width},height=${height},left=${left},top=${top}`
         );
-
+        
+        // Listen for callback
         window.addEventListener("message", async (event) => {
           if (event.data.type === "SPOTIFY_CALLBACK") {
             await checkSpotifyStatus();

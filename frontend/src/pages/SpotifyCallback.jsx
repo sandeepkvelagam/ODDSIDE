@@ -34,6 +34,7 @@ export default function SpotifyCallback() {
 
       try {
         const token = localStorage.getItem("token");
+        const redirectUri = sessionStorage.getItem("spotify_redirect_uri") || `${window.location.origin}/spotify/callback`;
         
         const response = await fetch(`${API_URL}/api/spotify/token`, {
           method: "POST",
@@ -41,7 +42,7 @@ export default function SpotifyCallback() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, redirect_uri: redirectUri }),
         });
 
         if (response.ok) {

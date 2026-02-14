@@ -354,12 +354,12 @@ export default function GroupHub() {
                               className="w-4 h-4 rounded border-border accent-primary"
                             />
                             <Avatar className="w-6 h-6">
-                              <AvatarImage src={member.avatar_url} />
+                              <AvatarImage src={member.user?.picture} />
                               <AvatarFallback className="text-[10px] bg-secondary">
-                                {member.name?.substring(0, 2).toUpperCase()}
+                                {member.user?.name?.substring(0, 2).toUpperCase() || "?"}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-sm">{member.name}</span>
+                            <span className="text-sm">{member.user?.name || "Unknown"}</span>
                           </label>
                         ))}
                       </div>

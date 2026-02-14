@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
   User, Mail, TrendingUp, TrendingDown, Trophy,
-  DollarSign, Target, LogOut, ArrowLeft, Moon, Sun, Bell, CreditCard, Loader2, Wallet, Sparkles
+  DollarSign, Target, ArrowLeft, Moon, Sun, Bell, CreditCard, Loader2, Wallet, Sparkles
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import UserBadges from "@/components/UserBadges";
@@ -17,7 +17,7 @@ const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,16 +55,6 @@ export default function Profile() {
       toast.error("Failed to load profile");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      toast.success("Logged out");
-      navigate("/");
-    } catch (error) {
-      navigate("/");
     }
   };
 
@@ -139,15 +129,6 @@ export default function Profile() {
                   <UserBadges compact={true} />
                 </div>
               </div>
-              <Button 
-                variant="destructive" 
-                onClick={handleLogout}
-                data-testid="logout-btn"
-                className="text-sm h-9 sm:h-10"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
             </div>
           </CardContent>
         </Card>

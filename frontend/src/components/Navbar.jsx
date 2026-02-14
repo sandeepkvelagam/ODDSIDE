@@ -19,6 +19,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import Logo from "@/components/Logo";
+import { Alert, AlertTitle, AlertDescription, AlertAction } from "@/components/reui/alert";
+import { Frame, FramePanel } from "@/components/reui/frame";
 import { toast } from "sonner";
 import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight } from "lucide-react";
 
@@ -156,64 +158,167 @@ export default function Navbar() {
     { path: "/groups", label: "Groups", icon: Users },
   ];
 
+  // Helper to get initials from name
+  const getInitials = (name) => {
+    if (!name) return "?";
+    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+
   // Render notification item with actions
   const renderNotification = (notif) => {
     const isActionable = ["join_request", "buy_in_request", "group_invite_request"].includes(notif.type);
-    
+    const playerName = notif.data?.user_name || notif.data?.player_name || "Player";
+    const initials = getInitials(playerName);
+
+    // Join request notification
+    if (notif.type === "join_request") {
+      return (
+        <div key={notif.notification_id} className="p-2">
+          <Frame>
+            <FramePanel className="overflow-hidden p-0">
+              <Alert className="grid-cols-[32px_1fr] gap-x-3 border-0 shadow-none bg-primary/5">
+                <Avatar className="size-8 border">
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <AlertTitle className="flex items-center gap-2">
+                  <span className="truncate font-semibold">{playerName}</span>
+                  <span className="text-muted-foreground truncate font-normal">
+                    wants to join
+                  </span>
+                </AlertTitle>
+                <AlertAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => handleRejectJoin(notif)}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => handleApproveJoin(notif)}
+                  >
+                    Approve
+                  </Button>
+                </AlertAction>
+                <AlertDescription className="line-clamp-1">
+                  Requesting to join the game
+                </AlertDescription>
+              </Alert>
+            </FramePanel>
+          </Frame>
+        </div>
+      );
+    }
+
+    // Buy-in request notification
+    if (notif.type === "buy_in_request") {
+      return (
+        <div key={notif.notification_id} className="p-2">
+          <Frame>
+            <FramePanel className="overflow-hidden p-0">
+              <Alert className="grid-cols-[32px_1fr] gap-x-3 border-0 shadow-none bg-primary/5">
+                <Avatar className="size-8 border">
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <AlertTitle className="flex items-center gap-2">
+                  <span className="truncate font-semibold">{playerName}</span>
+                  <span className="text-muted-foreground truncate font-normal">
+                    requests buy-in
+                  </span>
+                </AlertTitle>
+                <AlertAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => handleMarkRead(notif.notification_id)}
+                  >
+                    Dismiss
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => handleApproveBuyIn(notif)}
+                  >
+                    Approve ${notif.data?.amount}
+                  </Button>
+                </AlertAction>
+                <AlertDescription className="line-clamp-1">
+                  Requesting ${notif.data?.amount} buy-in ({notif.data?.chips} chips)
+                </AlertDescription>
+              </Alert>
+            </FramePanel>
+          </Frame>
+        </div>
+      );
+    }
+
+    // Group invite notification
+    if (notif.type === "group_invite_request" && notif.data?.invite_id) {
+      const inviterName = notif.data?.inviter_name || "Someone";
+      return (
+        <div key={notif.notification_id} className="p-2">
+          <Frame>
+            <FramePanel className="overflow-hidden p-0">
+              <Alert className="grid-cols-[32px_1fr] gap-x-3 border-0 shadow-none bg-primary/5">
+                <Avatar className="size-8 border">
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                    {getInitials(inviterName)}
+                  </AvatarFallback>
+                </Avatar>
+                <AlertTitle className="flex items-center gap-2">
+                  <span className="truncate font-semibold">{inviterName}</span>
+                  <span className="text-muted-foreground truncate font-normal">
+                    invited you
+                  </span>
+                </AlertTitle>
+                <AlertAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => handleDeclineInvite(notif)}
+                  >
+                    Decline
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => handleAcceptInvite(notif)}
+                  >
+                    Accept
+                  </Button>
+                </AlertAction>
+                <AlertDescription className="line-clamp-1">
+                  {notif.message}
+                </AlertDescription>
+              </Alert>
+            </FramePanel>
+          </Frame>
+        </div>
+      );
+    }
+
+    // Default notification (non-actionable)
     return (
-      <div 
-        key={notif.notification_id} 
-        className={`p-3 border-b border-border/50 ${isActionable ? 'bg-primary/5' : ''}`}
+      <div
+        key={notif.notification_id}
+        className="p-3 border-b border-border/50"
       >
         <div className="flex items-start gap-3">
           <div className="flex-1">
             <p className="font-medium text-sm">{notif.title}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{notif.message}</p>
-            
-            {/* Action buttons for join requests */}
-            {notif.type === "join_request" && (
-              <div className="flex gap-2 mt-2">
-                <Button 
-                  size="sm" 
-                  className="h-7 text-xs bg-primary text-black hover:bg-primary/90"
-                  onClick={() => handleApproveJoin(notif)}
-                >
-                  <Check className="w-3 h-3 mr-1" /> Approve
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={() => handleRejectJoin(notif)}
-                >
-                  <XIcon className="w-3 h-3 mr-1" /> Reject
-                </Button>
-              </div>
-            )}
-            
-            {/* Action buttons for buy-in requests */}
-            {notif.type === "buy_in_request" && (
-              <div className="flex gap-2 mt-2">
-                <Button 
-                  size="sm" 
-                  className="h-7 text-xs bg-primary text-black hover:bg-primary/90"
-                  onClick={() => handleApproveBuyIn(notif)}
-                >
-                  <Check className="w-3 h-3 mr-1" /> Approve ${notif.data?.amount}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost"
-                  className="h-7 text-xs"
-                  onClick={() => handleMarkRead(notif.notification_id)}
-                >
-                  Dismiss
-                </Button>
-              </div>
-            )}
-            
+
             {/* Navigate button for game notifications */}
-            {notif.data?.game_id && !isActionable && (
+            {notif.data?.game_id && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -227,9 +332,9 @@ export default function Navbar() {
                 View Game <ChevronRight className="w-3 h-3 ml-1" />
               </Button>
             )}
-            
+
             {/* Navigate button for group notifications */}
-            {notif.data?.group_id && !notif.data?.game_id && !isActionable && (
+            {notif.data?.group_id && !notif.data?.game_id && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -243,37 +348,14 @@ export default function Navbar() {
                 View Group <ChevronRight className="w-3 h-3 ml-1" />
               </Button>
             )}
-            
-            {/* Accept/Decline buttons for group invites */}
-            {notif.type === "group_invite_request" && notif.data?.invite_id && (
-              <div className="flex gap-2 mt-2">
-                <Button 
-                  size="sm" 
-                  className="h-7 text-xs bg-primary text-black hover:bg-primary/90"
-                  onClick={() => handleAcceptInvite(notif)}
-                >
-                  <Check className="w-3 h-3 mr-1" /> Accept
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={() => handleDeclineInvite(notif)}
-                >
-                  <XIcon className="w-3 h-3 mr-1" /> Decline
-                </Button>
-              </div>
-            )}
           </div>
-          
-          {!isActionable && notif.type !== "group_invite_request" && (
-            <button
-              onClick={() => handleMarkRead(notif.notification_id)}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <XIcon className="w-4 h-4" />
-            </button>
-          )}
+
+          <button
+            onClick={() => handleMarkRead(notif.notification_id)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
         </div>
       </div>
     );

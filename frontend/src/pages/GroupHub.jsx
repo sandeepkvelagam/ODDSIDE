@@ -43,6 +43,7 @@ export default function GroupHub() {
     buy_in_amount: 20,
     chips_per_buy_in: 20
   });
+  const [selectedMembers, setSelectedMembers] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -85,11 +86,13 @@ export default function GroupHub() {
         group_id: groupId,
         title: gameForm.title || null,
         buy_in_amount: gameForm.buy_in_amount,
-        chips_per_buy_in: gameForm.chips_per_buy_in
+        chips_per_buy_in: gameForm.chips_per_buy_in,
+        initial_players: selectedMembers.length > 0 ? selectedMembers : null
       });
       toast.success("Game started!");
       setGameDialogOpen(false);
       setGameForm({ title: "", buy_in_amount: smartDefaults?.buy_in_amount || 20, chips_per_buy_in: smartDefaults?.chips_per_buy_in || 20 });
+      setSelectedMembers([]);
       navigate(`/games/${response.data.game_id}`);
     } catch (error) {
       toast.error("Failed to start game");
@@ -97,6 +100,18 @@ export default function GroupHub() {
       setSubmitting(false);
     }
   };
+
+  // Toggle member selection for game start
+  const toggleMemberSelection = (memberId) => {
+    setSelectedMembers(prev =>
+      prev.includes(memberId)
+        ? prev.filter(id => id !== memberId)
+        : [...prev, memberId]
+    );
+  };
+
+  // Get other members (excluding current user)
+  const otherMembers = group?.members?.filter(m => m.user_id !== user?.user_id) || [];
 
   // Request to join a game
   const handleRequestJoin = async (gameId) => {
@@ -314,9 +329,70 @@ export default function GroupHub() {
                       </p>
                     </div>
                   </div>
-                  
-                  <Button 
-                    type="submit" 
+
+                  {/* Member Selection */}
+                  {otherMembers.length > 0 && (
+                    <div className="border-t border-border pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                          <Users className="w-4 h-4" /> Add Players
+                        </h4>
+                        <span className="text-xs text-muted-foreground">
+                          {selectedMembers.length} of {otherMembers.length} selected
+                        </span>
+                      </div>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {otherMembers.map((member) => (
+                          <label
+                            key={member.user_id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedMembers.includes(member.user_id)}
+                              onChange={() => toggleMemberSelection(member.user_id)}
+                              className="w-4 h-4 rounded border-border accent-primary"
+                            />
+                            <Avatar className="w-6 h-6">
+                              <AvatarImage src={member.avatar_url} />
+                              <AvatarFallback className="text-[10px] bg-secondary">
+                                {member.name?.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">{member.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {selectedMembers.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Selected players will join with ${gameForm.buy_in_amount} ({gameForm.chips_per_buy_in} chips)
+                        </p>
+                      )}
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => setSelectedMembers(otherMembers.map(m => m.user_id))}
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => setSelectedMembers([])}
+                        >
+                          Deselect All
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <Button
+                    type="submit"
                     className="w-full bg-primary text-black hover:bg-primary/90"
                     disabled={submitting}
                     data-testid="confirm-start-game-btn"

@@ -6,6 +6,12 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Sparkles, Loader2, Brain, Eye, EyeOff, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -69,6 +75,52 @@ const Card = ({ rank, suit, hidden, onClick, isSelected, isInput }) => {
   );
 };
 
+// Mobile-friendly card picker component
+const CardPicker = ({ currentRank, currentSuit, onSelectRank, onSelectSuit }) => {
+  return (
+    <div className="p-4 pb-8">
+      {/* Rank Selection */}
+      <p className="text-xs font-medium text-muted-foreground mb-2">Select Rank</p>
+      <div className="grid grid-cols-7 gap-2 mb-4">
+        {validValues.map((value) => (
+          <button
+            key={value}
+            onClick={() => onSelectRank(value)}
+            className={cn(
+              "h-10 rounded-lg text-sm font-bold transition-all",
+              currentRank === value
+                ? "bg-[#EF6E59] text-white"
+                : "bg-secondary hover:bg-secondary/80"
+            )}
+          >
+            {value}
+          </button>
+        ))}
+      </div>
+
+      {/* Suit Selection */}
+      <p className="text-xs font-medium text-muted-foreground mb-2">Select Suit</p>
+      <div className="grid grid-cols-4 gap-2">
+        {Object.entries(suits).map(([key, symbol]) => (
+          <button
+            key={key}
+            onClick={() => onSelectSuit(key)}
+            className={cn(
+              "h-12 rounded-lg text-2xl transition-all",
+              currentSuit === key
+                ? "bg-white ring-2 ring-[#EF6E59] shadow-sm"
+                : "bg-secondary hover:bg-secondary/80",
+              suitColors[key]
+            )}
+          >
+            {symbol}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function PokerAIAssistant({ gameId = null }) {
   const [open, setOpen] = useState(false);
   const [showHand, setShowHand] = useState(true);
@@ -92,6 +144,7 @@ export default function PokerAIAssistant({ gameId = null }) {
   const [suggestion, setSuggestion] = useState(null);
   const [stats, setStats] = useState(null);
   const [showStats, setShowStats] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Fetch stats when dialog opens
   useEffect(() => {
@@ -103,6 +156,33 @@ export default function PokerAIAssistant({ gameId = null }) {
   // Handle card selection
   const handleCardClick = (type, index) => {
     setSelectedCard(`${type}-${index}`);
+    setPickerOpen(true); // Open bottom sheet for mobile
+  };
+
+  // Get current rank of selected card
+  const getCurrentRank = () => {
+    if (!selectedCard) return null;
+    const [type, idx] = selectedCard.split("-");
+    const index = parseInt(idx);
+    return type === "hand" ? hand[index].rank : community[index].rank;
+  };
+
+  // Handle value selection from picker
+  const handleValueSelect = (value) => {
+    if (!selectedCard) return;
+    const [type, idx] = selectedCard.split("-");
+    const index = parseInt(idx);
+
+    if (type === "hand") {
+      const newHand = [...hand];
+      newHand[index].rank = value;
+      setHand(newHand);
+    } else {
+      const newComm = [...community];
+      newComm[index].rank = value;
+      setCommunity(newComm);
+    }
+    setSuggestion(null);
   };
 
   // Track if waiting for "0" to complete "10"
@@ -530,6 +610,26 @@ export default function PokerAIAssistant({ gameId = null }) {
           </div>
         </div>
       </DialogContent>
+
+      {/* Mobile Card Picker Sheet */}
+      <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader className="pb-2">
+            <SheetTitle className="text-sm">
+              {selectedCard?.startsWith("hand") ? "Your Hand" : "Community"} Card {selectedCard?.split("-")[1] ? parseInt(selectedCard.split("-")[1]) + 1 : ""}
+            </SheetTitle>
+          </SheetHeader>
+          <CardPicker
+            currentRank={getCurrentRank()}
+            currentSuit={getSelectedSuit()}
+            onSelectRank={handleValueSelect}
+            onSelectSuit={(suit) => {
+              handleSuitSelect(suit);
+              setPickerOpen(false);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
     </Dialog>
   );
 }

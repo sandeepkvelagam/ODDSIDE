@@ -25,6 +25,12 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    // Set a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      console.warn('Auth loading timeout - setting isLoading to false');
+      setIsLoading(false);
+    }, 10000);
+
     // Check for existing Supabase session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
@@ -33,6 +39,11 @@ export const AuthProvider = ({ children }) => {
         await syncUserToBackend(session);
       }
       setIsLoading(false);
+      clearTimeout(timeout);
+    }).catch(err => {
+      console.error('Error getting session:', err);
+      setIsLoading(false);
+      clearTimeout(timeout);
     });
 
     // Listen for auth changes
@@ -49,7 +60,10 @@ export const AuthProvider = ({ children }) => {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   // Fallback auth check (for when Supabase is not configured)

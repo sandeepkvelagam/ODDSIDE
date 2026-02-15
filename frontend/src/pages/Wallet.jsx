@@ -40,6 +40,8 @@ export default function Wallet() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    console.log('Wallet useEffect - authLoading:', authLoading, 'user:', user);
+    
     // Wait for auth to complete
     if (authLoading) return;
     
@@ -49,6 +51,7 @@ export default function Wallet() {
       return;
     }
     
+    console.log('Fetching wallet for user:', user.user_id || user.email);
     fetchWallet();
 
     // Handle deposit success/cancel from Stripe redirect

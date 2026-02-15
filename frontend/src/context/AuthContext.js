@@ -34,7 +34,15 @@ export const AuthProvider = ({ children }) => {
         console.log('Auth state change:', event, session?.user?.email);
         setSession(session);
         if (session?.user) {
-          await syncUserToBackend(session);
+          // Set user immediately from Supabase data, then sync with backend
+          setUser({
+            user_id: session.user.id,
+            email: session.user.email,
+            name: session.user.user_metadata?.name || session.user.email?.split('@')[0],
+            picture: session.user.user_metadata?.avatar_url
+          });
+          // Sync to backend in background (don't await)
+          syncUserToBackend(session).catch(err => console.error('Sync error:', err));
         } else {
           setUser(null);
         }
@@ -165,12 +173,8 @@ export const AuthProvider = ({ children }) => {
     if (signInError) {
       throw signInError;
     }
-    
-    // Sync user to MongoDB on sign in - MUST await to prevent race condition
-    if (signInData?.session) {
-      await syncUserToBackend(signInData.session);
-    }
-    
+
+    // Auth listener will handle syncUserToBackend
     // Return user data for welcome screen
     return {
       user_id: signInData?.user?.id,

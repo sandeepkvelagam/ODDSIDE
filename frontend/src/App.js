@@ -95,6 +95,8 @@ const ProtectedRoute = ({ children }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
+  console.log('ProtectedRoute - isLoading:', isLoading, 'user:', user?.email);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

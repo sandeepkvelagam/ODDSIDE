@@ -57,6 +57,7 @@ export default function Login() {
     try {
       const user = await signIn(email, password);
       setLoggedInUser(user);
+      setLoading(false);
       // Show welcome screen after successful login
       setShowWelcome(true);
     } catch (err) {

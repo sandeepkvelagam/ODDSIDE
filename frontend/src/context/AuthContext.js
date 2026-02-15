@@ -25,26 +25,25 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    // Set a timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      console.warn('Auth loading timeout - setting isLoading to false');
-      setIsLoading(false);
-    }, 10000);
-
     // Check for existing Supabase session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        // Sync user to backend and get MongoDB user data (including correct user_id)
-        await syncUserToBackend(session);
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Supabase getSession error:', error);
+        }
+        setSession(session);
+        if (session?.user) {
+          await syncUserToBackend(session);
+        }
+      } catch (err) {
+        console.error('Error getting session:', err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-      clearTimeout(timeout);
-    }).catch(err => {
-      console.error('Error getting session:', err);
-      setIsLoading(false);
-      clearTimeout(timeout);
-    });
+    };
+
+    initAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -62,7 +61,6 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       subscription.unsubscribe();
-      clearTimeout(timeout);
     };
   }, []);
 

@@ -99,10 +99,10 @@ export const AuthProvider = ({ children }) => {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase not configured');
     }
-    
+
     let signUpData = null;
     let signUpError = null;
-    
+
     try {
       const result = await supabase.auth.signUp({
         email,
@@ -115,30 +115,47 @@ export const AuthProvider = ({ children }) => {
       signUpData = result.data;
       signUpError = result.error;
     } catch (err) {
-      console.error('Supabase signup error:', err);
-      throw new Error(err.message || 'Signup failed. Please try again.');
+      console.error('Supabase signup exception:', err);
+      // Re-throw with the original error so parseSupabaseError can handle it
+      throw err;
     }
-    
+
     if (signUpError) {
       throw signUpError;
     }
-    
+
+    // Detect duplicate email when email confirmation is enabled.
+    // Supabase returns a user with empty identities[] and no error
+    // instead of revealing that the email already exists.
+    if (signUpData?.user &&
+        Array.isArray(signUpData.user.identities) &&
+        signUpData.user.identities.length === 0) {
+      const duplicateError = new Error('An account with this email already exists. Try logging in instead.');
+      duplicateError.__isAuthError = true;
+      duplicateError.code = 'user_already_exists';
+      throw duplicateError;
+    }
+
     // Sync new user to MongoDB immediately after signup
     if (signUpData?.user) {
       try {
+        const headers = {};
+        // Include auth token if session is available (some Supabase configs return a session immediately)
+        if (signUpData.session?.access_token) {
+          headers['Authorization'] = `Bearer ${signUpData.session.access_token}`;
+        }
         await axios.post(`${API}/auth/sync-user`, {
           supabase_id: signUpData.user.id,
           email: signUpData.user.email,
           name: name || signUpData.user.email?.split('@')[0],
           picture: null
-        });
-        console.log('User synced to MongoDB after signup');
+        }, { headers });
       } catch (syncError) {
         console.error('Error syncing user after signup:', syncError);
         // Don't throw - user is still created in Supabase
       }
     }
-    
+
     return signUpData;
   };
 

@@ -262,6 +262,89 @@ class GameThread(BaseModel):
     type: str = "user"  # user, system
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+
+# ============== WALLET MODELS (Payment Engineering: cents-based) ==============
+
+class Wallet(BaseModel):
+    """
+    Wallet for storing funds and making transfers.
+    All money fields are in CENTS (integer) to avoid float precision issues.
+    """
+    model_config = ConfigDict(extra="ignore")
+    wallet_id: str  # Unique ID: "KVT-XXXXXX"
+    user_id: str
+    balance_cents: int = 0  # INTEGER CENTS - source of truth is wallet_transactions
+    currency: str = "usd"
+    status: str = "active"  # active, suspended, frozen
+
+    # Security
+    pin_hash: Optional[str] = None  # bcrypt hashed 4-6 digit PIN
+    pin_attempts: int = 0
+    pin_locked_until: Optional[datetime] = None
+
+    # Limits (all in cents)
+    daily_transfer_limit_cents: int = 50000  # $500
+    per_transaction_limit_cents: int = 20000  # $200
+    daily_transferred_cents: int = 0
+    daily_transferred_reset_at: Optional[datetime] = None
+
+    # Optimistic concurrency
+    version: int = 1
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: Optional[datetime] = None
+
+
+class WalletTransaction(BaseModel):
+    """
+    Immutable ledger entry for wallet transactions.
+    This is the SOURCE OF TRUTH for balances.
+    """
+    model_config = ConfigDict(extra="ignore")
+    transaction_id: str = Field(default_factory=lambda: f"wtxn_{uuid.uuid4().hex[:12]}")
+    wallet_id: str
+    user_id: str
+    type: str  # deposit, transfer_in, transfer_out, settlement_credit
+    amount_cents: int  # Always positive
+    direction: str  # "credit" or "debit"
+    balance_before_cents: int
+    balance_after_cents: int
+
+    # For transfers (shared by both sides of transfer)
+    transfer_id: Optional[str] = None
+    counterparty_wallet_id: Optional[str] = None
+    counterparty_user_id: Optional[str] = None
+    counterparty_name: Optional[str] = None
+
+    # For deposits (prevents double-credit via unique index)
+    stripe_payment_intent_id: Optional[str] = None
+
+    # Idempotency (prevents duplicate processing)
+    idempotency_key: Optional[str] = None
+
+    description: str = ""
+    status: str = "completed"  # completed, pending, failed
+    ip_address: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WalletAuditLog(BaseModel):
+    """Audit trail for wallet operations - compliance and fraud investigation."""
+    model_config = ConfigDict(extra="ignore")
+    audit_id: str = Field(default_factory=lambda: f"waud_{uuid.uuid4().hex[:12]}")
+    wallet_id: str
+    user_id: str
+    action: str  # wallet_created, pin_set, pin_changed, pin_failed, transfer_completed
+    old_value: Optional[Dict[str, Any]] = None
+    new_value: Optional[Dict[str, Any]] = None
+    risk_score: Optional[int] = None
+    risk_flags: List[str] = []
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    request_id: Optional[str] = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 # ============== REQUEST/RESPONSE MODELS ==============
 
 class SessionRequest(BaseModel):
@@ -347,6 +430,40 @@ class EditPlayerChipsRequest(BaseModel):
     user_id: str
     chips_count: int
     reason: Optional[str] = None
+
+
+# ============== WALLET REQUEST MODELS ==============
+
+class SetPinRequest(BaseModel):
+    """Set wallet PIN (4-6 digits)."""
+    pin: str = Field(..., min_length=4, max_length=6, pattern=r'^\d+$')
+
+
+class ChangePinRequest(BaseModel):
+    """Change wallet PIN (requires current PIN)."""
+    current_pin: str
+    new_pin: str = Field(..., min_length=4, max_length=6, pattern=r'^\d+$')
+
+
+class VerifyPinRequest(BaseModel):
+    """Verify wallet PIN."""
+    pin: str
+
+
+class WalletTransferRequest(BaseModel):
+    """Transfer money to another wallet."""
+    to_wallet_id: str
+    amount_cents: int = Field(..., gt=0, le=20000)  # Max $200 per transaction
+    pin: str
+    idempotency_key: str  # Client-generated UUID for duplicate prevention
+    description: Optional[str] = None
+
+
+class WalletDepositRequest(BaseModel):
+    """Create Stripe checkout session for wallet deposit."""
+    amount_cents: int = Field(..., ge=500, le=100000)  # $5 - $1000
+    origin_url: str
+
 
 # ============== AUTH HELPERS ==============
 
@@ -1590,6 +1707,8 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
             player["user"] = user_map.get(player["user_id"])
             player["transactions"] = txn_map.get(player["user_id"], [])
             player["buy_in_count"] = len([t for t in player["transactions"] if t.get("type") == "buy_in"])
+            # Calculate net_result for settlement display
+            player["net_result"] = player.get("cash_out", 0) - player.get("total_buy_in", 0)
     
     game["players"] = players
     
@@ -3173,6 +3292,58 @@ async def request_payment(ledger_id: str, user: User = Depends(get_current_user)
 
     return {"status": "requested", "message": f"Payment request sent to {debtor['name'] if debtor else 'user'}"}
 
+@api_router.post("/ledger/{ledger_id}/confirm-received")
+async def confirm_payment_received(ledger_id: str, user: User = Depends(get_current_user)):
+    """Creditor confirms they received cash payment."""
+    entry = await db.ledger.find_one({"ledger_id": ledger_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Ledger entry not found")
+
+    # Only creditor (to_user_id) can confirm they received payment
+    if entry["to_user_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Only the creditor can confirm payment received")
+
+    if entry["status"] == "paid":
+        raise HTTPException(status_code=400, detail="This payment has already been confirmed")
+
+    # Mark as paid
+    await db.ledger.update_one(
+        {"ledger_id": ledger_id},
+        {"$set": {
+            "status": "paid",
+            "paid_at": datetime.now(timezone.utc).isoformat(),
+            "payment_method": "cash",
+            "confirmed_by": user.user_id,
+            "is_locked": True
+        }}
+    )
+
+    # Get debtor info for notification
+    debtor = await db.users.find_one({"user_id": entry["from_user_id"]})
+
+    # Notify debtor that payment was confirmed
+    notification = {
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": entry["from_user_id"],
+        "title": "Payment Confirmed",
+        "message": f"{user.name} confirmed receiving your payment of ${entry['amount']:.2f}",
+        "type": "payment_confirmed",
+        "data": {
+            "ledger_id": ledger_id,
+            "amount": entry["amount"],
+            "creditor_name": user.name
+        },
+        "channels": ["in_app"],
+        "read": False,
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.notifications.insert_one(notification)
+
+    # Send real-time notification via WebSocket
+    await emit_notification(entry["from_user_id"], notification)
+
+    return {"status": "confirmed", "message": f"Payment of ${entry['amount']:.2f} confirmed as received"}
+
 @api_router.put("/ledger/{ledger_id}/edit")
 async def edit_ledger(ledger_id: str, data: LedgerEditRequest, user: User = Depends(get_current_user)):
     """Edit a locked ledger entry (admin only with reason)."""
@@ -3413,6 +3584,178 @@ async def mark_all_read(user: User = Depends(get_current_user)):
     )
     
     return {"message": "All marked as read"}
+
+# ============== DEBUG/DIAGNOSTICS ENDPOINTS ==============
+
+@api_router.get("/debug/user-data")
+async def debug_user_data(user: User = Depends(get_current_user)):
+    """Debug endpoint to diagnose user data issues."""
+    result = {
+        "current_user": {
+            "user_id": user.user_id,
+            "email": user.email,
+            "name": user.name
+        },
+        "user_record": None,
+        "group_memberships": [],
+        "player_records": [],
+        "notifications": [],
+        "issues": []
+    }
+
+    # Get full user record
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    result["user_record"] = user_doc
+
+    # Check for duplicate users with same email
+    duplicate_users = await db.users.find(
+        {"email": user.email},
+        {"_id": 0, "user_id": 1, "email": 1, "name": 1, "supabase_id": 1}
+    ).to_list(10)
+    if len(duplicate_users) > 1:
+        result["issues"].append({
+            "type": "duplicate_users",
+            "message": f"Found {len(duplicate_users)} users with same email",
+            "users": duplicate_users
+        })
+
+    # Get group memberships
+    memberships = await db.group_members.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(100)
+    result["group_memberships"] = memberships
+
+    # Get player records
+    players = await db.players.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "user_id": 1, "rsvp_status": 1, "total_buy_in": 1}
+    ).to_list(100)
+    result["player_records"] = players
+
+    # Get recent notifications
+    notifications = await db.notifications.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(10)
+    result["notifications"] = notifications
+
+    # Check for orphaned records (records with mismatched user_id)
+    # Check memberships by email
+    if user.email:
+        alt_user_ids = [u["user_id"] for u in duplicate_users if u["user_id"] != user.user_id]
+        if alt_user_ids:
+            # Check for records with alternate user_ids
+            alt_memberships = await db.group_members.find(
+                {"user_id": {"$in": alt_user_ids}},
+                {"_id": 0}
+            ).to_list(100)
+            if alt_memberships:
+                result["issues"].append({
+                    "type": "orphaned_memberships",
+                    "message": f"Found {len(alt_memberships)} group memberships with alternate user_id",
+                    "records": alt_memberships
+                })
+
+            alt_players = await db.players.find(
+                {"user_id": {"$in": alt_user_ids}},
+                {"_id": 0, "game_id": 1, "user_id": 1}
+            ).to_list(100)
+            if alt_players:
+                result["issues"].append({
+                    "type": "orphaned_players",
+                    "message": f"Found {len(alt_players)} player records with alternate user_id",
+                    "records": alt_players
+                })
+
+            alt_notifications = await db.notifications.find(
+                {"user_id": {"$in": alt_user_ids}},
+                {"_id": 0, "notification_id": 1, "type": 1, "title": 1}
+            ).to_list(50)
+            if alt_notifications:
+                result["issues"].append({
+                    "type": "orphaned_notifications",
+                    "message": f"Found {len(alt_notifications)} notifications with alternate user_id",
+                    "records": alt_notifications
+                })
+
+    return result
+
+@api_router.post("/debug/fix-user-data")
+async def fix_user_data(user: User = Depends(get_current_user)):
+    """Fix user data issues by consolidating records to the current user_id."""
+    fixes = {
+        "memberships_fixed": 0,
+        "players_fixed": 0,
+        "notifications_fixed": 0,
+        "duplicate_users_merged": 0
+    }
+
+    # Find duplicate users with same email
+    duplicate_users = await db.users.find(
+        {"email": user.email, "user_id": {"$ne": user.user_id}},
+        {"_id": 0, "user_id": 1}
+    ).to_list(10)
+
+    alt_user_ids = [u["user_id"] for u in duplicate_users]
+
+    if alt_user_ids:
+        # Update group memberships
+        result = await db.group_members.update_many(
+            {"user_id": {"$in": alt_user_ids}},
+            {"$set": {"user_id": user.user_id}}
+        )
+        fixes["memberships_fixed"] = result.modified_count
+
+        # Update player records
+        result = await db.players.update_many(
+            {"user_id": {"$in": alt_user_ids}},
+            {"$set": {"user_id": user.user_id}}
+        )
+        fixes["players_fixed"] = result.modified_count
+
+        # Update notifications
+        result = await db.notifications.update_many(
+            {"user_id": {"$in": alt_user_ids}},
+            {"$set": {"user_id": user.user_id}}
+        )
+        fixes["notifications_fixed"] = result.modified_count
+
+        # Update transactions
+        await db.transactions.update_many(
+            {"user_id": {"$in": alt_user_ids}},
+            {"$set": {"user_id": user.user_id}}
+        )
+
+        # Update game threads
+        await db.game_threads.update_many(
+            {"user_id": {"$in": alt_user_ids}},
+            {"$set": {"user_id": user.user_id}}
+        )
+
+        # Update ledger entries
+        await db.ledger.update_many(
+            {"$or": [
+                {"from_user_id": {"$in": alt_user_ids}},
+                {"to_user_id": {"$in": alt_user_ids}}
+            ]},
+            [{"$set": {
+                "from_user_id": {"$cond": [{"$in": ["$from_user_id", alt_user_ids]}, user.user_id, "$from_user_id"]},
+                "to_user_id": {"$cond": [{"$in": ["$to_user_id", alt_user_ids]}, user.user_id, "$to_user_id"]}
+            }}]
+        )
+
+        # Delete duplicate user records
+        result = await db.users.delete_many(
+            {"user_id": {"$in": alt_user_ids}}
+        )
+        fixes["duplicate_users_merged"] = result.deleted_count
+
+    return {
+        "message": "User data fixed",
+        "fixes": fixes,
+        "current_user_id": user.user_id
+    }
 
 # ============== VOICE COMMANDS ENDPOINT ==============
 
@@ -4173,42 +4516,361 @@ async def get_frequent_players(group_id: str, user: User = Depends(get_current_u
     }
 
 # ============== WALLET ENDPOINTS ==============
+# Payment engineering: cents-based, ledger source of truth, idempotent
+
+import wallet_service
+
 
 @api_router.get("/wallet")
 async def get_wallet(user: User = Depends(get_current_user)):
-    """Get user's Kvitt wallet balance and transaction history."""
+    """Get user's wallet info including balance and wallet ID."""
     wallet = await db.wallets.find_one({"user_id": user.user_id}, {"_id": 0})
-    if not wallet:
-        # Return empty wallet if doesn't exist
-        wallet = {
+
+    if not wallet or not wallet.get("wallet_id"):
+        # Return placeholder - user needs to set up wallet
+        return {
             "user_id": user.user_id,
-            "balance": 0.00,
+            "wallet_id": None,
+            "balance_cents": 0,
+            "balance": 0.00,  # For backward compatibility
             "currency": "usd",
-            "transactions": []
+            "status": "needs_setup",
+            "has_pin": False
         }
-    return wallet
+
+    return {
+        "wallet_id": wallet.get("wallet_id"),
+        "user_id": wallet.get("user_id"),
+        "balance_cents": wallet.get("balance_cents", 0),
+        "balance": wallet.get("balance_cents", 0) / 100,  # For backward compatibility
+        "currency": wallet.get("currency", "usd"),
+        "status": wallet.get("status", "active"),
+        "has_pin": bool(wallet.get("pin_hash")),
+        "daily_transfer_limit_cents": wallet.get("daily_transfer_limit_cents", 50000),
+        "per_transaction_limit_cents": wallet.get("per_transaction_limit_cents", 20000),
+        "daily_transferred_cents": wallet.get("daily_transferred_cents", 0)
+    }
+
+
+@api_router.post("/wallet/setup")
+async def setup_wallet(user: User = Depends(get_current_user)):
+    """
+    Create wallet with unique ID (KVT-XXXXXX).
+    If wallet exists, returns existing wallet.
+    """
+    wallet = await wallet_service.create_wallet(user.user_id, db)
+
+    await wallet_service.log_wallet_audit(
+        wallet["wallet_id"], user.user_id, "wallet_created", db
+    )
+
+    return {
+        "success": True,
+        "wallet_id": wallet["wallet_id"],
+        "message": f"Wallet created! Your wallet ID is {wallet['wallet_id']}"
+    }
+
+
+@api_router.post("/wallet/pin/set")
+async def set_wallet_pin(
+    data: SetPinRequest,
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """Set initial wallet PIN (required for transfers)."""
+    wallet = await db.wallets.find_one({"user_id": user.user_id})
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Wallet not found. Set up wallet first.")
+
+    if wallet.get("pin_hash"):
+        raise HTTPException(status_code=400, detail="PIN already set. Use change PIN endpoint.")
+
+    pin_hash = wallet_service.hash_pin(data.pin)
+
+    await db.wallets.update_one(
+        {"wallet_id": wallet["wallet_id"]},
+        {"$set": {"pin_hash": pin_hash, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    await wallet_service.log_wallet_audit(
+        wallet["wallet_id"], user.user_id, "pin_set", db, request
+    )
+
+    return {"success": True, "message": "PIN set successfully"}
+
+
+@api_router.post("/wallet/pin/change")
+async def change_wallet_pin(
+    data: ChangePinRequest,
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """Change wallet PIN (requires current PIN)."""
+    wallet = await db.wallets.find_one({"user_id": user.user_id})
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Wallet not found")
+
+    # Verify current PIN
+    pin_valid, pin_error = await wallet_service.verify_pin_with_lockout(wallet, data.current_pin, db)
+    if not pin_valid:
+        await wallet_service.log_wallet_audit(
+            wallet["wallet_id"], user.user_id, "pin_change_failed", db, request,
+            new_value={"reason": pin_error}
+        )
+        raise HTTPException(status_code=401, detail=pin_error)
+
+    # Set new PIN
+    new_pin_hash = wallet_service.hash_pin(data.new_pin)
+    await db.wallets.update_one(
+        {"wallet_id": wallet["wallet_id"]},
+        {"$set": {"pin_hash": new_pin_hash, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    await wallet_service.log_wallet_audit(
+        wallet["wallet_id"], user.user_id, "pin_changed", db, request
+    )
+
+    return {"success": True, "message": "PIN changed successfully"}
+
+
+@api_router.post("/wallet/pin/verify")
+async def verify_wallet_pin(
+    data: VerifyPinRequest,
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """Verify wallet PIN (for sensitive operations)."""
+    wallet = await db.wallets.find_one({"user_id": user.user_id})
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Wallet not found")
+
+    pin_valid, pin_error = await wallet_service.verify_pin_with_lockout(wallet, data.pin, db)
+    if not pin_valid:
+        raise HTTPException(status_code=401, detail=pin_error)
+
+    return {"success": True, "message": "PIN verified"}
+
+
+@api_router.get("/wallet/lookup/{wallet_id}")
+async def lookup_wallet(wallet_id: str, user: User = Depends(get_current_user)):
+    """Look up wallet by ID. Returns limited info for privacy."""
+    result = await wallet_service.lookup_wallet_by_id(wallet_id, db, exclude_user_id=user.user_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Wallet not found")
+    return result
+
+
+@api_router.get("/wallet/search")
+async def search_wallets(
+    q: str = Query(..., min_length=2),
+    user: User = Depends(get_current_user)
+):
+    """Search wallets by user name or wallet ID."""
+    results = await wallet_service.search_wallets(q, db, exclude_user_id=user.user_id, limit=10)
+    return {"results": results}
+
+
+@api_router.post("/wallet/transfer")
+async def transfer_funds(
+    data: WalletTransferRequest,
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """
+    Transfer money to another wallet.
+    Requires PIN verification and respects daily/per-transaction limits.
+    Idempotent: same idempotency_key returns same result.
+    """
+    sender_wallet = await db.wallets.find_one({"user_id": user.user_id})
+    if not sender_wallet or not sender_wallet.get("wallet_id"):
+        raise HTTPException(status_code=404, detail="Wallet not found. Set up wallet first.")
+
+    result = await wallet_service.process_transfer(
+        from_wallet_id=sender_wallet["wallet_id"],
+        to_wallet_id=data.to_wallet_id,
+        amount_cents=data.amount_cents,
+        pin=data.pin,
+        idempotency_key=data.idempotency_key,
+        db=db,
+        mongo_client=client,
+        request=request,
+        description=data.description
+    )
+
+    return result
 
 
 @api_router.get("/wallet/transactions")
 async def get_wallet_transactions(
     user: User = Depends(get_current_user),
-    limit: int = 20,
-    offset: int = 0
+    limit: int = Query(20, le=100),
+    offset: int = Query(0),
+    type: Optional[str] = Query(None)
 ):
-    """Get paginated wallet transaction history."""
-    wallet = await db.wallets.find_one({"user_id": user.user_id}, {"_id": 0})
-    if not wallet:
-        return {"transactions": [], "total": 0, "balance": 0.00}
+    """Get paginated wallet transaction history from ledger."""
+    wallet = await db.wallets.find_one({"user_id": user.user_id})
+    if not wallet or not wallet.get("wallet_id"):
+        return {"transactions": [], "total": 0, "balance_cents": 0}
 
-    transactions = wallet.get("transactions", [])
-    # Sort by created_at descending (most recent first)
-    transactions.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    wallet_id = wallet["wallet_id"]
+
+    # Build query
+    query = {"wallet_id": wallet_id, "status": "completed"}
+    if type:
+        query["type"] = type
+
+    # Get total count
+    total = await db.wallet_transactions.count_documents(query)
+
+    # Get transactions
+    transactions = await db.wallet_transactions.find(
+        query,
+        {"_id": 0}
+    ).sort("created_at", -1).skip(offset).limit(limit).to_list(limit)
 
     return {
-        "transactions": transactions[offset:offset + limit],
-        "total": len(transactions),
-        "balance": wallet.get("balance", 0.00)
+        "transactions": transactions,
+        "total": total,
+        "balance_cents": wallet.get("balance_cents", 0),
+        "wallet_id": wallet_id
     }
+
+
+@api_router.post("/wallet/deposit")
+async def create_wallet_deposit(
+    data: WalletDepositRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Create Stripe checkout session to add funds to wallet.
+    Returns checkout URL to redirect user.
+    """
+    wallet = await db.wallets.find_one({"user_id": user.user_id})
+    if not wallet or not wallet.get("wallet_id"):
+        raise HTTPException(status_code=404, detail="Wallet not found. Set up wallet first.")
+
+    # Validate amount
+    if data.amount_cents < 500:
+        raise HTTPException(status_code=400, detail="Minimum deposit is $5.00")
+    if data.amount_cents > 100000:
+        raise HTTPException(status_code=400, detail="Maximum deposit is $1000.00")
+
+    try:
+        from emergentintegrations.payments.stripe.checkout import (
+            StripeCheckout,
+            CheckoutSessionRequest,
+        )
+
+        checkout = StripeCheckout()
+        checkout_request = CheckoutSessionRequest(
+            amount=data.amount_cents / 100,  # Stripe expects dollars
+            currency="usd",
+            success_url=f"{data.origin_url}/wallet?deposit=success&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{data.origin_url}/wallet?deposit=cancelled",
+            metadata={
+                "type": "wallet_deposit",
+                "wallet_id": wallet["wallet_id"],
+                "user_id": user.user_id,
+                "amount_cents": str(data.amount_cents)
+            }
+        )
+
+        session = checkout.create_session(checkout_request)
+
+        # Store pending deposit for webhook processing
+        await db.wallet_deposits.insert_one({
+            "deposit_id": f"dep_{uuid.uuid4().hex[:12]}",
+            "wallet_id": wallet["wallet_id"],
+            "user_id": user.user_id,
+            "amount_cents": data.amount_cents,
+            "stripe_session_id": session.session_id,
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+
+        return {
+            "checkout_url": session.url,
+            "session_id": session.session_id
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to create deposit session: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create payment session")
+
+
+@api_router.get("/wallet/deposit/status/{session_id}")
+async def check_deposit_status(session_id: str, user: User = Depends(get_current_user)):
+    """
+    Check status of pending deposit.
+    NOTE: Stripe webhook is the authoritative source. This is for convenience only.
+    """
+    deposit = await db.wallet_deposits.find_one({
+        "stripe_session_id": session_id,
+        "user_id": user.user_id
+    })
+
+    if not deposit:
+        raise HTTPException(status_code=404, detail="Deposit not found")
+
+    if deposit["status"] == "completed":
+        return {
+            "status": "completed",
+            "amount_cents": deposit["amount_cents"],
+            "message": "Deposit completed successfully"
+        }
+
+    # Check with Stripe (backup for webhook failure)
+    try:
+        from emergentintegrations.payments.stripe.checkout import StripeCheckout
+        checkout = StripeCheckout()
+        stripe_session = checkout.retrieve_session(session_id)
+
+        if stripe_session.payment_status == "paid" and deposit["status"] == "pending":
+            # Credit wallet (idempotent via unique index on payment_intent_id)
+            payment_intent_id = stripe_session.payment_intent
+            if payment_intent_id:
+                result = await wallet_service.credit_wallet_deposit(
+                    deposit["wallet_id"],
+                    deposit["amount_cents"],
+                    payment_intent_id,
+                    db
+                )
+
+                if result:
+                    await db.wallet_deposits.update_one(
+                        {"stripe_session_id": session_id},
+                        {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}}
+                    )
+
+                    return {
+                        "status": "completed",
+                        "amount_cents": deposit["amount_cents"],
+                        "new_balance_cents": result.get("new_balance_cents"),
+                        "message": "Deposit completed successfully"
+                    }
+
+        return {
+            "status": deposit["status"],
+            "stripe_status": stripe_session.payment_status if stripe_session else "unknown"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to check deposit status: {e}")
+        return {"status": deposit["status"]}
+
+
+@api_router.get("/wallet/reconcile")
+async def reconcile_wallet(user: User = Depends(get_current_user)):
+    """
+    Reconcile wallet balance against ledger (for debugging/admin).
+    The ledger (wallet_transactions) is the source of truth.
+    """
+    wallet = await db.wallets.find_one({"user_id": user.user_id})
+    if not wallet or not wallet.get("wallet_id"):
+        raise HTTPException(status_code=404, detail="Wallet not found")
+
+    result = await wallet_service.reconcile_wallet_balance(wallet["wallet_id"], db)
+    return result
 
 
 # ============== LEDGER SUMMARY ENDPOINTS ==============
@@ -4533,12 +5195,91 @@ async def create_debt_payment(ledger_id: str, data: dict, user: User = Depends(g
 async def stripe_debt_webhook(request: Request):
     """Handle Stripe webhook events for debt payments"""
     from stripe_service import handle_debt_payment_webhook
-    
+
     body = await request.body()
     signature = request.headers.get("Stripe-Signature", "")
-    
+
     result = await handle_debt_payment_webhook(body, signature, db)
     return result
+
+
+@api_router.post("/webhook/stripe-wallet")
+async def stripe_wallet_webhook(request: Request):
+    """
+    Handle Stripe webhook events for wallet deposits.
+    This is the authoritative source for crediting wallets.
+    Idempotent via unique index on stripe_payment_intent_id.
+    """
+    import stripe
+    import os
+
+    body = await request.body()
+    signature = request.headers.get("Stripe-Signature", "")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET_WALLET", os.environ.get("STRIPE_WEBHOOK_SECRET", ""))
+
+    try:
+        # Verify signature
+        if webhook_secret:
+            event = stripe.Webhook.construct_event(body, signature, webhook_secret)
+        else:
+            # Development mode without signature verification
+            import json
+            event = json.loads(body)
+            logger.warning("Webhook signature verification skipped (no secret configured)")
+
+        event_type = event.get("type") if isinstance(event, dict) else event.type
+        data = event.get("data", {}).get("object", {}) if isinstance(event, dict) else event.data.object
+
+        logger.info(f"Wallet webhook received: {event_type}")
+
+        if event_type == "checkout.session.completed":
+            metadata = data.get("metadata", {})
+
+            # Only process wallet deposits
+            if metadata.get("type") != "wallet_deposit":
+                return {"status": "ignored", "reason": "not a wallet deposit"}
+
+            wallet_id = metadata.get("wallet_id")
+            amount_cents = int(metadata.get("amount_cents", 0))
+            payment_intent_id = data.get("payment_intent")
+
+            if not wallet_id or not amount_cents or not payment_intent_id:
+                logger.error(f"Missing required metadata: wallet_id={wallet_id}, amount_cents={amount_cents}")
+                return {"status": "error", "reason": "missing metadata"}
+
+            # Credit wallet (idempotent)
+            result = await wallet_service.credit_wallet_deposit(
+                wallet_id=wallet_id,
+                amount_cents=amount_cents,
+                stripe_payment_intent_id=payment_intent_id,
+                db=db
+            )
+
+            if result:
+                logger.info(f"Wallet deposit credited: {wallet_id}, ${amount_cents/100:.2f}")
+
+                # Update pending deposit record
+                await db.wallet_deposits.update_one(
+                    {"wallet_id": wallet_id, "stripe_session_id": data.get("id")},
+                    {"$set": {
+                        "status": "completed",
+                        "stripe_payment_intent_id": payment_intent_id,
+                        "completed_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+
+                return {"status": "success", "transaction_id": result.get("transaction_id")}
+            else:
+                return {"status": "already_processed"}
+
+        return {"status": "ignored", "event_type": event_type}
+
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"Webhook signature verification failed: {e}")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    except Exception as e:
+        logger.error(f"Wallet webhook error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============== SPOTIFY INTEGRATION ==============

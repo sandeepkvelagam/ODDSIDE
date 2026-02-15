@@ -22,7 +22,7 @@ import Logo from "@/components/Logo";
 import { Alert, AlertTitle, AlertDescription, AlertAction } from "@/components/reui/alert";
 import { Frame, FramePanel } from "@/components/reui/frame";
 import { toast } from "sonner";
-import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight } from "lucide-react";
+import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight, Wallet } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -408,7 +408,7 @@ export default function Navbar() {
                 </Button>
               </SheetTrigger>
               <SheetContent className="w-full sm:max-w-md p-0">
-                <SheetHeader className="p-4 border-b border-border">
+                <SheetHeader className="p-4 pr-12 border-b border-border">
                   <div className="flex items-center justify-between">
                     <SheetTitle className="font-heading text-lg">Notifications</SheetTitle>
                     {notifications.length > 0 && (
@@ -455,6 +455,10 @@ export default function Navbar() {
                 <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer text-sm">
                   <User className="w-4 h-4 mr-2" />
                   Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/wallet')} className="cursor-pointer text-sm">
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Wallet
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive text-sm">

@@ -24,6 +24,7 @@ import Press from "@/pages/Press";
 import GameHistory from "@/pages/GameHistory";
 import Premium from "@/pages/Premium";
 import SpotifyCallback from "@/pages/SpotifyCallback";
+import Wallet from "@/pages/Wallet";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -198,7 +199,12 @@ function App() {
                 <Premium />
               </ProtectedRoute>
             } />
-            
+            <Route path="/wallet" element={
+              <ProtectedRoute>
+                <Wallet />
+              </ProtectedRoute>
+            } />
+
             {/* Spotify OAuth Callback */}
             <Route path="/spotify/callback" element={<SpotifyCallback />} />
             

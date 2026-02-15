@@ -53,17 +53,50 @@ const ERROR_MESSAGES = {
  * Parse Supabase error and return user-friendly message
  */
 export function parseSupabaseError(error) {
+  // Debug: Log raw error in development to see what Supabase actually returns
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[parseSupabaseError] Raw error:', {
+      message: error?.message,
+      code: error?.code,
+      status: error?.status,
+      name: error?.name,
+      error: error?.error,
+      fullError: JSON.stringify(error, null, 2)
+    });
+  }
+
   if (!error) return { code: ErrorCode.SERVER_ERROR, message: ERROR_MESSAGES[ErrorCode.SERVER_ERROR] };
 
-  const errorMessage = error.message?.toLowerCase() || '';
-  const errorCode = error.code?.toLowerCase() || '';
+  // Check for nested error structure (Supabase sometimes wraps errors)
+  let actualError = error;
+  if (error?.error && typeof error.error === 'object') {
+    actualError = error.error;
+  }
+
+  const errorMessage = actualError.message?.toLowerCase() || '';
+  const errorCode = actualError.code?.toLowerCase() || '';
 
   // Map common Supabase errors - check both message and code
 
   // Invalid credentials (covers both wrong email and wrong password in Supabase)
   if (errorMessage.includes('invalid login credentials') ||
       errorMessage.includes('invalid_credentials') ||
-      errorCode.includes('invalid_credentials')) {
+      errorCode.includes('invalid_credentials') ||
+      (errorMessage.includes('invalid') && errorMessage.includes('credential'))) {
+    return { code: ErrorCode.AUTH_INVALID_CREDENTIALS, message: ERROR_MESSAGES[ErrorCode.AUTH_INVALID_CREDENTIALS] };
+  }
+
+  // Wrong password patterns
+  if (errorMessage.includes('wrong password') ||
+      errorMessage.includes('password is incorrect') ||
+      errorMessage.includes('incorrect password')) {
+    return { code: ErrorCode.AUTH_WRONG_PASSWORD, message: ERROR_MESSAGES[ErrorCode.AUTH_WRONG_PASSWORD] };
+  }
+
+  // Server returned invalid response - Supabase wrapper error (treat as invalid credentials)
+  if (errorMessage.includes('server returned') ||
+      errorMessage.includes('invalid response') ||
+      errorMessage.includes('unexpected response')) {
     return { code: ErrorCode.AUTH_INVALID_CREDENTIALS, message: ERROR_MESSAGES[ErrorCode.AUTH_INVALID_CREDENTIALS] };
   }
 
@@ -142,10 +175,11 @@ export function parseSupabaseError(error) {
     return { code: ErrorCode.AUTH_SESSION_EXPIRED, message: ERROR_MESSAGES[ErrorCode.AUTH_SESSION_EXPIRED] };
   }
 
-  // Default fallback - use error message if available, otherwise generic
+  // Default fallback - NEVER show raw error.message to users
+  // Always use friendly message to avoid confusing technical errors
   return {
     code: ErrorCode.SERVER_ERROR,
-    message: error.message || ERROR_MESSAGES[ErrorCode.SERVER_ERROR]
+    message: ERROR_MESSAGES[ErrorCode.SERVER_ERROR]
   };
 }
 

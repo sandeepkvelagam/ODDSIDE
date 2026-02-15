@@ -23,12 +23,15 @@ export default function Settlement() {
   const [payingLedgerId, setPayingLedgerId] = useState(null);
 
   useEffect(() => {
+    // Only fetch when user is ready to prevent race conditions
+    if (!user?.user_id) return;
+
     fetchData();
-    
+
     // Check for payment status from URL params
     const paymentStatus = searchParams.get('payment');
     const ledgerId = searchParams.get('ledger_id');
-    
+
     if (paymentStatus === 'success' && ledgerId) {
       toast.success("Payment successful! The debt has been settled.");
       // Clean up URL params
@@ -37,7 +40,7 @@ export default function Settlement() {
       toast.info("Payment was cancelled");
       navigate(`/games/${gameId}/settlement`, { replace: true });
     }
-  }, [gameId, searchParams, navigate]);
+  }, [gameId, searchParams, navigate, user?.user_id]);
 
   const fetchData = async () => {
     try {

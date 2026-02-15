@@ -46,8 +46,10 @@ export default function GroupHub() {
   const [selectedMembers, setSelectedMembers] = useState([]);
 
   useEffect(() => {
+    // Only fetch when user is ready to prevent race conditions
+    if (!user?.user_id) return;
     fetchData();
-  }, [groupId]);
+  }, [groupId, user?.user_id]);
 
   const fetchData = async () => {
     try {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
 export default function Groups() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -24,8 +26,10 @@ export default function Groups() {
   });
 
   useEffect(() => {
+    // Only fetch when user is ready to prevent race conditions
+    if (!user?.user_id) return;
     fetchGroups();
-  }, []);
+  }, [user?.user_id]);
 
   const fetchGroups = async () => {
     try {

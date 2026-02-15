@@ -26,27 +26,27 @@ export const ErrorCode = {
   NETWORK_ERROR: "NETWORK_001",
 };
 
-// User-friendly messages
+// User-friendly messages - clear and actionable
 const ERROR_MESSAGES = {
   // Auth
-  [ErrorCode.AUTH_INVALID_CREDENTIALS]: "Invalid email or password. Please check and try again.",
-  [ErrorCode.AUTH_EMAIL_NOT_FOUND]: "No account found with this email. Would you like to sign up?",
-  [ErrorCode.AUTH_WRONG_PASSWORD]: "Incorrect password. Please try again or reset your password.",
+  [ErrorCode.AUTH_INVALID_CREDENTIALS]: "Email or password is incorrect.",
+  [ErrorCode.AUTH_EMAIL_NOT_FOUND]: "No account found with this email.",
+  [ErrorCode.AUTH_WRONG_PASSWORD]: "Incorrect password.",
   [ErrorCode.AUTH_ACCOUNT_DISABLED]: "This account has been disabled. Please contact support.",
   [ErrorCode.AUTH_SESSION_EXPIRED]: "Your session has expired. Please log in again.",
   [ErrorCode.AUTH_TOKEN_INVALID]: "Authentication failed. Please log in again.",
-  [ErrorCode.AUTH_EMAIL_NOT_VERIFIED]: "Please check your email and verify your account before logging in.",
+  [ErrorCode.AUTH_EMAIL_NOT_VERIFIED]: "Please verify your email before logging in.",
   [ErrorCode.AUTH_SIGNUP_FAILED]: "Unable to create account. Please try again.",
-  [ErrorCode.AUTH_RATE_LIMITED]: "Too many attempts. Please wait a few minutes before trying again.",
-  
+  [ErrorCode.AUTH_RATE_LIMITED]: "Too many attempts. Wait a few minutes and try again.",
+
   // User
   [ErrorCode.USER_NOT_FOUND]: "User not found.",
-  [ErrorCode.USER_ALREADY_EXISTS]: "An account with this email already exists. Try logging in instead.",
+  [ErrorCode.USER_ALREADY_EXISTS]: "This email is already registered. Log in instead?",
   [ErrorCode.USER_INVALID_EMAIL]: "Please enter a valid email address.",
-  
+
   // Server
-  [ErrorCode.SERVER_ERROR]: "Something went wrong. Please try again later.",
-  [ErrorCode.NETWORK_ERROR]: "Unable to connect. Please check your internet connection.",
+  [ErrorCode.SERVER_ERROR]: "Something went wrong. Please try again.",
+  [ErrorCode.NETWORK_ERROR]: "Unable to connect. Check your internet connection.",
 };
 
 /**
@@ -54,56 +54,98 @@ const ERROR_MESSAGES = {
  */
 export function parseSupabaseError(error) {
   if (!error) return { code: ErrorCode.SERVER_ERROR, message: ERROR_MESSAGES[ErrorCode.SERVER_ERROR] };
-  
+
   const errorMessage = error.message?.toLowerCase() || '';
-  const errorCode = error.code || error.__isAuthError ? 'auth_error' : 'unknown';
-  
-  // Map common Supabase errors
-  if (errorMessage.includes('invalid login credentials') || errorMessage.includes('invalid_credentials')) {
+  const errorCode = error.code?.toLowerCase() || '';
+
+  // Map common Supabase errors - check both message and code
+
+  // Invalid credentials (covers both wrong email and wrong password in Supabase)
+  if (errorMessage.includes('invalid login credentials') ||
+      errorMessage.includes('invalid_credentials') ||
+      errorCode.includes('invalid_credentials')) {
     return { code: ErrorCode.AUTH_INVALID_CREDENTIALS, message: ERROR_MESSAGES[ErrorCode.AUTH_INVALID_CREDENTIALS] };
   }
-  
-  if (errorMessage.includes('user not found') || errorMessage.includes('no user found')) {
+
+  // User not found
+  if (errorMessage.includes('user not found') ||
+      errorMessage.includes('no user found') ||
+      errorMessage.includes('user does not exist')) {
     return { code: ErrorCode.AUTH_EMAIL_NOT_FOUND, message: ERROR_MESSAGES[ErrorCode.AUTH_EMAIL_NOT_FOUND] };
   }
-  
-  if (errorMessage.includes('email not confirmed') || errorMessage.includes('email_not_confirmed')) {
+
+  // Email not verified
+  if (errorMessage.includes('email not confirmed') ||
+      errorMessage.includes('email_not_confirmed') ||
+      errorCode.includes('email_not_confirmed')) {
     return { code: ErrorCode.AUTH_EMAIL_NOT_VERIFIED, message: ERROR_MESSAGES[ErrorCode.AUTH_EMAIL_NOT_VERIFIED] };
   }
-  
-  if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+
+  // Rate limited
+  if (errorMessage.includes('rate limit') ||
+      errorMessage.includes('too many requests') ||
+      errorCode.includes('over_request_rate_limit')) {
     return { code: ErrorCode.AUTH_RATE_LIMITED, message: ERROR_MESSAGES[ErrorCode.AUTH_RATE_LIMITED] };
   }
-  
-  if (errorMessage.includes('already registered') || errorMessage.includes('user already exists')) {
+
+  // User already exists
+  if (errorMessage.includes('already registered') ||
+      errorMessage.includes('user already exists') ||
+      errorMessage.includes('already been registered') ||
+      errorCode.includes('user_already_exists')) {
     return { code: ErrorCode.USER_ALREADY_EXISTS, message: ERROR_MESSAGES[ErrorCode.USER_ALREADY_EXISTS] };
   }
-  
-  if (errorMessage.includes('invalid email') || errorMessage.includes('email format')) {
+
+  // Invalid email format
+  if (errorMessage.includes('invalid email') ||
+      errorMessage.includes('email format') ||
+      errorMessage.includes('unable to validate email') ||
+      errorMessage.includes('not a valid email')) {
     return { code: ErrorCode.USER_INVALID_EMAIL, message: ERROR_MESSAGES[ErrorCode.USER_INVALID_EMAIL] };
   }
-  
-  if (errorMessage.includes('password') && (errorMessage.includes('weak') || errorMessage.includes('short'))) {
+
+  // Weak password
+  if (errorMessage.includes('password') &&
+      (errorMessage.includes('weak') ||
+       errorMessage.includes('short') ||
+       errorMessage.includes('should be') ||
+       errorMessage.includes('at least'))) {
     return { code: ErrorCode.AUTH_SIGNUP_FAILED, message: "Password must be at least 6 characters." };
   }
-  
-  if (errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('connection')) {
+
+  // Signup disabled
+  if (errorMessage.includes('signup') && errorMessage.includes('disabled')) {
+    return { code: ErrorCode.AUTH_SIGNUP_FAILED, message: "Signups are currently disabled." };
+  }
+
+  // Network/fetch errors
+  if (errorMessage.includes('fetch') ||
+      errorMessage.includes('network') ||
+      errorMessage.includes('connection') ||
+      errorMessage.includes('failed to fetch')) {
     return { code: ErrorCode.NETWORK_ERROR, message: ERROR_MESSAGES[ErrorCode.NETWORK_ERROR] };
   }
-  
-  if (errorMessage.includes('body') && (errorMessage.includes('locked') || errorMessage.includes('disturbed'))) {
-    // This is a Supabase client issue - likely a network/fetch problem
-    return { code: ErrorCode.NETWORK_ERROR, message: "Connection error. Please check your internet and try again." };
+
+  // Body locked/disturbed - Supabase fetch issue
+  if (errorMessage.includes('body') &&
+      (errorMessage.includes('locked') || errorMessage.includes('disturbed') || errorMessage.includes('stream'))) {
+    return { code: ErrorCode.NETWORK_ERROR, message: ERROR_MESSAGES[ErrorCode.NETWORK_ERROR] };
   }
-  
-  if (errorMessage.includes('json') || errorMessage.includes('parse')) {
-    return { code: ErrorCode.SERVER_ERROR, message: "Server returned an invalid response. Please try again." };
+
+  // JSON parse errors
+  if (errorMessage.includes('json') || errorMessage.includes('parse') || errorMessage.includes('unexpected token')) {
+    return { code: ErrorCode.SERVER_ERROR, message: "Server error. Please try again." };
   }
-  
-  // Default fallback
-  return { 
-    code: ErrorCode.SERVER_ERROR, 
-    message: error.message || ERROR_MESSAGES[ErrorCode.SERVER_ERROR] 
+
+  // Session expired
+  if (errorMessage.includes('session') && (errorMessage.includes('expired') || errorMessage.includes('invalid'))) {
+    return { code: ErrorCode.AUTH_SESSION_EXPIRED, message: ERROR_MESSAGES[ErrorCode.AUTH_SESSION_EXPIRED] };
+  }
+
+  // Default fallback - use error message if available, otherwise generic
+  return {
+    code: ErrorCode.SERVER_ERROR,
+    message: error.message || ERROR_MESSAGES[ErrorCode.SERVER_ERROR]
   };
 }
 

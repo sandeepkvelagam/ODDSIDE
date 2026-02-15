@@ -29,8 +29,11 @@ export default function Dashboard() {
   const [showHelpDialog, setShowHelpDialog] = useState(false);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    // Only fetch data when user is ready to prevent race conditions
+    if (user?.user_id) {
+      fetchData();
+    }
+  }, [user?.user_id]);
 
   const fetchData = async () => {
     try {

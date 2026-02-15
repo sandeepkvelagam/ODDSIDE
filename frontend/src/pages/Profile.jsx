@@ -26,11 +26,13 @@ export default function Profile() {
   const [wallet, setWallet] = useState(null);
 
   useEffect(() => {
+    // Only fetch when user is ready to prevent race conditions
+    if (!user?.user_id) return;
     fetchData();
     // Get current theme
     const saved = localStorage.getItem("kvitt-theme");
     setIsDark(saved === "dark");
-  }, []);
+  }, [user?.user_id]);
 
   useEffect(() => {
     if (isDark) {

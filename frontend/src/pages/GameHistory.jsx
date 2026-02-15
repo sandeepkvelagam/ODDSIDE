@@ -32,8 +32,10 @@ export default function GameHistory() {
   });
 
   useEffect(() => {
+    // Only fetch when user is ready to prevent race conditions
+    if (!user?.user_id) return;
     fetchGames();
-  }, []);
+  }, [user?.user_id]);
 
   useEffect(() => {
     filterAndSortGames();

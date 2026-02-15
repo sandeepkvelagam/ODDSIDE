@@ -160,10 +160,13 @@ export default function GameNight() {
   }, [playerSearchQuery]);
 
   useEffect(() => {
+    // Only fetch when user is ready to prevent race conditions
+    if (!user?.user_id) return;
+
     fetchGame();
     const interval = setInterval(fetchGame, 10000);
     return () => clearInterval(interval);
-  }, [fetchGame]);
+  }, [fetchGame, user?.user_id]);
 
   // Game timer
   useEffect(() => {

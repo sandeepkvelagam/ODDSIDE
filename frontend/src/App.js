@@ -57,6 +57,38 @@ axios.interceptors.request.use(
   }
 );
 
+// Response interceptor to handle 401 errors with retry
+// This handles race conditions where user sync hasn't completed yet
+axios.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Only retry once, and only for 401 errors
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      // Wait a moment for user sync to complete, then retry
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Get fresh token and retry
+      try {
+        if (isSupabaseConfigured() && supabase) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
+            return axios(originalRequest);
+          }
+        }
+      } catch (retryError) {
+        console.error('Retry failed:', retryError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // Protected Route
 const ProtectedRoute = ({ children }) => {
   const { user, isLoading } = useAuth();

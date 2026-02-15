@@ -26,17 +26,11 @@ export const AuthProvider = ({ children }) => {
     }
 
     // Check for existing Supabase session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        setUser({
-          user_id: session.user.id,
-          email: session.user.email,
-          name: session.user.user_metadata?.name || session.user.email?.split('@')[0],
-          picture: session.user.user_metadata?.avatar_url
-        });
-        // Sync user to backend
-        syncUserToBackend(session);
+        // Sync user to backend and get MongoDB user data (including correct user_id)
+        await syncUserToBackend(session);
       }
       setIsLoading(false);
     });
@@ -46,14 +40,8 @@ export const AuthProvider = ({ children }) => {
       async (event, session) => {
         setSession(session);
         if (session?.user) {
-          setUser({
-            user_id: session.user.id,
-            email: session.user.email,
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0],
-            picture: session.user.user_metadata?.avatar_url
-          });
-          // Always sync user to backend on any auth event
-          syncUserToBackend(session);
+          // Sync user to backend and get MongoDB user data (including correct user_id)
+          await syncUserToBackend(session);
         } else {
           setUser(null);
         }
@@ -76,10 +64,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Sync Supabase user to MongoDB backend
+  // Sync Supabase user to MongoDB backend and update user state with MongoDB user_id
   const syncUserToBackend = async (session) => {
     try {
-      await axios.post(`${API}/auth/sync-user`, {
+      const response = await axios.post(`${API}/auth/sync-user`, {
         supabase_id: session.user.id,
         email: session.user.email,
         name: session.user.user_metadata?.name || session.user.email?.split('@')[0],
@@ -89,8 +77,25 @@ export const AuthProvider = ({ children }) => {
           'Authorization': `Bearer ${session.access_token}`
         }
       });
+
+      // Update user state with MongoDB user data (includes correct user_id)
+      if (response.data) {
+        setUser({
+          user_id: response.data.user_id,  // Use MongoDB user_id, not Supabase ID
+          email: response.data.email,
+          name: response.data.name,
+          picture: response.data.picture
+        });
+      }
     } catch (error) {
       console.error('Error syncing user:', error);
+      // Fallback to Supabase data if sync fails
+      setUser({
+        user_id: session.user.id,
+        email: session.user.email,
+        name: session.user.user_metadata?.name || session.user.email?.split('@')[0],
+        picture: session.user.user_metadata?.avatar_url
+      });
     }
   };
 
@@ -167,9 +172,9 @@ export const AuthProvider = ({ children }) => {
       throw signInError;
     }
     
-    // Sync user to MongoDB on sign in
+    // Sync user to MongoDB on sign in - MUST await to prevent race condition
     if (signInData?.session) {
-      syncUserToBackend(signInData.session);
+      await syncUserToBackend(signInData.session);
     }
     
     // Return user data for welcome screen
@@ -185,13 +190,27 @@ export const AuthProvider = ({ children }) => {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase not configured');
     }
-    
+
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/login`,
     });
-    
+
     if (error) throw error;
     return data;
+  };
+
+  // Resend verification email
+  const resendVerification = async (email) => {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase not configured');
+    }
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email
+    });
+
+    if (error) throw error;
   };
 
   // Sign out
@@ -226,6 +245,7 @@ export const AuthProvider = ({ children }) => {
       signIn,
       signOut,
       resetPassword,
+      resendVerification,
       getAccessToken,
       setUser,
       isSupabaseConfigured: isSupabaseConfigured()

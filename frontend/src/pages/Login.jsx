@@ -8,12 +8,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
 import WelcomeScreen from "@/components/WelcomeScreen";
-import { Eye, EyeOff, ChevronLeft, AlertCircle, Wifi, WifiOff } from "lucide-react";
+import { Eye, EyeOff, ChevronLeft, AlertCircle, WifiOff, RefreshCw } from "lucide-react";
 import { parseSupabaseError, ErrorCode, logError } from "@/lib/errorHandler";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn, resetPassword, isSupabaseConfigured } = useAuth();
+  const { signIn, resetPassword, resendVerification, isSupabaseConfigured } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,6 +23,7 @@ export default function Login() {
   const [resetSent, setResetSent] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState(null);
+  const [resendLoading, setResendLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -69,15 +70,33 @@ export default function Login() {
   // Show welcome screen after login
   if (showWelcome) {
     return (
-      <WelcomeScreen 
+      <WelcomeScreen
         onComplete={() => {
           toast.success("Welcome back!");
           navigate("/dashboard");
-        }} 
-        userName={loggedInUser?.name || email.split('@')[0]} 
+        }}
+        userName={loggedInUser?.name || email.split('@')[0]}
       />
     );
   }
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      toast.error("Please enter your email address first.");
+      return;
+    }
+    setResendLoading(true);
+    try {
+      await resendVerification(email);
+      toast.success("Verification email sent! Check your inbox.");
+    } catch (err) {
+      logError('ResendVerification', err);
+      const parsedError = parseSupabaseError(err);
+      toast.error(parsedError.message);
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
@@ -208,16 +227,36 @@ export default function Login() {
             <AlertDescription className="text-red-300">
               {error.message}
               {error.code === ErrorCode.AUTH_EMAIL_NOT_FOUND && (
-                <Link to="/signup" className="block mt-2 text-orange-400 hover:underline text-sm">
-                  → Create an account
-                </Link>
-              )}
-              {error.code === ErrorCode.AUTH_WRONG_PASSWORD && (
-                <button 
-                  onClick={() => setShowForgot(true)} 
+                <Link
+                  to="/signup"
+                  state={{ email }}
                   className="block mt-2 text-orange-400 hover:underline text-sm"
                 >
-                  → Reset password
+                  Create an account with this email
+                </Link>
+              )}
+              {(error.code === ErrorCode.AUTH_WRONG_PASSWORD || error.code === ErrorCode.AUTH_INVALID_CREDENTIALS) && (
+                <button
+                  onClick={() => setShowForgot(true)}
+                  className="block mt-2 text-orange-400 hover:underline text-sm"
+                >
+                  Reset password
+                </button>
+              )}
+              {error.code === ErrorCode.AUTH_EMAIL_NOT_VERIFIED && (
+                <button
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  className="flex items-center gap-1 mt-2 text-orange-400 hover:underline text-sm disabled:opacity-50"
+                >
+                  {resendLoading ? (
+                    <>
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Resend verification email"
+                  )}
                 </button>
               )}
               {error.code === ErrorCode.NETWORK_ERROR && (

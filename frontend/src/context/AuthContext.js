@@ -25,37 +25,19 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    // Check for existing Supabase session
-    const initAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('Supabase getSession error:', error);
-        }
-        setSession(session);
-        if (session?.user) {
-          await syncUserToBackend(session);
-        }
-      } catch (err) {
-        console.error('Error getting session:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // Set loading false immediately - auth state will update via listener
+    setIsLoading(false);
 
-    initAuth();
-
-    // Listen for auth changes
+    // Listen for auth changes (this fires immediately with current session)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
         setSession(session);
         if (session?.user) {
-          // Sync user to backend and get MongoDB user data (including correct user_id)
           await syncUserToBackend(session);
         } else {
           setUser(null);
         }
-        setIsLoading(false);
       }
     );
 

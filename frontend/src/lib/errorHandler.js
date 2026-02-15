@@ -56,9 +56,26 @@ export function parseSupabaseError(error) {
   if (!error) return { code: ErrorCode.SERVER_ERROR, message: ERROR_MESSAGES[ErrorCode.SERVER_ERROR] };
   
   const errorMessage = error.message?.toLowerCase() || '';
-  const errorCode = error.code || error.__isAuthError ? 'auth_error' : 'unknown';
-  
-  // Map common Supabase errors
+  const errorCode = error.code || (error.__isAuthError ? 'auth_error' : 'unknown');
+
+  // Check error code first (more reliable than message parsing)
+  if (errorCode === 'user_already_exists' || errorCode === 'email_exists') {
+    return { code: ErrorCode.USER_ALREADY_EXISTS, message: ERROR_MESSAGES[ErrorCode.USER_ALREADY_EXISTS] };
+  }
+  if (errorCode === 'over_request_rate_limit' || errorCode === 'rate_limit_exceeded') {
+    return { code: ErrorCode.AUTH_RATE_LIMITED, message: ERROR_MESSAGES[ErrorCode.AUTH_RATE_LIMITED] };
+  }
+  if (errorCode === 'email_not_confirmed') {
+    return { code: ErrorCode.AUTH_EMAIL_NOT_VERIFIED, message: ERROR_MESSAGES[ErrorCode.AUTH_EMAIL_NOT_VERIFIED] };
+  }
+  if (errorCode === 'invalid_credentials') {
+    return { code: ErrorCode.AUTH_INVALID_CREDENTIALS, message: ERROR_MESSAGES[ErrorCode.AUTH_INVALID_CREDENTIALS] };
+  }
+  if (errorCode === 'signup_disabled') {
+    return { code: ErrorCode.AUTH_SIGNUP_FAILED, message: "Sign up is currently disabled. Please try again later." };
+  }
+
+  // Fallback to message-based matching
   if (errorMessage.includes('invalid login credentials') || errorMessage.includes('invalid_credentials')) {
     return { code: ErrorCode.AUTH_INVALID_CREDENTIALS, message: ERROR_MESSAGES[ErrorCode.AUTH_INVALID_CREDENTIALS] };
   }

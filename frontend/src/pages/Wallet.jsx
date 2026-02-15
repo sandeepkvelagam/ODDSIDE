@@ -40,7 +40,8 @@ export default function Wallet() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    if (!user?.user_id) return;
+    // Fetch wallet when user is authenticated (user object exists)
+    if (!user) return;
     fetchWallet();
 
     // Handle deposit success/cancel from Stripe redirect
@@ -52,7 +53,7 @@ export default function Wallet() {
     } else if (depositStatus === "cancelled") {
       toast.info("Deposit cancelled");
     }
-  }, [user?.user_id, searchParams]);
+  }, [user, searchParams]);
 
   const fetchWallet = async () => {
     try {

@@ -30,7 +30,7 @@ const API = process.env.REACT_APP_BACKEND_URL + "/api";
 export default function Wallet() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [wallet, setWallet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -40,8 +40,15 @@ export default function Wallet() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    // Fetch wallet when user is authenticated (user object exists)
-    if (!user) return;
+    // Wait for auth to complete
+    if (authLoading) return;
+    
+    // If no user after auth completes, redirect to login
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    
     fetchWallet();
 
     // Handle deposit success/cancel from Stripe redirect
@@ -53,7 +60,7 @@ export default function Wallet() {
     } else if (depositStatus === "cancelled") {
       toast.info("Deposit cancelled");
     }
-  }, [user, searchParams]);
+  }, [user, authLoading, searchParams, navigate]);
 
   const fetchWallet = async () => {
     try {

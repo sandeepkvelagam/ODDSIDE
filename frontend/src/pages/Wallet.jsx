@@ -120,7 +120,7 @@ export default function Wallet() {
     setRefreshKey((k) => k + 1);
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />

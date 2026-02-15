@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
-import { v4 as uuidv4 } from "uuid";
 import {
   Dialog,
   DialogContent,
@@ -142,7 +141,7 @@ export default function SendMoneyModal({ open, onClose, wallet, onComplete }) {
           to_wallet_id: recipient.wallet_id,
           amount_cents: amountCents,
           pin: pinValue,
-          idempotency_key: uuidv4(),
+          idempotency_key: crypto.randomUUID(),
           description: description || null
         },
         { withCredentials: true }

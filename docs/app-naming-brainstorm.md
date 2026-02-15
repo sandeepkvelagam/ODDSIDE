@@ -4,59 +4,76 @@
 
 ## Context
 
-The app is a poker home-game ledger and settlement tool for friend groups. It tracks buy-ins, chips, cash-outs, and calculates who owes whom after a game. It's a "pro tool for friends" — not a casino app.
+The app is a card-game ledger and settlement tool for friend groups. It tracks buy-ins, chips, scores, cash-outs, and calculates who owes whom after a game. It's a "pro tool for friends" — not a casino app.
+
+**Scope:** The app will support multiple card games — poker, rummy, teen patti, and more. The name must be **game-agnostic** and not tied to any single game.
 
 ---
 
-## Top Candidates
+## Top Candidates (Game-Agnostic)
 
-### 1. SidePot — *"Your Game Night. Settled."*
+### 1. Shuffl — *"Your Game Night. Handled."*
 
-A side pot is a core poker concept. The name immediately signals poker + money management. Short, memorable, and domain-perfect.
+Shuffling is the one action that starts **every** card game — poker, rummy, teen patti, all of it. Modern dropped-vowel branding keeps it sleek.
 
-- Pros: Poker-native, two syllables, descriptive, great brand potential
-- Cons: Two words (though common for app names)
+- Pros: Universal card game action, modern and brandable, works with dark/cinematic aesthetic
+- Cons: Dropped vowel trend (though still widely used in tech)
 
-### 2. Ante — *"Deal Yourself In."*
+### 2. Wildcard — *"Your Game Night Ledger."*
 
-The ante is the first thing on the table — it signals the start of every game. Clean, one-word, universally recognized poker term.
+Wildcards exist in poker, rummy, and most card games. Bold, memorable, and has a cool "unexpected edge" connotation.
 
-- Pros: One word, universally understood, action-oriented
-- Cons: May conflict with existing apps/brands
+- Pros: Universal across card games, bold and memorable, great brand potential
+- Cons: Two syllables, may have existing apps with similar name
 
-### 3. Stackd — *"Track. Play. Settle."*
+### 3. Dealr — *"Deal. Play. Settle."*
 
-Refers to chip stacks. The dropped vowel gives it a modern, app-native feel. Punchy three-word tagline mirrors the app flow.
+Dealing cards is universal to all card games. Modern naming convention. Three-word tagline mirrors the app flow perfectly.
 
-- Pros: Modern naming convention, brandable, unique
-- Cons: Dropped vowel trend may feel dated
+- Pros: Universal, modern naming, action-oriented tagline
+- Cons: Dropped vowel trend, may need pronunciation clarification
 
-### 4. Feltt — *"Where Friends Settle Up."*
+### 4. NightCap — *"Close Out Every Game Night."*
 
-The felt is the poker table surface — where everything happens. Double-t makes it brandable and unique. Tagline emphasizes the social/friend aspect.
+Completely game-agnostic. Double meaning: end-of-night ritual + wrapping up the game. Captures the settlement moment regardless of what you played.
 
-- Pros: Unique spelling, poker-native, emphasizes social element
-- Cons: May require explaining the poker reference
+- Pros: Fun double meaning, social vibe, works for any game type
+- Cons: Less obviously tied to card games
 
-### 5. NightCap — *"Close Out Every Game Night."*
+### 5. Kitty — *"Every Game Night. Settled."*
 
-Double meaning: the end-of-evening ritual + "capping" off the game. Casual, social, and captures the post-game settlement moment.
+The "kitty" is the communal pot in both poker AND rummy (and many other card games). Short, memorable, and naturally fits the money-tracking purpose.
 
-- Pros: Fun double meaning, social vibe, easy to remember
-- Cons: Less explicitly poker-related
+- Pros: Used across multiple card games, short and catchy, directly relates to money pool
+- Cons: May sound too casual for the cinematic brand aesthetic
 
 ---
 
 ## Honorable Mentions
 
-| Name    | Tagline                                  | Notes                                       |
-| ------- | ---------------------------------------- | ------------------------------------------- |
-| ChipIn  | "Settle the Night. Keep the Friends."    | Chip + contribute double meaning             |
-| Rake    | "Your Night. Settled."                   | What the house collects — you are the house  |
-| Potli   | "Stack. Play. Settle."                   | Pot + tally blend, very brandable            |
+| Name    | Tagline                                  | Notes                                                  |
+| ------- | ---------------------------------------- | ------------------------------------------------------ |
+| Divvy   | "Split the Pot. Any Game."               | To divvy up = divide/share, fully game-agnostic        |
+| GameTab | "Track. Play. Settle."                   | Keeping a tab, but for games — clear and descriptive   |
+| Cashd   | "Game Over. Settled."                    | Edgy, money-focused, works across all games            |
+
+---
+
+## Previous Poker-Specific Candidates (Archived)
+
+These were strong but too poker-specific for multi-game expansion:
+
+| Name    | Tagline                               | Why archived                    |
+| ------- | ------------------------------------- | ------------------------------- |
+| SidePot | "Your Game Night. Settled."           | Poker-specific term             |
+| Ante    | "Deal Yourself In."                   | Primarily poker terminology     |
+| Stackd  | "Track. Play. Settle."               | Chip stacks = poker association |
+| Feltt   | "Where Friends Settle Up."            | Poker table felt reference      |
 
 ---
 
 ## Recommendation
 
-**SidePot** is the top recommendation. It's poker-native, immediately communicable, and the two-syllable structure works well for brand, app icon, domain, and social handles.
+**Shuffl** is the top recommendation. It represents the universal action that starts every card game, sounds modern and sleek, and scales naturally as you add poker, rummy, teen patti, and beyond. It pairs well with the existing dark/cinematic brand aesthetic.
+
+**Runner-up: Wildcard** — if you want something bolder and more distinctive.

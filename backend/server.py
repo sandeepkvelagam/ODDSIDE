@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -16,6 +16,7 @@ import httpx
 import jwt
 from jwt import PyJWKClient
 import socketio
+import wallet_service
 
 # Setup logging early
 logging.basicConfig(level=logging.INFO)
@@ -4517,8 +4518,6 @@ async def get_frequent_players(group_id: str, user: User = Depends(get_current_u
 
 # ============== WALLET ENDPOINTS ==============
 # Payment engineering: cents-based, ledger source of truth, idempotent
-
-import wallet_service
 
 
 @api_router.get("/wallet")

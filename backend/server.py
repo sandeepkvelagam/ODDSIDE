@@ -4523,7 +4523,9 @@ async def get_frequent_players(group_id: str, user: User = Depends(get_current_u
 @api_router.get("/wallet")
 async def get_wallet(user: User = Depends(get_current_user)):
     """Get user's wallet info including balance and wallet ID."""
+    logger.info(f"Getting wallet for user_id: {user.user_id}")
     wallet = await db.wallets.find_one({"user_id": user.user_id}, {"_id": 0})
+    logger.info(f"Wallet found: {wallet}")
 
     if not wallet or not wallet.get("wallet_id"):
         # Return placeholder - user needs to set up wallet

@@ -8,6 +8,7 @@ import { useTheme } from "../context/ThemeContext";
 // Screens
 import LoginScreen from "../screens/LoginScreen";
 import { DashboardScreen } from "../screens/DashboardScreen";
+import { DashboardScreenV2 } from "../screens/DashboardScreenV2";
 import { GroupsScreen } from "../screens/GroupsScreen";
 import { GroupHubScreen } from "../screens/GroupHubScreen";
 import { GameNightScreen } from "../screens/GameNightScreen";
@@ -118,7 +119,7 @@ export default function RootNavigator() {
             <>
               <Stack.Screen
                 name="Dashboard"
-                component={DashboardScreen}
+                component={DashboardScreenV2}
                 options={{ headerShown: false }}
               />
               <Stack.Screen
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#0B0B0F",
+    backgroundColor: "#282B2B", // Jet dark
   },
   loadingLogo: {
     fontSize: 36,
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#0B0B0F",
+    backgroundColor: "#282B2B", // Jet dark
     zIndex: 100,
   },
   splashTitle: {
@@ -248,7 +249,7 @@ const styles = StyleSheet.create({
   },
   splashSubtitle: {
     fontSize: 16,
-    color: "#EF6E59",
+    color: "#EE6C29", // Orange brand
     textAlign: "center",
     marginTop: 8,
   },

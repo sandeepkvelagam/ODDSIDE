@@ -8,8 +8,9 @@ import {
   TouchableOpacity,
   Pressable,
   Animated,
-  Modal,
 } from "react-native";
+import { AnimatedModal } from "../components/AnimatedModal";
+import { AnimatedButton } from "../components/AnimatedButton";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -547,72 +548,71 @@ export function DashboardScreenV2() {
           <View style={{ height: 100 }} />
         </ScrollView>
 
-        {/* Help Modal */}
-        <Modal
+        {/* Help Modal - Premium animated version */}
+        <AnimatedModal
           visible={showHelpModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowHelpModal(false)}
+          onClose={() => setShowHelpModal(false)}
+          blurIntensity={60}
         >
-          <Pressable style={styles.helpModalOverlay} onPress={() => setShowHelpModal(false)}>
-            <Pressable
-              style={[styles.helpModalContent, { backgroundColor: lc.jetSurface }]}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <View style={styles.helpModalHeader}>
-                <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>Getting Started</Text>
-                <TouchableOpacity onPress={() => setShowHelpModal(false)} activeOpacity={0.7}>
-                  <Ionicons name="close" size={24} color={lc.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.helpTipsList}>
-                <View style={styles.helpTip}>
-                  <View style={[styles.helpTipIcon, { backgroundColor: lc.liquidGlowOrange }]}>
-                    <Ionicons name="people" size={20} color={lc.orange} />
-                  </View>
-                  <View style={styles.helpTipText}>
-                    <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Create a Group</Text>
-                    <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
-                      Start by creating a poker group and inviting friends
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.helpTip}>
-                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
-                    <Ionicons name="game-controller" size={20} color={lc.success} />
-                  </View>
-                  <View style={styles.helpTipText}>
-                    <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Start a Game Night</Text>
-                    <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
-                      Track buy-ins, rebuys, and cash-outs in real-time
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.helpTip}>
-                  <View style={[styles.helpTipIcon, { backgroundColor: lc.liquidGlowBlue }]}>
-                    <Ionicons name="wallet" size={20} color={lc.trustBlue} />
-                  </View>
-                  <View style={styles.helpTipText}>
-                    <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Auto Settlement</Text>
-                    <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
-                      We calculate who owes whom automatically
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.helpModalButton, { backgroundColor: lc.trustBlue }]}
+          <View style={[styles.helpModalContent, { backgroundColor: lc.jetSurface }]}>
+            <View style={styles.helpModalHeader}>
+              <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>Getting Started</Text>
+              <AnimatedButton
+                style={styles.closeButton}
                 onPress={() => setShowHelpModal(false)}
+                glowColor="rgba(255,255,255,0.1)"
               >
-                <Text style={styles.helpModalButtonText}>Got it!</Text>
-              </TouchableOpacity>
-            </Pressable>
-          </Pressable>
-        </Modal>
+                <Ionicons name="close" size={24} color={lc.textMuted} />
+              </AnimatedButton>
+            </View>
+
+            <View style={styles.helpTipsList}>
+              <View style={styles.helpTip}>
+                <View style={[styles.helpTipIcon, { backgroundColor: lc.liquidGlowOrange }]}>
+                  <Ionicons name="people" size={20} color={lc.orange} />
+                </View>
+                <View style={styles.helpTipText}>
+                  <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Create a Group</Text>
+                  <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
+                    Start by creating a poker group and inviting friends
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.helpTip}>
+                <View style={[styles.helpTipIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
+                  <Ionicons name="game-controller" size={20} color={lc.success} />
+                </View>
+                <View style={styles.helpTipText}>
+                  <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Start a Game Night</Text>
+                  <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
+                    Track buy-ins, rebuys, and cash-outs in real-time
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.helpTip}>
+                <View style={[styles.helpTipIcon, { backgroundColor: lc.liquidGlowBlue }]}>
+                  <Ionicons name="wallet" size={20} color={lc.trustBlue} />
+                </View>
+                <View style={styles.helpTipText}>
+                  <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Auto Settlement</Text>
+                  <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
+                    We calculate who owes whom automatically
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <AnimatedButton
+              style={[styles.helpModalButton, { backgroundColor: lc.trustBlue }]}
+              onPress={() => setShowHelpModal(false)}
+              glowColor="rgba(59, 130, 246, 0.3)"
+            >
+              <Text style={styles.helpModalButtonText}>Got it!</Text>
+            </AnimatedButton>
+          </View>
+        </AnimatedModal>
 
         {/* AI Chat FAB */}
         <AIChatFab />
@@ -996,18 +996,11 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   // Help Modal
-  helpModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
   helpModalContent: {
-    width: "100%",
-    maxWidth: 360,
-    borderRadius: 24,
+    borderRadius: 28,
     padding: 24,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
   helpModalHeader: {
     flexDirection: "row",
@@ -1018,6 +1011,14 @@ const styles = StyleSheet.create({
   helpModalTitle: {
     fontSize: 22,
     fontWeight: "700",
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   helpTipsList: {
     gap: 18,
@@ -1051,6 +1052,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   helpModalButtonText: {
     color: "#fff",

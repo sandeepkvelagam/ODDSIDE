@@ -458,6 +458,7 @@ class WalletTransferRequest(BaseModel):
     pin: str
     idempotency_key: str  # Client-generated UUID for duplicate prevention
     description: Optional[str] = None
+    risk_acknowledged: bool = False  # User confirmed high-risk transfer
 
 
 class WalletDepositRequest(BaseModel):
@@ -4653,8 +4654,13 @@ async def verify_wallet_pin(
 
 
 @api_router.get("/wallet/lookup/{wallet_id}")
-async def lookup_wallet(wallet_id: str, user: User = Depends(get_current_user)):
+async def lookup_wallet(wallet_id: str, request: Request, user: User = Depends(get_current_user)):
     """Look up wallet by ID. Returns limited info for privacy."""
+    # Rate limit: 30 lookups per minute per IP (prevent enumeration attacks)
+    client_ip = request.client.host if request.client else "unknown"
+    if not await wallet_service.check_rate_limit(f"ip:{client_ip}", "lookup", 30, 60, db):
+        raise HTTPException(status_code=429, detail="Too many lookup attempts. Please wait.")
+
     result = await wallet_service.lookup_wallet_by_id(wallet_id, db, exclude_user_id=user.user_id)
     if not result:
         raise HTTPException(status_code=404, detail="Wallet not found")
@@ -4663,10 +4669,16 @@ async def lookup_wallet(wallet_id: str, user: User = Depends(get_current_user)):
 
 @api_router.get("/wallet/search")
 async def search_wallets(
+    request: Request,
     q: str = Query(..., min_length=2),
     user: User = Depends(get_current_user)
 ):
     """Search wallets by user name or wallet ID."""
+    # Rate limit: 20 searches per minute per IP (prevent brute-force)
+    client_ip = request.client.host if request.client else "unknown"
+    if not await wallet_service.check_rate_limit(f"ip:{client_ip}", "search", 20, 60, db):
+        raise HTTPException(status_code=429, detail="Too many search attempts. Please wait.")
+
     results = await wallet_service.search_wallets(q, db, exclude_user_id=user.user_id, limit=10)
     return {"results": results}
 
@@ -4681,10 +4693,39 @@ async def transfer_funds(
     Transfer money to another wallet.
     Requires PIN verification and respects daily/per-transaction limits.
     Idempotent: same idempotency_key returns same result.
+    High-risk transfers (risk_score > 50) require risk_acknowledged=true.
     """
     sender_wallet = await db.wallets.find_one({"user_id": user.user_id})
     if not sender_wallet or not sender_wallet.get("wallet_id"):
         raise HTTPException(status_code=404, detail="Wallet not found. Set up wallet first.")
+
+    # Rate limit: 10 transfers per minute per wallet
+    if not await wallet_service.check_rate_limit(
+        f"wallet:{sender_wallet['wallet_id']}", "transfer", 10, 60, db
+    ):
+        raise HTTPException(status_code=429, detail="Too many transfer attempts. Please wait a minute.")
+
+    # Rate limit: 20 transfers per minute per IP
+    client_ip = request.client.host if request.client else "unknown"
+    if not await wallet_service.check_rate_limit(f"ip:{client_ip}", "transfer", 20, 60, db):
+        raise HTTPException(status_code=429, detail="Too many requests from this IP. Please wait.")
+
+    # High-risk step-up: Check risk score before transfer
+    risk_score, risk_flags = await wallet_service.calculate_risk_score(
+        sender_wallet["wallet_id"], data.amount_cents, data.to_wallet_id, db
+    )
+
+    if risk_score > 50 and not data.risk_acknowledged:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "high_risk_transfer",
+                "message": "This transfer has been flagged for additional verification.",
+                "risk_score": risk_score,
+                "risk_flags": risk_flags,
+                "action": "Please confirm you want to proceed with this transfer."
+            }
+        )
 
     result = await wallet_service.process_transfer(
         from_wallet_id=sender_wallet["wallet_id"],
@@ -4740,6 +4781,7 @@ async def get_wallet_transactions(
 @api_router.post("/wallet/deposit")
 async def create_wallet_deposit(
     data: WalletDepositRequest,
+    request: Request,
     user: User = Depends(get_current_user)
 ):
     """
@@ -4749,6 +4791,12 @@ async def create_wallet_deposit(
     wallet = await db.wallets.find_one({"user_id": user.user_id})
     if not wallet or not wallet.get("wallet_id"):
         raise HTTPException(status_code=404, detail="Wallet not found. Set up wallet first.")
+
+    # Rate limit: 5 deposits per hour per wallet
+    if not await wallet_service.check_rate_limit(
+        f"wallet:{wallet['wallet_id']}", "deposit", 5, 3600, db
+    ):
+        raise HTTPException(status_code=429, detail="Too many deposit attempts. Please try again later.")
 
     # Validate amount
     if data.amount_cents < 500:
@@ -4778,7 +4826,8 @@ async def create_wallet_deposit(
 
         session = checkout.create_session(checkout_request)
 
-        # Store pending deposit for webhook processing
+        # Store pending deposit for webhook processing (30 min expiration)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
         await db.wallet_deposits.insert_one({
             "deposit_id": f"dep_{uuid.uuid4().hex[:12]}",
             "wallet_id": wallet["wallet_id"],
@@ -4786,6 +4835,7 @@ async def create_wallet_deposit(
             "amount_cents": data.amount_cents,
             "stripe_session_id": session.session_id,
             "status": "pending",
+            "expires_at": expires_at.isoformat(),
             "created_at": datetime.now(timezone.utc).isoformat()
         })
 
@@ -4812,6 +4862,28 @@ async def check_deposit_status(session_id: str, user: User = Depends(get_current
 
     if not deposit:
         raise HTTPException(status_code=404, detail="Deposit not found")
+
+    # Check if deposit session expired
+    if deposit["status"] == "pending" and deposit.get("expires_at"):
+        expires_at = deposit["expires_at"]
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+        if expires_at < datetime.now(timezone.utc):
+            # Mark as expired
+            await db.wallet_deposits.update_one(
+                {"stripe_session_id": session_id},
+                {"$set": {"status": "expired"}}
+            )
+            return {
+                "status": "expired",
+                "message": "Payment session expired. Please try again."
+            }
+
+    if deposit["status"] == "expired":
+        return {
+            "status": "expired",
+            "message": "Payment session expired. Please try again."
+        }
 
     if deposit["status"] == "completed":
         return {

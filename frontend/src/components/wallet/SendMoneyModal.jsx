@@ -22,7 +22,8 @@ import {
   Loader2,
   Check,
   AlertCircle,
-  Shield
+  Shield,
+  AlertTriangle
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -40,6 +41,8 @@ export default function SendMoneyModal({ open, onClose, wallet, onComplete }) {
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
   const [transferResult, setTransferResult] = useState(null);
+  const [riskWarning, setRiskWarning] = useState(null); // { risk_score, risk_flags }
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -55,6 +58,8 @@ export default function SendMoneyModal({ open, onClose, wallet, onComplete }) {
         setPin("");
         setPinError("");
         setTransferResult(null);
+        setRiskWarning(null);
+        setRiskAcknowledged(false);
       }, 300);
     }
   }, [open]);
@@ -130,7 +135,7 @@ export default function SendMoneyModal({ open, onClose, wallet, onComplete }) {
     }
   };
 
-  const executeTransfer = async (pinValue) => {
+  const executeTransfer = async (pinValue, acknowledgeRisk = false) => {
     setLoading(true);
     setPinError("");
 
@@ -142,7 +147,8 @@ export default function SendMoneyModal({ open, onClose, wallet, onComplete }) {
           amount_cents: amountCents,
           pin: pinValue,
           idempotency_key: crypto.randomUUID(),
-          description: description || null
+          description: description || null,
+          risk_acknowledged: acknowledgeRisk || riskAcknowledged
         },
         { withCredentials: true }
       );
@@ -151,17 +157,40 @@ export default function SendMoneyModal({ open, onClose, wallet, onComplete }) {
       setStep(4);
       toast.success("Money sent!");
     } catch (error) {
-      const detail = error.response?.data?.detail || "Transfer failed";
-      setPinError(detail);
+      const detail = error.response?.data?.detail;
+
+      // Handle high-risk transfer step-up
+      if (detail?.error === "high_risk_transfer") {
+        setRiskWarning({
+          risk_score: detail.risk_score,
+          risk_flags: detail.risk_flags
+        });
+        setLoading(false);
+        return;
+      }
+
+      const errorMsg = typeof detail === "string" ? detail : "Transfer failed";
+      setPinError(errorMsg);
       setPin("");
 
       // If it's a PIN error, stay on step 3
-      if (!detail.toLowerCase().includes("pin")) {
-        toast.error(detail);
+      if (!errorMsg.toLowerCase().includes("pin")) {
+        toast.error(errorMsg);
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConfirmRiskyTransfer = async () => {
+    setRiskAcknowledged(true);
+    setRiskWarning(null);
+    await executeTransfer(pin, true);
+  };
+
+  const handleCancelRiskyTransfer = () => {
+    setRiskWarning(null);
+    setPin("");
   };
 
   const formatCurrency = (cents) => {
@@ -417,7 +446,51 @@ export default function SendMoneyModal({ open, onClose, wallet, onComplete }) {
                   </div>
                 )}
 
-                {loading && (
+                {/* High-Risk Warning */}
+                {riskWarning && (
+                  <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-medium text-amber-500">Security Alert</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          This transfer has been flagged for verification:
+                        </p>
+                        <ul className="text-sm text-muted-foreground mt-2 space-y-1">
+                          {riskWarning.risk_flags?.map((flag, i) => (
+                            <li key={i} className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+                              {flag.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="flex gap-2 mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCancelRiskyTransfer}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-amber-500 hover:bg-amber-600"
+                            onClick={handleConfirmRiskyTransfer}
+                            disabled={loading}
+                          >
+                            {loading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Confirm Transfer"
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {loading && !riskWarning && (
                   <div className="flex justify-center mt-4">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>

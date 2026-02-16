@@ -30,6 +30,53 @@ MIN_DEPOSIT_CENTS = 500                  # $5
 MAX_DEPOSIT_CENTS = 100000               # $1000
 
 
+# ============== RATE LIMITING ==============
+
+async def check_rate_limit(
+    key: str,
+    endpoint: str,
+    limit: int,
+    window_seconds: int,
+    db
+) -> bool:
+    """
+    Check and increment rate limit. Returns True if allowed, False if blocked.
+    Uses MongoDB with TTL for automatic cleanup.
+
+    Args:
+        key: Rate limit key (e.g., "ip:192.168.1.1" or "wallet:KVT-XXXXXX")
+        endpoint: Endpoint name (e.g., "transfer", "lookup", "deposit")
+        limit: Max requests allowed in window
+        window_seconds: Time window in seconds
+        db: MongoDB database instance
+
+    Returns:
+        True if request is allowed, False if rate limited
+    """
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(seconds=window_seconds)
+
+    # Atomic upsert and increment
+    result = await db.rate_limits.find_one_and_update(
+        {
+            "key": key,
+            "endpoint": endpoint,
+            "window_start": {"$gte": window_start}
+        },
+        {
+            "$inc": {"count": 1},
+            "$setOnInsert": {
+                "window_start": now,
+                "expires_at": now + timedelta(seconds=window_seconds * 2)
+            }
+        },
+        upsert=True,
+        return_document=True
+    )
+
+    return result["count"] <= limit
+
+
 # ============== WALLET ID GENERATION ==============
 
 def generate_wallet_id() -> str:
@@ -381,86 +428,82 @@ async def process_transfer(
     recipient_name = recipient_user.get("name", "Unknown") if recipient_user else "Unknown"
     sender_name = sender_user.get("name", "Unknown") if sender_user else "Unknown"
 
-    # 8. Execute atomic transfer
+    # 8. Execute transfer (without transactions for standalone MongoDB)
     sender_txn_id = f"wtxn_{uuid.uuid4().hex[:12]}"
     recipient_txn_id = f"wtxn_{uuid.uuid4().hex[:12]}"
     recipient_balance = recipient_wallet.get("balance_cents", 0)
 
-    async with await mongo_client.start_session() as session:
-        async with session.start_transaction():
-            # Debit sender (with balance check)
-            sender_result = await db.wallets.find_one_and_update(
-                {
-                    "wallet_id": from_wallet_id,
-                    "balance_cents": {"$gte": amount_cents}
-                },
-                {
-                    "$inc": {
-                        "balance_cents": -amount_cents,
-                        "daily_transferred_cents": amount_cents,
-                        "version": 1
-                    },
-                    "$set": {"updated_at": now.isoformat()}
-                },
-                session=session,
-                return_document=True
-            )
+    # Debit sender (with balance check)
+    sender_result = await db.wallets.find_one_and_update(
+        {
+            "wallet_id": from_wallet_id,
+            "balance_cents": {"$gte": amount_cents}
+        },
+        {
+            "$inc": {
+                "balance_cents": -amount_cents,
+                "daily_transferred_cents": amount_cents,
+                "version": 1
+            },
+            "$set": {"updated_at": now.isoformat()}
+        },
+        return_document=True
+    )
 
-            if not sender_result:
-                raise HTTPException(status_code=400, detail="Transfer failed. Check your balance.")
+    if not sender_result:
+        raise HTTPException(status_code=400, detail="Transfer failed. Check your balance.")
 
-            # Credit recipient
-            recipient_result = await db.wallets.find_one_and_update(
-                {"wallet_id": to_wallet_id},
-                {
-                    "$inc": {"balance_cents": amount_cents, "version": 1},
-                    "$set": {"updated_at": now.isoformat()}
-                },
-                session=session,
-                return_document=True
-            )
+    # Credit recipient
+    recipient_result = await db.wallets.find_one_and_update(
+        {"wallet_id": to_wallet_id},
+        {
+            "$inc": {"balance_cents": amount_cents, "version": 1},
+            "$set": {"updated_at": now.isoformat()}
+        },
+        return_document=True
+    )
 
-            # Create ledger entries (immutable)
-            sender_txn = {
-                "transaction_id": sender_txn_id,
-                "wallet_id": from_wallet_id,
-                "user_id": sender_wallet["user_id"],
-                "type": "transfer_out",
-                "amount_cents": amount_cents,
-                "direction": "debit",
-                "balance_before_cents": sender_balance,
-                "balance_after_cents": sender_result["balance_cents"],
-                "transfer_id": transfer_id,
-                "counterparty_wallet_id": to_wallet_id,
-                "counterparty_user_id": recipient_wallet["user_id"],
-                "counterparty_name": recipient_name,
-                "idempotency_key": idempotency_key,
-                "description": description or f"Sent to {recipient_name}",
-                "status": "completed",
-                "ip_address": request.client.host if request and request.client else None,
-                "created_at": now.isoformat()
-            }
+    # Create ledger entries (immutable)
+    sender_txn = {
+        "transaction_id": sender_txn_id,
+        "wallet_id": from_wallet_id,
+        "user_id": sender_wallet["user_id"],
+        "type": "transfer_out",
+        "amount_cents": amount_cents,
+        "direction": "debit",
+        "balance_before_cents": sender_balance,
+        "balance_after_cents": sender_result["balance_cents"],
+        "transfer_id": transfer_id,
+        "counterparty_wallet_id": to_wallet_id,
+        "counterparty_user_id": recipient_wallet["user_id"],
+        "counterparty_name": recipient_name,
+        "idempotency_key": idempotency_key,
+        "description": description or f"Sent to {recipient_name}",
+        "status": "completed",
+        "ip_address": request.client.host if request and request.client else None,
+        "created_at": now.isoformat()
+    }
 
-            recipient_txn = {
-                "transaction_id": recipient_txn_id,
-                "wallet_id": to_wallet_id,
-                "user_id": recipient_wallet["user_id"],
-                "type": "transfer_in",
-                "amount_cents": amount_cents,
-                "direction": "credit",
-                "balance_before_cents": recipient_balance,
-                "balance_after_cents": recipient_result["balance_cents"],
-                "transfer_id": transfer_id,
-                "counterparty_wallet_id": from_wallet_id,
-                "counterparty_user_id": sender_wallet["user_id"],
-                "counterparty_name": sender_name,
-                "idempotency_key": idempotency_key,
-                "description": description or f"Received from {sender_name}",
-                "status": "completed",
-                "created_at": now.isoformat()
-            }
+    recipient_txn = {
+        "transaction_id": recipient_txn_id,
+        "wallet_id": to_wallet_id,
+        "user_id": recipient_wallet["user_id"],
+        "type": "transfer_in",
+        "amount_cents": amount_cents,
+        "direction": "credit",
+        "balance_before_cents": recipient_balance,
+        "balance_after_cents": recipient_result["balance_cents"],
+        "transfer_id": transfer_id,
+        "counterparty_wallet_id": from_wallet_id,
+        "counterparty_user_id": sender_wallet["user_id"],
+        "counterparty_name": sender_name,
+        "idempotency_key": idempotency_key,
+        "description": description or f"Received from {sender_name}",
+        "status": "completed",
+        "created_at": now.isoformat()
+    }
 
-            await db.wallet_transactions.insert_many([sender_txn, recipient_txn], session=session)
+    await db.wallet_transactions.insert_many([sender_txn, recipient_txn])
 
     # 9. Log audit event
     await log_wallet_audit(

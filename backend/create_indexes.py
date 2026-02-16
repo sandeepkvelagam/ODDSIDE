@@ -62,6 +62,73 @@ async def create_indexes():
     )
     print("✅ Created index: users(supabase_id) UNIQUE")
 
+    # ============== WALLET INDEXES (Critical for payment security) ==============
+
+    # wallets: Unique wallet_id
+    await db.wallets.create_index(
+        [("wallet_id", 1)],
+        unique=True,
+        name="wallet_id_unique"
+    )
+    print("✅ Created index: wallets(wallet_id) UNIQUE")
+
+    # wallets: One wallet per user
+    await db.wallets.create_index(
+        [("user_id", 1)],
+        unique=True,
+        name="wallet_user_unique"
+    )
+    print("✅ Created index: wallets(user_id) UNIQUE")
+
+    # wallet_transactions: Prevent duplicate Stripe deposits
+    await db.wallet_transactions.create_index(
+        [("stripe_payment_intent_id", 1)],
+        unique=True,
+        sparse=True,  # Allow null values
+        name="wallet_txn_stripe_unique"
+    )
+    print("✅ Created index: wallet_transactions(stripe_payment_intent_id) UNIQUE SPARSE")
+
+    # wallet_transactions: Prevent duplicate transfers (idempotency)
+    await db.wallet_transactions.create_index(
+        [("wallet_id", 1), ("idempotency_key", 1)],
+        unique=True,
+        sparse=True,  # Allow null values for non-transfer transactions
+        name="wallet_txn_idempotency_unique"
+    )
+    print("✅ Created index: wallet_transactions(wallet_id, idempotency_key) UNIQUE SPARSE")
+
+    # wallet_transactions: Query by wallet_id for history
+    await db.wallet_transactions.create_index(
+        [("wallet_id", 1), ("created_at", -1)],
+        name="wallet_txn_history"
+    )
+    print("✅ Created index: wallet_transactions(wallet_id, created_at)")
+
+    # wallet_audit: Query audit logs by wallet
+    await db.wallet_audit.create_index(
+        [("wallet_id", 1), ("created_at", -1)],
+        name="wallet_audit_lookup"
+    )
+    print("✅ Created index: wallet_audit(wallet_id, created_at)")
+
+    # ============== RATE LIMITING INDEXES ==============
+
+    # rate_limits: TTL index for automatic cleanup
+    await db.rate_limits.create_index(
+        "expires_at",
+        expireAfterSeconds=0,
+        name="rate_limit_ttl"
+    )
+    print("✅ Created index: rate_limits(expires_at) TTL")
+
+    # rate_limits: Fast lookup by key and endpoint
+    await db.rate_limits.create_index(
+        [("key", 1), ("endpoint", 1)],
+        name="rate_limit_lookup"
+    )
+    print("✅ Created index: rate_limits(key, endpoint)")
+
     # List all indexes
     print("\n📋 Existing indexes:")
     for collection_name in ['group_members', 'players', 'game_nights', 'users']:

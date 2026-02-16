@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { View, Text, StyleSheet, Animated } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 
 // Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -76,6 +77,7 @@ function SplashOverlay({ onFinish }: { onFinish: () => void }) {
 
 export default function RootNavigator() {
   const { session, isLoading } = useAuth();
+  const { colors, isDark } = useTheme();
   const [showSplash, setShowSplash] = React.useState(false);
   const prevSession = useRef(session);
 
@@ -100,10 +102,10 @@ export default function RootNavigator() {
       <NavigationContainer>
         <Stack.Navigator
           screenOptions={{
-            headerStyle: { backgroundColor: "#0B0B0F" },
-            headerTintColor: "#fff",
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.textPrimary,
             headerTitleStyle: { fontWeight: "600" },
-            contentStyle: { backgroundColor: "#0B0B0F" },
+            contentStyle: { backgroundColor: colors.background },
           }}
         >
           {!session ? (
@@ -122,20 +124,20 @@ export default function RootNavigator() {
               <Stack.Screen
                 name="Groups"
                 component={GroupsScreen}
-                options={{ title: "Groups", headerBackTitle: "Back" }}
+                options={{ title: "Groups", headerBackTitle: "" }}
               />
               <Stack.Screen
                 name="GroupHub"
                 component={GroupHubScreen}
                 options={({ route }) => ({
                   title: route.params?.groupName || "Group",
-                  headerBackTitle: "Back",
+                  headerBackTitle: "",
                 })}
               />
               <Stack.Screen
                 name="GameNight"
                 component={GameNightScreen}
-                options={{ title: "Game Night", headerBackTitle: "Back" }}
+                options={{ title: "Game Night", headerBackTitle: "" }}
               />
               <Stack.Screen
                 name="Settings"
@@ -196,12 +198,12 @@ export default function RootNavigator() {
               <Stack.Screen
                 name="Settlement"
                 component={SettlementScreen}
-                options={{ title: "Settlement", headerBackTitle: "Back" }}
+                options={{ title: "Settlement", headerBackTitle: "" }}
               />
               <Stack.Screen
                 name="PokerAI"
                 component={PokerAIScreen}
-                options={{ title: "Poker AI", headerBackTitle: "Back" }}
+                options={{ title: "Poker AI", headerBackTitle: "" }}
               />
             </>
           )}

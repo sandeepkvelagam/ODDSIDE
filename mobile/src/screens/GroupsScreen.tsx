@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
+import { AIChatFab } from "../components/AIChatFab";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -113,6 +114,14 @@ export function GroupsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} testID="groups-screen">
+      {/* Page Header */}
+      <View style={styles.pageHeader}>
+        <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>MY GROUPS</Text>
+        <Text style={[styles.pageSubtitle, { color: colors.textMuted }]}>
+          Manage your poker circles
+        </Text>
+      </View>
+
       {error && (
         <View style={[styles.errorBanner, { backgroundColor: "rgba(239,68,68,0.12)" }]}>
           <Text style={styles.errorText}>{error}</Text>
@@ -154,7 +163,11 @@ export function GroupsScreen() {
           ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={[styles.groupCard, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}
+              style={[
+                styles.groupCard,
+                styles.glassCard,
+                { backgroundColor: colors.glassCardBg, borderColor: colors.glassCardBorder }
+              ]}
               onPress={() =>
                 navigation.navigate("GroupHub", {
                   groupId: item.group_id,
@@ -171,12 +184,27 @@ export function GroupsScreen() {
               </View>
               <View style={styles.groupInfo}>
                 <Text style={[styles.groupName, { color: colors.textPrimary }]}>{item.name}</Text>
-                <Text style={[styles.memberCount, { color: colors.textMuted }]}>
-                  {item.member_count ?? 0} members
-                  {item.role === "admin" && (
-                    <Text style={{ color: colors.orange }}> · Admin</Text>
-                  )}
-                </Text>
+                <View style={styles.groupMeta}>
+                  <Text style={[styles.memberCount, { color: colors.textMuted }]}>
+                    {item.member_count ?? 0} members
+                  </Text>
+                  <View style={[
+                    styles.roleBadge,
+                    { backgroundColor: item.role === "admin" ? "rgba(234,179,8,0.15)" : colors.glassBg }
+                  ]}>
+                    <Ionicons
+                      name={item.role === "admin" ? "shield" : "person"}
+                      size={10}
+                      color={item.role === "admin" ? "#EAB308" : colors.textMuted}
+                    />
+                    <Text style={[
+                      styles.roleText,
+                      { color: item.role === "admin" ? "#EAB308" : colors.textMuted }
+                    ]}>
+                      {item.role === "admin" ? "Admin" : "Member"}
+                    </Text>
+                  </View>
+                </View>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -277,6 +305,9 @@ export function GroupsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* AI Chat FAB */}
+      <AIChatFab />
     </View>
   );
 }
@@ -285,8 +316,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  pageHeader: {
+    paddingHorizontal: 28,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+    textTransform: "uppercase",
+  },
+  pageSubtitle: {
+    fontSize: 14,
+    marginTop: 4,
+  },
   listContent: {
     padding: 28,
+    paddingTop: 14,
     paddingBottom: 100,
   },
   errorBanner: {
@@ -334,12 +381,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   groupCard: {
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 18,
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
+    borderWidth: 1.5,
     gap: 14,
+  },
+  glassCard: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
   },
   groupAvatar: {
     width: 48,
@@ -354,16 +408,34 @@ const styles = StyleSheet.create({
   },
   groupInfo: {
     flex: 1,
-    gap: 4,
+    gap: 6,
   },
   groupName: {
     fontSize: 17,
     fontWeight: "600",
     lineHeight: 24,
   },
+  groupMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   memberCount: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  roleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  roleText: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
   },
   fab: {
     position: "absolute",

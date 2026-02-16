@@ -18,6 +18,9 @@ export const LIGHT_COLORS = {
   inputBg: "#FFFFFF",
   glassBg: "rgba(0, 0, 0, 0.04)",
   glassBorder: "rgba(0, 0, 0, 0.08)",
+  // Enhanced liquid glass card styles
+  glassCardBg: "rgba(255, 255, 255, 0.75)",
+  glassCardBorder: "rgba(255, 255, 255, 0.6)",
   textPrimary: "#333333",      // Web: hsl(0, 0%, 20%)
   textSecondary: "#5c5c5c",
   textMuted: "#737373",        // Web: hsl(0, 0%, 45%)
@@ -41,6 +44,9 @@ export const DARK_COLORS = {
   inputBg: "#2a2a2a",
   glassBg: "rgba(255, 255, 255, 0.05)",
   glassBorder: "rgba(255, 255, 255, 0.08)",
+  // Enhanced liquid glass card styles
+  glassCardBg: "rgba(255, 255, 255, 0.08)",
+  glassCardBorder: "rgba(255, 255, 255, 0.15)",
   textPrimary: "#F2F2F2",      // Web: hsl(0, 0%, 95%)
   textSecondary: "#A6A6A6",    // Web: hsl(0, 0%, 65%)
   textMuted: "#666666",

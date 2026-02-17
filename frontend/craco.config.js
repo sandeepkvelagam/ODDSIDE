@@ -9,7 +9,7 @@ const isDevServer = process.env.NODE_ENV !== "production";
 // Environment variable overrides
 const config = {
   enableHealthCheck: process.env.ENABLE_HEALTH_CHECK === "true",
-  enableVisualEdits: isDevServer, // Only enable during dev server
+  enableVisualEdits: process.env.ENABLE_VISUAL_EDITS !== "false" && isDevServer, // Can be disabled via env
 };
 
 // Conditionally load visual edits modules only in dev mode

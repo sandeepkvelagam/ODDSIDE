@@ -8,72 +8,71 @@ The app is a card-game ledger and settlement tool for friend groups. It tracks b
 
 **Scope:** The app will support multiple card games — poker, rummy, teen patti, and more. The name must be **game-agnostic** and not tied to any single game.
 
----
-
-## Top Candidates (Game-Agnostic)
-
-### 1. Shuffl — *"Your Game Night. Handled."*
-
-Shuffling is the one action that starts **every** card game — poker, rummy, teen patti, all of it. Modern dropped-vowel branding keeps it sleek.
-
-- Pros: Universal card game action, modern and brandable, works with dark/cinematic aesthetic
-- Cons: Dropped vowel trend (though still widely used in tech)
-
-### 2. Wildcard — *"Your Game Night Ledger."*
-
-Wildcards exist in poker, rummy, and most card games. Bold, memorable, and has a cool "unexpected edge" connotation.
-
-- Pros: Universal across card games, bold and memorable, great brand potential
-- Cons: Two syllables, may have existing apps with similar name
-
-### 3. Dealr — *"Deal. Play. Settle."*
-
-Dealing cards is universal to all card games. Modern naming convention. Three-word tagline mirrors the app flow perfectly.
-
-- Pros: Universal, modern naming, action-oriented tagline
-- Cons: Dropped vowel trend, may need pronunciation clarification
-
-### 4. NightCap — *"Close Out Every Game Night."*
-
-Completely game-agnostic. Double meaning: end-of-night ritual + wrapping up the game. Captures the settlement moment regardless of what you played.
-
-- Pros: Fun double meaning, social vibe, works for any game type
-- Cons: Less obviously tied to card games
-
-### 5. Kitty — *"Every Game Night. Settled."*
-
-The "kitty" is the communal pot in both poker AND rummy (and many other card games). Short, memorable, and naturally fits the money-tracking purpose.
-
-- Pros: Used across multiple card games, short and catchy, directly relates to money pool
-- Cons: May sound too casual for the cinematic brand aesthetic
+**Naming constraint:** Must be a **made-up/invented word** — real English words and common gaming terms are already taken.
 
 ---
 
-## Honorable Mentions
+## Top Candidates (Invented Names)
+
+### 1. Skora — *"Every Score. Settled."*
+
+Invented from "score." Sounds Scandinavian/Nordic — sleek, dark, premium. Fits the cinematic aesthetic perfectly.
+
+- Pros: 5 letters, easy to say and spell, Nordic cool, implies scoring/tracking
+- Cons: Slight similarity to "score" (but distinct enough as a brand)
+
+### 2. Rekko — *"Reckon Up. Game On."*
+
+Invented from "reckon" (to calculate/settle accounts). Friendly but smart. Two punchy syllables.
+
+- Pros: Implies calculation/settlement, fun to say, memorable, works across all games
+- Cons: Two syllables (though that's standard for app names)
+
+### 3. Staka — *"Raise the Stakes. Settle the Night."*
+
+Invented from "stake/stack." Bold and edgy with a Nordic undertone. Naturally implies money on the line.
+
+- Pros: Strong brand energy, implies stakes/money, bold sound, premium feel
+- Cons: Could be misread as "stacker"
+
+### 4. Vynt — *"Your Game Night. Handled."*
+
+Completely invented. 4 letters. Evokes "vintage" game nights. Short, sharp, luxury-brand feel.
+
+- Pros: Ultra-short, premium sound, unique, very available as domain/handle
+- Cons: No obvious meaning (though that can be a pro for brand building)
+
+### 5. Spliq — *"Split. Clean."*
+
+Invented from "split" with a hard Q ending. Implies clean settlement between players.
+
+- Pros: Edgy modern sound, implies splitting/settling, unique Q ending, memorable
+- Cons: Might need pronunciation help (rhymes with "sleek")
+
+---
+
+## Honorable Mentions (Invented)
 
 | Name    | Tagline                                  | Notes                                                  |
 | ------- | ---------------------------------------- | ------------------------------------------------------ |
-| Divvy   | "Split the Pot. Any Game."               | To divvy up = divide/share, fully game-agnostic        |
-| GameTab | "Track. Play. Settle."                   | Keeping a tab, but for games — clear and descriptive   |
-| Cashd   | "Game Over. Settled."                    | Edgy, money-focused, works across all games            |
+| Kappo   | "Cap Off Every Game Night."              | Italian flair, from "cap off," smooth and memorable     |
+| Tabbl   | "Your Table. Your Rules."                | From "table," where every game happens, double-B twist  |
+| Pokkt   | "Pocket the Winnings."                   | From "pocket," unique double-K spelling                 |
 
 ---
 
-## Previous Poker-Specific Candidates (Archived)
+## Previously Considered (All Taken)
 
-These were strong but too poker-specific for multi-game expansion:
+### Real-word game-agnostic names (Round 2)
+Shuffl, Wildcard, Dealr, NightCap, Kitty, Divvy, GameTab, Cashd
 
-| Name    | Tagline                               | Why archived                    |
-| ------- | ------------------------------------- | ------------------------------- |
-| SidePot | "Your Game Night. Settled."           | Poker-specific term             |
-| Ante    | "Deal Yourself In."                   | Primarily poker terminology     |
-| Stackd  | "Track. Play. Settle."               | Chip stacks = poker association |
-| Feltt   | "Where Friends Settle Up."            | Poker table felt reference      |
+### Poker-specific names (Round 1)
+SidePot, Ante, Stackd, Feltt, ChipIn, Rake, Potli
 
 ---
 
 ## Recommendation
 
-**Shuffl** is the top recommendation. It represents the universal action that starts every card game, sounds modern and sleek, and scales naturally as you add poker, rummy, teen patti, and beyond. It pairs well with the existing dark/cinematic brand aesthetic.
+**Skora** is the top recommendation. It's invented but instantly evocable ("score"), sounds premium and Nordic (matching the dark cinematic brand), and is short enough to work as a domain, app icon, and social handle. It scales across poker, rummy, teen patti, and any future game.
 
-**Runner-up: Wildcard** — if you want something bolder and more distinctive.
+**Runner-up: Rekko** — if you want something warmer and more approachable.

@@ -1715,8 +1715,10 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
             player["user"] = user_map.get(player["user_id"])
             player["transactions"] = txn_map.get(player["user_id"], [])
             player["buy_in_count"] = len([t for t in player["transactions"] if t.get("type") == "buy_in"])
-            # Calculate net_result for settlement display
-            player["net_result"] = player.get("cash_out", 0) - player.get("total_buy_in", 0)
+            # Calculate net_result for settlement display (handle None values)
+            cash_out = player.get("cash_out") or 0
+            total_buy_in = player.get("total_buy_in") or 0
+            player["net_result"] = cash_out - total_buy_in
     
     game["players"] = players
     

@@ -21,7 +21,7 @@ import uuid
 # Get BASE_URL from environment - DO NOT add default
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL')
 if not BASE_URL:
-    BASE_URL = "https://pokerpal-voice.preview.emergentagent.com"
+    BASE_URL = "https://multiapp-poker-fix.preview.emergentagent.com"
 
 BASE_URL = BASE_URL.rstrip('/')
 

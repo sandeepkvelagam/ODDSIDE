@@ -1672,10 +1672,16 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
     game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-    
+
+    # Check for required fields to prevent KeyError crashes
+    group_id = game.get("group_id")
+    host_id = game.get("host_id")
+    if not group_id:
+        raise HTTPException(status_code=404, detail="Game data is corrupted (missing group)")
+
     # Verify membership
     membership = await db.group_members.find_one(
-        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"group_id": group_id, "user_id": user.user_id},
         {"_id": 0}
     )
     if not membership:
@@ -1715,18 +1721,20 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
     game["players"] = players
     
     # Get group info
-    group = await db.groups.find_one({"group_id": game["group_id"]}, {"_id": 0})
+    group = await db.groups.find_one({"group_id": group_id}, {"_id": 0})
     game["group"] = group
-    
-    # Get host info
-    host = await db.users.find_one(
-        {"user_id": game["host_id"]},
-        {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
-    )
+
+    # Get host info (handle missing host_id gracefully)
+    host = None
+    if host_id:
+        host = await db.users.find_one(
+            {"user_id": host_id},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
+        )
     game["host"] = host
-    
+
     # Check if current user is host
-    game["is_host"] = game["host_id"] == user.user_id
+    game["is_host"] = host_id == user.user_id if host_id else False
     
     # Get current user's player record (already in players list)
     current_player = next((p for p in players if p["user_id"] == user.user_id), None)

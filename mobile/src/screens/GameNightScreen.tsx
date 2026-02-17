@@ -12,27 +12,46 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  FlatList,
 } from "react-native";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Screen } from "../components/ui/Screen";
 import { Card } from "../components/ui/Card";
+import { AIChatFab } from "../components/AIChatFab";
 import { api, getGame } from "../api/games";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import type { Socket } from "socket.io-client";
 import { createSocket } from "../lib/socket";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 type R = RouteProp<RootStackParamList, "GameNight">;
 
 const BUY_IN_OPTIONS = [5, 10, 20, 50, 100];
 
+// Poker hand rankings data
+const HAND_RANKINGS = [
+  { rank: 1, name: "Royal Flush", desc: "A, K, Q, J, 10, all same suit", example: "A♠ K♠ Q♠ J♠ 10♠" },
+  { rank: 2, name: "Straight Flush", desc: "Five consecutive cards, same suit", example: "9♥ 8♥ 7♥ 6♥ 5♥" },
+  { rank: 3, name: "Four of a Kind", desc: "Four cards of same rank", example: "K♠ K♥ K♦ K♣ 2♠" },
+  { rank: 4, name: "Full House", desc: "Three of a kind + a pair", example: "J♠ J♥ J♦ 8♣ 8♠" },
+  { rank: 5, name: "Flush", desc: "Five cards of same suit", example: "A♣ J♣ 8♣ 6♣ 2♣" },
+  { rank: 6, name: "Straight", desc: "Five consecutive cards", example: "10♠ 9♥ 8♦ 7♣ 6♠" },
+  { rank: 7, name: "Three of a Kind", desc: "Three cards of same rank", example: "7♠ 7♥ 7♦ K♣ 2♠" },
+  { rank: 8, name: "Two Pair", desc: "Two different pairs", example: "Q♠ Q♥ 5♦ 5♣ 2♠" },
+  { rank: 9, name: "One Pair", desc: "Two cards of same rank", example: "10♠ 10♥ A♦ 8♣ 4♠" },
+  { rank: 10, name: "High Card", desc: "Highest card plays", example: "A♠ J♥ 8♦ 6♣ 2♠" },
+];
+
 export function GameNightScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const route = useRoute<R>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const { gameId } = route.params;
 
   const socketRef = useRef<Socket | null>(null);
@@ -54,6 +73,21 @@ export function GameNightScreen() {
   const [showCashOutSheet, setShowCashOutSheet] = useState(false);
   const [cashOutChips, setCashOutChips] = useState("");
   const [submittingCashOut, setSubmittingCashOut] = useState(false);
+
+  // Admin buy-in dialog state
+  const [showAdminBuyInSheet, setShowAdminBuyInSheet] = useState(false);
+  const [selectedPlayerForBuyIn, setSelectedPlayerForBuyIn] = useState<string | null>(null);
+  const [adminBuyInAmount, setAdminBuyInAmount] = useState(20);
+  const [submittingAdminBuyIn, setSubmittingAdminBuyIn] = useState(false);
+
+  // Admin cash-out dialog state
+  const [showAdminCashOutSheet, setShowAdminCashOutSheet] = useState(false);
+  const [selectedPlayerForCashOut, setSelectedPlayerForCashOut] = useState<string | null>(null);
+  const [adminCashOutChips, setAdminCashOutChips] = useState("");
+  const [submittingAdminCashOut, setSubmittingAdminCashOut] = useState(false);
+
+  // Hand rankings modal
+  const [showHandRankings, setShowHandRankings] = useState(false);
 
   // Resync state
   const resyncInFlight = useRef(false);
@@ -239,8 +273,169 @@ export function GameNightScreen() {
   const cashOutValue = cashOutChipsNum * chipValue;
   const netResult = cashOutValue - (currentPlayer?.total_buy_in || 0);
 
+  // Default buy-in and chips
+  const defaultBuyIn = snapshot?.buy_in_amount || 20;
+  const chipsPerBuyIn = snapshot?.chips_per_buy_in || 20;
+
+  // Admin: Handle buy-in for a player
+  const handleAdminBuyIn = async () => {
+    if (!selectedPlayerForBuyIn) {
+      setError("Please select a player");
+      return;
+    }
+    setSubmittingAdminBuyIn(true);
+    try {
+      await api.post(`/games/${gameId}/admin-buy-in`, {
+        user_id: selectedPlayerForBuyIn,
+        amount: adminBuyInAmount,
+      });
+      setShowAdminBuyInSheet(false);
+      setSelectedPlayerForBuyIn(null);
+      await resyncGameState();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || e?.message || "Admin buy-in failed");
+    } finally {
+      setSubmittingAdminBuyIn(false);
+    }
+  };
+
+  // Admin: Handle cash-out for a player
+  const handleAdminCashOut = async () => {
+    if (!selectedPlayerForCashOut) {
+      setError("Please select a player");
+      return;
+    }
+    const chips = parseInt(adminCashOutChips, 10);
+    if (isNaN(chips) || chips < 0) {
+      setError("Please enter a valid chip count");
+      return;
+    }
+    setSubmittingAdminCashOut(true);
+    try {
+      await api.post(`/games/${gameId}/admin-cash-out`, {
+        user_id: selectedPlayerForCashOut,
+        chips,
+      });
+      setShowAdminCashOutSheet(false);
+      setSelectedPlayerForCashOut(null);
+      setAdminCashOutChips("");
+      await resyncGameState();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || e?.message || "Admin cash-out failed");
+    } finally {
+      setSubmittingAdminCashOut(false);
+    }
+  };
+
+  // Players grouped by status
+  const activePlayers = players.filter((p: any) => !p.cashed_out);
+  const cashedOutPlayers = players.filter((p: any) => p.cashed_out);
+
+  // Selected player info for admin cash-out
+  const selectedCashOutPlayer = players.find((p: any) => p.user_id === selectedPlayerForCashOut);
+  const adminCashOutChipsNum = parseInt(adminCashOutChips, 10) || 0;
+  const adminCashOutValue = adminCashOutChipsNum * chipValue;
+
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.backButton, { backgroundColor: colors.glassBg }]}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+        </TouchableOpacity>
+
+        <View style={styles.headerCenter}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+            {snapshot?.name || "Game Night"}
+          </Text>
+          <View style={styles.headerBadges}>
+            {/* Host Badge */}
+            <View style={[styles.headerBadge, { backgroundColor: "rgba(234,179,8,0.15)" }]}>
+              <Ionicons name="shield" size={10} color="#fbbf24" />
+              <Text style={[styles.headerBadgeText, { color: "#fbbf24" }]}>
+                {snapshot?.host?.name || "Host"} Admin
+              </Text>
+            </View>
+            {/* Status Badge */}
+            <View style={[
+              styles.headerBadge,
+              isActive ? { backgroundColor: "rgba(34,197,94,0.15)" } : { backgroundColor: colors.glassBg }
+            ]}>
+              {isActive && <View style={styles.headerStatusDot} />}
+              <Text style={[
+                styles.headerBadgeText,
+                { color: isActive ? "#22c55e" : colors.textMuted }
+              ]}>
+                {gameStatus.toUpperCase()}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Hand Rankings Button */}
+        <TouchableOpacity
+          style={[styles.headerIconButton, { backgroundColor: colors.glassBg }]}
+          onPress={() => setShowHandRankings(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="help-circle-outline" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Chip Value Info Bar */}
+      <View style={[styles.chipInfoBar, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
+        <View style={styles.chipInfoItem}>
+          <Ionicons name="disc-outline" size={14} color={colors.orange} />
+          <Text style={[styles.chipInfoText, { color: colors.textPrimary }]}>
+            ${defaultBuyIn} = {chipsPerBuyIn} chips
+          </Text>
+        </View>
+        <View style={[styles.chipInfoDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.chipInfoItem}>
+          <Text style={[styles.chipInfoText, { color: colors.textMuted }]}>
+            ${chipValue.toFixed(2)}/chip
+          </Text>
+        </View>
+      </View>
+
+      {/* AI Assistant Button */}
+      <TouchableOpacity
+        style={[styles.aiAssistantButton, { backgroundColor: colors.orange + "15", borderColor: colors.orange + "40" }]}
+        onPress={() => navigation.navigate("AIAssistant" as any)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.aiAssistantGlow} />
+        <Ionicons name="sparkles" size={18} color={colors.orange} />
+        <Text style={[styles.aiAssistantText, { color: colors.orange }]}>AI Assistant</Text>
+        <View style={[styles.aiBetaBadge, { backgroundColor: colors.orange }]}>
+          <Text style={styles.aiBetaText}>BETA</Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* Music Player Coming Soon */}
+      {!isHost && (
+        <View style={[styles.musicComingSoon, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+          <View style={[styles.musicIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
+            <Ionicons name="musical-notes" size={20} color="#22c55e" />
+          </View>
+          <View style={styles.musicInfo}>
+            <View style={styles.musicHeader}>
+              <Text style={[styles.musicTitle, { color: colors.textPrimary }]}>Music Player</Text>
+              <View style={[styles.comingSoonBadge, { backgroundColor: colors.orange + "20" }]}>
+                <Text style={[styles.comingSoonText, { color: colors.orange }]}>COMING SOON</Text>
+              </View>
+            </View>
+            <Text style={[styles.musicSubtitle, { color: colors.textMuted }]}>
+              Spotify integration for your poker nights
+            </Text>
+          </View>
+        </View>
+      )}
+
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -300,11 +495,18 @@ export function GameNightScreen() {
             </View>
             <View style={styles.hostActions}>
               <TouchableOpacity
-                style={[styles.hostButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-                onPress={() => {/* Add player functionality */}}
+                style={[styles.hostButton, { backgroundColor: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.3)" }]}
+                onPress={() => setShowAdminBuyInSheet(true)}
               >
-                <Ionicons name="person-add" size={18} color={colors.textSecondary} />
-                <Text style={[styles.hostButtonText, { color: colors.textSecondary }]}>Add Player</Text>
+                <Ionicons name="add-circle" size={18} color="#22c55e" />
+                <Text style={[styles.hostButtonText, { color: "#22c55e" }]}>Buy-In</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.hostButton, { backgroundColor: "rgba(249,115,22,0.1)", borderColor: "rgba(249,115,22,0.3)" }]}
+                onPress={() => setShowAdminCashOutSheet(true)}
+              >
+                <Ionicons name="remove-circle" size={18} color="#f97316" />
+                <Text style={[styles.hostButtonText, { color: "#f97316" }]}>Cash Out</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.hostButton, { backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.3)" }]}
@@ -318,7 +520,7 @@ export function GameNightScreen() {
                 }}
               >
                 <Ionicons name="stop-circle" size={18} color={colors.danger} />
-                <Text style={[styles.hostButtonText, { color: colors.danger }]}>End Game</Text>
+                <Text style={[styles.hostButtonText, { color: colors.danger }]}>End</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -363,59 +565,143 @@ export function GameNightScreen() {
           </View>
         )}
 
-        {/* Players List */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Players</Text>
-        <View style={[styles.playersCard, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
-          {players.length === 0 ? (
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No players yet</Text>
-          ) : (
-            players.map((p: any, idx: number) => {
-              const playerNet = (p.chips || 0) * chipValue - (p.total_buy_in || 0);
-              const isCurrentUser = p.user_id === user?.user_id;
-              const isPlayerHost = p.user_id === snapshot?.host_id;
+        {/* Active Players */}
+        {activePlayers.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              Active Players ({activePlayers.length})
+            </Text>
+            <View style={[styles.playersCard, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
+              {activePlayers.map((p: any, idx: number) => {
+                const playerNet = (p.chips || 0) * chipValue - (p.total_buy_in || 0);
+                const isCurrentUser = p.user_id === user?.user_id;
+                const isPlayerHost = p.user_id === snapshot?.host_id;
 
-              return (
-                <View key={p?.user_id || idx}>
-                  <View style={styles.playerRow}>
-                    <View style={[styles.playerAvatar, { backgroundColor: isCurrentUser ? "rgba(239,110,89,0.15)" : "rgba(59,130,246,0.15)" }]}>
-                      <Text style={[styles.playerAvatarText, { color: isCurrentUser ? colors.orange : "#3b82f6" }]}>
-                        {(p?.name || p?.email || "?")[0].toUpperCase()}
+                return (
+                  <View key={p?.user_id || idx}>
+                    <View style={styles.playerRow}>
+                      <View style={[styles.playerAvatar, { backgroundColor: isCurrentUser ? "rgba(239,110,89,0.15)" : "rgba(59,130,246,0.15)" }]}>
+                        <Text style={[styles.playerAvatarText, { color: isCurrentUser ? colors.orange : "#3b82f6" }]}>
+                          {(p?.user?.name || p?.name || p?.email || "?")[0].toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.playerInfo}>
+                        <View style={styles.playerNameRow}>
+                          <Text style={[styles.playerName, { color: colors.textPrimary }]}>
+                            {p?.user?.name || p?.name || p?.email || `Player ${idx + 1}`}
+                            {isCurrentUser && <Text style={{ color: colors.textMuted }}> (You)</Text>}
+                          </Text>
+                          {isPlayerHost && (
+                            <Ionicons name="shield" size={14} color="#fbbf24" style={{ marginLeft: 6 }} />
+                          )}
+                        </View>
+                        <View style={styles.playerChipsRow}>
+                          <Text style={[styles.playerChips, { color: colors.textMuted }]}>
+                            {p.chips || 0} chips · ${p.total_buy_in || 0} buy-in
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Admin Transaction Buttons */}
+                      {isHost && isActive && !isCurrentUser && (
+                        <View style={styles.playerActions}>
+                          <TouchableOpacity
+                            style={[styles.playerActionButton, { backgroundColor: "rgba(34,197,94,0.15)" }]}
+                            onPress={() => {
+                              setSelectedPlayerForBuyIn(p.user_id);
+                              setShowAdminBuyInSheet(true);
+                            }}
+                          >
+                            <Ionicons name="add" size={16} color="#22c55e" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.playerActionButton, { backgroundColor: "rgba(249,115,22,0.15)" }]}
+                            onPress={() => {
+                              setSelectedPlayerForCashOut(p.user_id);
+                              setAdminCashOutChips(String(p.chips || 0));
+                              setShowAdminCashOutSheet(true);
+                            }}
+                          >
+                            <Ionicons name="remove" size={16} color="#f97316" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {!isHost && (
+                        <Text style={[
+                          styles.playerNet,
+                          { color: playerNet >= 0 ? colors.success : colors.danger }
+                        ]}>
+                          {playerNet >= 0 ? "+" : ""}${playerNet.toFixed(0)}
+                        </Text>
+                      )}
+                    </View>
+                    {idx < activePlayers.length - 1 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {/* Cashed Out Players */}
+        {cashedOutPlayers.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: "#22c55e" }]}>
+              Cashed Out ({cashedOutPlayers.length})
+            </Text>
+            <View style={[styles.playersCard, { backgroundColor: colors.surface, borderColor: "rgba(34,197,94,0.2)" }]}>
+              {cashedOutPlayers.map((p: any, idx: number) => {
+                const playerNet = (p.cash_out_value || 0) - (p.total_buy_in || 0);
+                const isCurrentUser = p.user_id === user?.user_id;
+                const isPlayerHost = p.user_id === snapshot?.host_id;
+
+                return (
+                  <View key={p?.user_id || idx}>
+                    <View style={styles.playerRow}>
+                      <View style={[styles.playerAvatar, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
+                        <Ionicons name="checkmark" size={20} color="#22c55e" />
+                      </View>
+                      <View style={styles.playerInfo}>
+                        <View style={styles.playerNameRow}>
+                          <Text style={[styles.playerName, { color: colors.textPrimary }]}>
+                            {p?.user?.name || p?.name || p?.email || `Player ${idx + 1}`}
+                            {isCurrentUser && <Text style={{ color: colors.textMuted }}> (You)</Text>}
+                          </Text>
+                          {isPlayerHost && (
+                            <Ionicons name="shield" size={14} color="#fbbf24" style={{ marginLeft: 6 }} />
+                          )}
+                        </View>
+                        <View style={styles.playerChipsRow}>
+                          <Text style={[styles.playerChips, { color: colors.textMuted }]}>
+                            ${p.cash_out_value || 0} returned · ${p.total_buy_in || 0} buy-in
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[
+                        styles.playerNet,
+                        { color: playerNet >= 0 ? colors.success : colors.danger }
+                      ]}>
+                        {playerNet >= 0 ? "+" : ""}${playerNet.toFixed(0)}
                       </Text>
                     </View>
-                    <View style={styles.playerInfo}>
-                      <View style={styles.playerNameRow}>
-                        <Text style={[styles.playerName, { color: colors.textPrimary }]}>
-                          {p?.name || p?.email || "Player"}
-                          {isCurrentUser && <Text style={{ color: colors.textMuted }}> (You)</Text>}
-                        </Text>
-                        {isPlayerHost && (
-                          <Ionicons name="shield" size={14} color="#fbbf24" style={{ marginLeft: 6 }} />
-                        )}
-                      </View>
-                      <View style={styles.playerChipsRow}>
-                        <Text style={[styles.playerChips, { color: colors.textMuted }]}>
-                          {p.chips || 0} chips · ${p.total_buy_in || 0} buy-in
-                        </Text>
-                        {p.cashed_out && (
-                          <View style={[styles.statusBadge, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
-                            <Text style={styles.statusBadgeText}>Out</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                    <Text style={[
-                      styles.playerNet,
-                      { color: playerNet >= 0 ? colors.success : colors.danger }
-                    ]}>
-                      {playerNet >= 0 ? "+" : ""}${playerNet.toFixed(0)}
-                    </Text>
+                    {idx < cashedOutPlayers.length - 1 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
                   </View>
-                  {idx < players.length - 1 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
-                </View>
-              );
-            })
-          )}
-        </View>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {/* Empty State */}
+        {players.length === 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Players</Text>
+            <View style={[styles.playersCard, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No players yet</Text>
+            </View>
+          </>
+        )}
 
         {/* Game Info */}
         <View style={[styles.infoCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
@@ -564,6 +850,202 @@ export function GameNightScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Admin Buy-In Sheet */}
+      <Modal visible={showAdminBuyInSheet} animationType="slide" transparent onRequestClose={() => setShowAdminBuyInSheet(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowAdminBuyInSheet(false)} />
+          <View style={[styles.sheetContainer, { backgroundColor: colors.surface }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>Add Buy-In</Text>
+            <Text style={[styles.sheetSubtitle, { color: colors.textMuted }]}>Select a player and buy-in amount</Text>
+
+            <Text style={[styles.optionLabel, { color: colors.textSecondary }]}>Select Player</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.playerSelectScroll}>
+              {activePlayers.map((p: any) => (
+                <TouchableOpacity
+                  key={p.user_id}
+                  style={[
+                    styles.playerSelectButton,
+                    { borderColor: colors.glassBorder },
+                    selectedPlayerForBuyIn === p.user_id && { borderColor: colors.orange, backgroundColor: "rgba(239,110,89,0.15)" },
+                  ]}
+                  onPress={() => setSelectedPlayerForBuyIn(p.user_id)}
+                >
+                  <View style={[styles.playerSelectAvatar, { backgroundColor: "rgba(59,130,246,0.15)" }]}>
+                    <Text style={[styles.playerSelectAvatarText, { color: "#3b82f6" }]}>
+                      {(p?.user?.name || p?.name || "?")[0].toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={[styles.playerSelectName, { color: selectedPlayerForBuyIn === p.user_id ? colors.orange : colors.textPrimary }]} numberOfLines={1}>
+                    {p?.user?.name || p?.name || "Player"}
+                  </Text>
+                  <Text style={[styles.playerSelectChips, { color: colors.textMuted }]}>{p.chips} chips</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={[styles.optionLabel, { color: colors.textSecondary, marginTop: 16 }]}>Select Amount</Text>
+            <View style={styles.optionRow}>
+              {BUY_IN_OPTIONS.map((amount) => (
+                <TouchableOpacity
+                  key={amount}
+                  style={[
+                    styles.optionButton,
+                    { borderColor: colors.glassBorder },
+                    adminBuyInAmount === amount && { borderColor: colors.orange, backgroundColor: "rgba(239,110,89,0.15)" },
+                  ]}
+                  onPress={() => setAdminBuyInAmount(amount)}
+                >
+                  <Text style={[styles.optionText, { color: colors.textPrimary }, adminBuyInAmount === amount && { color: colors.orange }]}>
+                    ${amount}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={[styles.previewCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+              <Text style={[styles.previewLabel, { color: colors.textMuted }]}>Player will receive</Text>
+              <Text style={[styles.previewValue, { color: colors.orange }]}>
+                {Math.floor(adminBuyInAmount / chipValue)} chips
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitButton, { backgroundColor: "#22c55e" }, (!selectedPlayerForBuyIn || submittingAdminBuyIn) && styles.buttonDisabled]}
+              onPress={handleAdminBuyIn}
+              disabled={!selectedPlayerForBuyIn || submittingAdminBuyIn}
+            >
+              {submittingAdminBuyIn ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.submitButtonText}>Confirm Buy-In</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Admin Cash-Out Sheet */}
+      <Modal visible={showAdminCashOutSheet} animationType="slide" transparent onRequestClose={() => setShowAdminCashOutSheet(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowAdminCashOutSheet(false)} />
+          <View style={[styles.sheetContainer, { backgroundColor: colors.surface }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>Cash Out Player</Text>
+            <Text style={[styles.sheetSubtitle, { color: colors.textMuted }]}>Enter chip count. Player will be notified.</Text>
+
+            <Text style={[styles.optionLabel, { color: colors.textSecondary }]}>Select Player</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.playerSelectScroll}>
+              {activePlayers.map((p: any) => (
+                <TouchableOpacity
+                  key={p.user_id}
+                  style={[
+                    styles.playerSelectButton,
+                    { borderColor: colors.glassBorder },
+                    selectedPlayerForCashOut === p.user_id && { borderColor: "#f97316", backgroundColor: "rgba(249,115,22,0.15)" },
+                  ]}
+                  onPress={() => {
+                    setSelectedPlayerForCashOut(p.user_id);
+                    setAdminCashOutChips(String(p.chips || 0));
+                  }}
+                >
+                  <View style={[styles.playerSelectAvatar, { backgroundColor: "rgba(59,130,246,0.15)" }]}>
+                    <Text style={[styles.playerSelectAvatarText, { color: "#3b82f6" }]}>
+                      {(p?.user?.name || p?.name || "?")[0].toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={[styles.playerSelectName, { color: selectedPlayerForCashOut === p.user_id ? "#f97316" : colors.textPrimary }]} numberOfLines={1}>
+                    {p?.user?.name || p?.name || "Player"}
+                  </Text>
+                  <Text style={[styles.playerSelectChips, { color: colors.textMuted }]}>{p.chips} chips</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={[styles.optionLabel, { color: colors.textSecondary, marginTop: 16 }]}>Chips to Return</Text>
+            <TextInput
+              style={[styles.chipInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.glassBorder }]}
+              value={adminCashOutChips}
+              onChangeText={setAdminCashOutChips}
+              keyboardType="number-pad"
+              placeholder="Enter chip count"
+              placeholderTextColor={colors.textMuted}
+            />
+
+            {selectedCashOutPlayer && (
+              <View style={[styles.summaryCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Player's chips</Text>
+                  <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>{adminCashOutChipsNum}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Cash value</Text>
+                  <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>${adminCashOutValue.toFixed(2)}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Total buy-in</Text>
+                  <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>${selectedCashOutPlayer?.total_buy_in || 0}</Text>
+                </View>
+                <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.textPrimary, fontWeight: "600" }]}>Net Result</Text>
+                  <Text style={[styles.summaryValue, styles.netResult, { color: (adminCashOutValue - (selectedCashOutPlayer?.total_buy_in || 0)) >= 0 ? colors.success : colors.danger }]}>
+                    {(adminCashOutValue - (selectedCashOutPlayer?.total_buy_in || 0)) >= 0 ? "+" : ""}${(adminCashOutValue - (selectedCashOutPlayer?.total_buy_in || 0)).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.submitButton, { backgroundColor: "#f97316" }, (!selectedPlayerForCashOut || submittingAdminCashOut) && styles.buttonDisabled]}
+              onPress={handleAdminCashOut}
+              disabled={!selectedPlayerForCashOut || submittingAdminCashOut}
+            >
+              {submittingAdminCashOut ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.submitButtonText}>Confirm Cash Out</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Hand Rankings Modal */}
+      <Modal visible={showHandRankings} animationType="slide" transparent onRequestClose={() => setShowHandRankings(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowHandRankings(false)} />
+          <View style={[styles.handRankingsSheet, { backgroundColor: colors.surface }]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.handRankingsHeader}>
+              <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>Poker Hand Rankings</Text>
+              <TouchableOpacity onPress={() => setShowHandRankings(false)}>
+                <Ionicons name="close" size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.sheetSubtitle, { color: colors.textMuted }]}>Best to worst, top to bottom</Text>
+
+            <ScrollView style={styles.handRankingsList} showsVerticalScrollIndicator={false}>
+              {HAND_RANKINGS.map((hand) => (
+                <View key={hand.rank} style={[styles.handRankItem, { borderBottomColor: colors.border }]}>
+                  <View style={[styles.handRankNumber, { backgroundColor: colors.orange + "20" }]}>
+                    <Text style={[styles.handRankNumberText, { color: colors.orange }]}>{hand.rank}</Text>
+                  </View>
+                  <View style={styles.handRankInfo}>
+                    <Text style={[styles.handRankName, { color: colors.textPrimary }]}>{hand.name}</Text>
+                    <Text style={[styles.handRankDesc, { color: colors.textMuted }]}>{hand.desc}</Text>
+                    <Text style={[styles.handRankExample, { color: colors.textSecondary }]}>{hand.example}</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* AI Chat FAB */}
+      <AIChatFab />
     </View>
   );
 }
@@ -576,7 +1058,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 28,
+    padding: 16,
+    paddingTop: 16,
     paddingBottom: 32,
   },
   reconnectBanner: {
@@ -963,5 +1446,263 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  // Header styles
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerCenter: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  headerBadges: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 4,
+  },
+  headerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  headerBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  headerStatusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#22c55e",
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // Chip info bar
+  chipInfoBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  chipInfoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+    justifyContent: "center",
+  },
+  chipInfoText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  chipInfoDivider: {
+    width: 1,
+    height: 16,
+  },
+  // AI Assistant button
+  aiAssistantButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  aiAssistantGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 12,
+  },
+  aiAssistantText: {
+    fontSize: 15,
+    fontWeight: "600",
+    flex: 1,
+  },
+  aiBetaBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  aiBetaText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  // Music Coming Soon
+  musicComingSoon: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  musicIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  musicInfo: {
+    flex: 1,
+  },
+  musicHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  musicTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  comingSoonBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  comingSoonText: {
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  musicSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  // Player action buttons
+  playerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  playerActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // Sheet subtitle
+  sheetSubtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: -16,
+    marginBottom: 20,
+  },
+  // Player select for admin modals
+  playerSelectScroll: {
+    marginBottom: 8,
+  },
+  playerSelectButton: {
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginRight: 10,
+    width: 90,
+  },
+  playerSelectAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  playerSelectAvatarText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  playerSelectName: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  playerSelectChips: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  // Hand rankings modal
+  handRankingsSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 40,
+    maxHeight: "85%",
+  },
+  handRankingsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  handRankingsList: {
+    marginTop: 16,
+  },
+  handRankItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    gap: 14,
+  },
+  handRankNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  handRankNumberText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  handRankInfo: {
+    flex: 1,
+  },
+  handRankName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  handRankDesc: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  handRankExample: {
+    fontSize: 13,
+    marginTop: 4,
+    letterSpacing: 1,
   },
 });

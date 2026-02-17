@@ -8,10 +8,12 @@ echo "========================================="
 echo "  Expo Server Restart & QR Generator"
 echo "========================================="
 
-# 1. Kill existing processes
+# 1. Kill existing Expo/Metro processes (not all node processes)
 echo ""
 echo "1. Killing existing processes..."
-killall -9 node 2>/dev/null
+pkill -f "node.*expo" 2>/dev/null || true
+pkill -f "node.*metro" 2>/dev/null || true
+pkill -f "ngrok" 2>/dev/null || true
 sleep 2
 echo "   Done!"
 
@@ -40,10 +42,21 @@ else
     echo "   Warning: Server may not be ready yet"
 fi
 
-# 5. Get tunnel URL
+# 5. Get tunnel URL from Expo settings (wait for tunnel to connect)
 echo ""
 echo "5. Getting tunnel URL..."
-TUNNEL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import sys,json; d=json.load(sys.stdin); print('exp://' + d['tunnels'][0]['public_url'].split('://')[1])" 2>/dev/null)
+for i in {1..10}; do
+    if grep -q "Tunnel ready" /tmp/expo.log 2>/dev/null; then
+        break
+    fi
+    sleep 2
+done
+RANDOMNESS=$(python3 -c "import json; print(json.load(open('/app/mobile/.expo/settings.json')).get('urlRandomness',''))" 2>/dev/null)
+if [ -n "$RANDOMNESS" ]; then
+    TUNNEL="exp://${RANDOMNESS}-anonymous-8081.exp.direct"
+else
+    TUNNEL=""
+fi
 echo "   Tunnel: $TUNNEL"
 
 # 6. Generate QR code

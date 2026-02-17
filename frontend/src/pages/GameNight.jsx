@@ -14,14 +14,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
   Play, Square, DollarSign, Plus, Send, Clock,
-  Users, MessageSquare, ArrowLeft, Coins, User,
-  HelpCircle, Crown, History, Hand, LogOut, CheckCircle, Wifi, WifiOff, Pencil
+  Users, MessageSquare, ChevronLeft, Coins, User,
+  HelpCircle, Crown, History, Hand, LogOut, CheckCircle, Wifi, WifiOff, Pencil, Minus
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useGameSocket } from "@/hooks/useGameSocket";
 import SpotifyPlayer from "@/components/SpotifyPlayer";
 import PokerAIAssistant from "@/components/PokerAIAssistant";
 import SettlementCalculator from "@/components/SettlementCalculator";
+import AIAssistant from "@/components/AIAssistant";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -467,13 +468,12 @@ export default function GameNight() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         {/* Mobile-friendly header */}
         <div className="flex items-center justify-between mb-4 md:mb-6">
-          <button 
+          <button
             onClick={() => navigate(`/groups/${game?.group_id}`)}
-            className="flex items-center text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-secondary/50 hover:bg-secondary transition-colors"
+            aria-label="Go back"
           >
-            <ArrowLeft className="w-4 h-4 mr-1 md:mr-2" />
-            <span className="hidden sm:inline">Back to {game?.group?.name}</span>
-            <span className="sm:hidden">Back</span>
+            <ChevronLeft className="w-5 h-5" />
           </button>
           
           {/* Poker Hand Rankings Button */}
@@ -499,14 +499,14 @@ export default function GameNight() {
             
             <Sheet open={showHandRankings} onOpenChange={setShowHandRankings}>
             <SheetTrigger asChild>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
-                className="gap-2"
+                className="gap-1.5"
                 data-testid="hand-rankings-btn"
               >
                 <HelpCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Hand Rankings</span>
+                <span className="text-xs sm:text-sm">Hands</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-full sm:max-w-lg p-0">
@@ -544,26 +544,44 @@ export default function GameNight() {
                   {game?.title || game?.group?.name || 'Game Night'}
                 </h1>
               </div>
-              <p className="text-sm md:text-base text-muted-foreground mt-1">
-                <span className="flex items-center gap-1">
-                  <Crown className="w-3 h-3 text-yellow-500" />
-                  {game?.host?.name} • {game?.status?.toUpperCase()}
+              {/* Admin Info Badges */}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 text-yellow-600 dark:text-yellow-500 rounded-full text-xs font-medium">
+                  <Crown className="w-3 h-3" />
+                  {game?.host?.name} Admin
                 </span>
-              </p>
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                  isActive ? 'bg-green-500/20 text-green-600 dark:text-green-500' :
+                  isScheduled ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-500' :
+                  isEnded ? 'bg-orange-500/20 text-orange-600 dark:text-orange-500' :
+                  'bg-secondary text-muted-foreground'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    isActive ? 'bg-green-500 animate-pulse' :
+                    isScheduled ? 'bg-yellow-500' :
+                    isEnded ? 'bg-orange-500' : 'bg-muted-foreground'
+                  }`} />
+                  {game?.status?.toUpperCase()}
+                </span>
+              </div>
             </div>
           </div>
-          
-          {/* Game Settings Info */}
+
+          {/* Game Settings Info - Always Visible */}
+          <div className="flex flex-wrap gap-2 text-xs md:text-sm">
+            <span className="px-2 py-1 bg-secondary/50 rounded-full flex items-center gap-1">
+              <Coins className="w-3 h-3" />
+              ${defaultBuyIn} = {chipsPerBuyIn} chips
+            </span>
+            <span className="px-2 py-1 bg-secondary/50 rounded-full">
+              ${chipValue.toFixed(2)}/chip
+            </span>
+          </div>
+
+          {/* AI Poker Assistant - Prominent */}
           {isActive && (
-            <div className="flex flex-wrap gap-2 text-xs md:text-sm">
-              <span className="px-2 py-1 bg-secondary/50 rounded-full flex items-center gap-1">
-                <Coins className="w-3 h-3" />
-                ${defaultBuyIn} = {chipsPerBuyIn} chips
-              </span>
-              <span className="px-2 py-1 bg-secondary/50 rounded-full">
-                ${chipValue.toFixed(2)}/chip
-              </span>
-              {/* AI Poker Assistant */}
+            <div className="relative inline-block">
+              <div className="absolute inset-0 bg-primary/20 rounded-lg blur-md animate-pulse" />
               <PokerAIAssistant gameId={gameId} />
             </div>
           )}
@@ -866,34 +884,45 @@ export default function GameNight() {
             {isActive && currentPlayer && !currentPlayer.cashed_out && !isHost && (
               <Card className="bg-card border-border/50" data-testid="player-action-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm md:text-base font-bold">YOUR GAME</CardTitle>
+                  <CardTitle className="text-sm md:text-base font-bold flex items-center justify-between">
+                    <span>YOUR GAME</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-orange-500 hover:bg-orange-500/10 h-7"
+                      onClick={() => setCashOutDialogOpen(true)}
+                    >
+                      <LogOut className="w-3 h-3 mr-1" />
+                      Cash Out
+                    </Button>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-2">
                   <div className="grid grid-cols-3 gap-4 mb-4 text-center">
-                    <div>
+                    <div className="p-2 bg-primary/5 rounded-lg">
                       <p className="text-[10px] md:text-xs text-muted-foreground">Your Chips</p>
                       <p className="font-mono text-xl md:text-2xl font-bold text-primary">{currentPlayer.total_chips || 0}</p>
                     </div>
-                    <div>
+                    <div className="p-2 bg-secondary/30 rounded-lg">
                       <p className="text-[10px] md:text-xs text-muted-foreground">Buy-ins</p>
                       <p className="font-mono text-xl md:text-2xl font-bold">{currentPlayer.buy_in_count || 0}x</p>
                     </div>
-                    <div>
+                    <div className="p-2 bg-secondary/30 rounded-lg">
                       <p className="text-[10px] md:text-xs text-muted-foreground">Total In</p>
                       <p className="font-mono text-xl md:text-2xl font-bold">${currentPlayer.total_buy_in || 0}</p>
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-2">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {/* Request Buy-In Button */}
                     <Dialog open={requestBuyInDialogOpen} onOpenChange={setRequestBuyInDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button 
+                        <Button
                           variant="outline"
-                          className="h-12 font-bold"
+                          className="h-14 font-bold"
                           data-testid="request-buy-in-btn"
                         >
-                          <Hand className="w-4 h-4 mr-2" />
+                          <Plus className="w-5 h-5 mr-2" />
                           Request Buy-In
                         </Button>
                       </DialogTrigger>
@@ -935,12 +964,12 @@ export default function GameNight() {
                     {/* Cash Out Button */}
                     <Dialog open={cashOutDialogOpen} onOpenChange={setCashOutDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button 
-                          className="h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
+                        <Button
+                          className="h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold"
                           data-testid="cash-out-trigger-btn"
                         >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          Cash Out
+                          <LogOut className="w-5 h-5 mr-2" />
+                          Cash Out Now
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="bg-card border-border mx-4">
@@ -1053,31 +1082,38 @@ export default function GameNight() {
                 {game?.players?.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4 text-sm">No players yet</p>
                 ) : (
-                  <div className="space-y-2 md:space-y-3">
-                    {game?.players?.map(player => {
-                      const buyInCount = getPlayerBuyInCount(player);
-                      const isCurrentUser = player.user_id === user?.user_id;
-                      
-                      return (
-                        <div 
-                          key={player.player_id}
-                          className={`p-3 md:p-4 rounded-lg ${
-                            player.cashed_out 
-                              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
-                              : isCurrentUser 
-                                ? 'bg-primary/10 border border-primary/30' 
-                                : 'bg-secondary/30'
-                          }`}
-                          data-testid={`player-${player.user_id}`}
-                        >
+                  <div className="space-y-4">
+                    {/* Active Players */}
+                    {game?.players?.filter(p => !p.cashed_out).length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                          Active ({game?.players?.filter(p => !p.cashed_out).length})
+                        </p>
+                        <div className="space-y-2 md:space-y-3">
+                          {game?.players?.filter(p => !p.cashed_out).map(player => {
+                            const buyInCount = getPlayerBuyInCount(player);
+                            const isCurrentUser = player.user_id === user?.user_id;
+
+                            return (
+                              <div
+                                key={player.player_id}
+                                className={`p-3 md:p-4 rounded-lg ${
+                                  isCurrentUser
+                                    ? 'bg-primary/10 border border-primary/30'
+                                    : 'bg-secondary/30'
+                                }`}
+                                data-testid={`player-${player.user_id}`}
+                              >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 md:gap-3 min-w-0">
                               <Avatar className="w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
-                                <AvatarFallback className="text-xs md:text-sm">{player.user?.name?.[0] || '?'}</AvatarFallback>
+                                <AvatarImage src={player.user?.picture} />
+                                <AvatarFallback className="text-xs md:text-sm">{(player.user?.name || player.display_name || 'P')?.[0]}</AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
                                 <p className="font-medium text-sm md:text-base truncate">
-                                  {player.user?.name || 'Unknown'}
+                                  {player.user?.name || player.display_name || player.user?.email?.split('@')[0] || 'Player'}
                                   {isCurrentUser && <span className="text-primary ml-1">(You)</span>}
                                 </p>
                                 <div className="flex items-center gap-1">
@@ -1136,29 +1172,29 @@ export default function GameNight() {
                                   )}
                                 </div>
                               ) : isHost && isActive ? (
-                                <div className="flex gap-1">
+                                <div className="flex gap-2">
                                   <Button
                                     size="sm"
-                                    variant="outline"
-                                    className="h-8 text-xs"
+                                    className="h-9 w-9 p-0 bg-green-500/20 hover:bg-green-500/30 text-green-600 dark:text-green-500 border border-green-500/30"
                                     onClick={() => {
                                       setSelectedPlayer(player);
                                       setAdminBuyInDialogOpen(true);
                                     }}
+                                    data-testid={`buy-in-${player.user_id}`}
                                   >
-                                    <Plus className="w-3 h-3" />
+                                    <Plus className="w-4 h-4" />
                                   </Button>
                                   <Button
                                     size="sm"
-                                    variant="outline"
-                                    className="h-8 text-xs"
+                                    className="h-9 w-9 p-0 bg-orange-500/20 hover:bg-orange-500/30 text-orange-600 dark:text-orange-500 border border-orange-500/30"
                                     onClick={() => {
                                       setSelectedPlayer(player);
                                       setAdminCashOutChips(String(player.total_chips || 0));
                                       setAdminCashOutDialogOpen(true);
                                     }}
+                                    data-testid={`cash-out-${player.user_id}`}
                                   >
-                                    <LogOut className="w-3 h-3" />
+                                    <Minus className="w-4 h-4" />
                                   </Button>
                                 </div>
                               ) : null}
@@ -1186,9 +1222,117 @@ export default function GameNight() {
                               </div>
                             </details>
                           )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      </div>
+                    )}
+
+                    {/* Cashed Out Players */}
+                    {game?.players?.filter(p => p.cashed_out).length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-green-600 dark:text-green-500 mb-2 uppercase tracking-wide flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Cashed Out ({game?.players?.filter(p => p.cashed_out).length})
+                        </p>
+                        <div className="space-y-2 md:space-y-3">
+                          {game?.players?.filter(p => p.cashed_out).map(player => {
+                            const buyInCount = getPlayerBuyInCount(player);
+                            const isCurrentUser = player.user_id === user?.user_id;
+
+                            return (
+                              <div
+                                key={player.player_id}
+                                className="p-3 md:p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                                data-testid={`player-${player.user_id}`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                                    <Avatar className="w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
+                                      <AvatarImage src={player.user?.picture} />
+                                      <AvatarFallback className="text-xs md:text-sm">{(player.user?.name || player.display_name || 'P')?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-sm md:text-base truncate">
+                                        {player.user?.name || player.display_name || player.user?.email?.split('@')[0] || 'Player'}
+                                        {isCurrentUser && <span className="text-primary ml-1">(You)</span>}
+                                      </p>
+                                      <div className="flex items-center gap-1">
+                                        {player.user_id === game?.host_id && (
+                                          <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 bg-yellow-500/20 text-yellow-500 rounded-full">
+                                            <Crown className="w-2.5 h-2.5" /> Host
+                                          </span>
+                                        )}
+                                        <CheckCircle className="w-3 h-3 text-green-500" />
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-1 md:gap-2 text-[10px] md:text-xs text-muted-foreground">
+                                        <span className="flex items-center gap-1">
+                                          <Coins className="w-3 h-3" />
+                                          {player.chips_returned || 0} chips
+                                        </span>
+                                        <span>•</span>
+                                        <span>${player.total_buy_in || 0}</span>
+                                        <span>•</span>
+                                        <span>{buyInCount}x buy-in</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <div className="text-right">
+                                      <p className={`font-mono text-sm md:text-base font-bold ${
+                                        player.net_result >= 0 ? 'text-green-600' : 'text-destructive'
+                                      }`}>
+                                        {player.net_result >= 0 ? '+' : ''}${player.net_result?.toFixed(0)}
+                                      </p>
+                                      <p className="text-[10px] md:text-xs text-green-600">Cashed out</p>
+                                    </div>
+                                    {isHost && (isActive || isEnded || isSettled) && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                        onClick={() => {
+                                          setSelectedPlayer(player);
+                                          setEditChipsValue(String(player.chips_returned || 0));
+                                          setEditChipsReason("");
+                                          setEditChipsDialogOpen(true);
+                                        }}
+                                      >
+                                        <Pencil className="w-3 h-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Transaction History */}
+                                {player.transactions && player.transactions.length > 0 && (
+                                  <details className="mt-2">
+                                    <summary className="text-[10px] md:text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                                      <History className="w-3 h-3 inline mr-1" />
+                                      View {player.transactions.length} transaction(s)
+                                    </summary>
+                                    <div className="mt-2 pl-2 border-l-2 border-border space-y-1">
+                                      {player.transactions.map((txn, idx) => (
+                                        <div key={idx} className="text-[10px] md:text-xs flex justify-between">
+                                          <span className={txn.type === 'buy_in' ? 'text-primary' : 'text-green-600'}>
+                                            {txn.type === 'buy_in' ? '+ Buy-in' : '- Cash out'}
+                                          </span>
+                                          <span className="font-mono">
+                                            ${txn.amount} ({txn.chips} chips)
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </details>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -1279,27 +1423,33 @@ export default function GameNight() {
               {/* Player Selection */}
               <div>
                 <Label>Select Player</Label>
-                <Select 
-                  value={selectedPlayer?.user_id || ""} 
+                <Select
+                  value={selectedPlayer?.user_id || ""}
                   onValueChange={(val) => {
                     const player = game?.players?.find(p => p.user_id === val);
                     setSelectedPlayer(player);
                   }}
                 >
-                  <SelectTrigger className="bg-secondary/50 border-border">
+                  <SelectTrigger className="bg-secondary/50 border-border h-12">
                     <SelectValue placeholder="Choose a player" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {game?.players?.filter(p => !p.cashed_out).map(player => (
-                      <SelectItem key={player.user_id} value={player.user_id}>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-6 h-6">
-                            <AvatarFallback>{player.user?.name?.[0]}</AvatarFallback>
-                          </Avatar>
-                          {player.user?.name}
-                        </div>
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="bg-card border-border max-h-48 z-50">
+                    {game?.players?.filter(p => !p.cashed_out).length === 0 ? (
+                      <div className="p-3 text-sm text-muted-foreground text-center">No players available</div>
+                    ) : (
+                      game?.players?.filter(p => !p.cashed_out).map(player => (
+                        <SelectItem key={player.user_id} value={player.user_id} className="py-3">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6">
+                              <AvatarImage src={player.user?.picture} />
+                              <AvatarFallback>{(player.user?.name || 'P')?.[0]}</AvatarFallback>
+                            </Avatar>
+                            <span>{player.user?.name || player.display_name || 'Player'}</span>
+                            <span className="text-xs text-muted-foreground">({player.total_chips || 0} chips)</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1367,28 +1517,34 @@ export default function GameNight() {
               {/* Player Selection */}
               <div>
                 <Label>Select Player</Label>
-                <Select 
-                  value={selectedPlayer?.user_id || ""} 
+                <Select
+                  value={selectedPlayer?.user_id || ""}
                   onValueChange={(val) => {
                     const player = game?.players?.find(p => p.user_id === val);
                     setSelectedPlayer(player);
                     setAdminCashOutChips(String(player?.total_chips || 0));
                   }}
                 >
-                  <SelectTrigger className="bg-secondary/50 border-border">
+                  <SelectTrigger className="bg-secondary/50 border-border h-12">
                     <SelectValue placeholder="Choose a player" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {game?.players?.filter(p => !p.cashed_out).map(player => (
-                      <SelectItem key={player.user_id} value={player.user_id}>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-6 h-6">
-                            <AvatarFallback>{player.user?.name?.[0]}</AvatarFallback>
-                          </Avatar>
-                          {player.user?.name} ({player.total_chips} chips)
-                        </div>
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="bg-card border-border max-h-48 z-50">
+                    {game?.players?.filter(p => !p.cashed_out).length === 0 ? (
+                      <div className="p-3 text-sm text-muted-foreground text-center">No players available</div>
+                    ) : (
+                      game?.players?.filter(p => !p.cashed_out).map(player => (
+                        <SelectItem key={player.user_id} value={player.user_id} className="py-3">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6">
+                              <AvatarImage src={player.user?.picture} />
+                              <AvatarFallback>{(player.user?.name || 'P')?.[0]}</AvatarFallback>
+                            </Avatar>
+                            <span>{player.user?.name || player.display_name || 'Player'}</span>
+                            <span className="text-xs text-muted-foreground">({player.total_chips || 0} chips)</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1540,6 +1696,9 @@ export default function GameNight() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* AI Assistant FAB */}
+        <AIAssistant currentPage="game" />
 
         {/* Settlement Calculator Modal */}
         <SettlementCalculator

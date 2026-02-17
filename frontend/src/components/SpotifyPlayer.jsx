@@ -488,8 +488,31 @@ export default function SpotifyPlayer({ isHost = false }) {
   // Get volume icon based on state
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
-  // Don't show for non-hosts
-  if (!isHost) return null;
+  // Show "Coming Soon" for non-hosts
+  if (!isHost) {
+    return (
+      <div className="rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 border border-zinc-700/50 rounded-2xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+              <Music className="w-5 h-5 text-green-500" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-white font-medium text-sm">Music Player</span>
+                <span className="px-2 py-0.5 bg-primary/20 text-primary text-[10px] font-semibold rounded-full">
+                  COMING SOON
+                </span>
+              </div>
+              <p className="text-zinc-400 text-xs mt-0.5">
+                Spotify integration for your poker nights
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

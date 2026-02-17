@@ -351,14 +351,14 @@ export default function PokerAIAssistant({ gameId = null }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
-          className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+          className="gap-2 border-primary/50 text-primary hover:bg-primary/10 shadow-[0_0_10px_rgba(239,110,89,0.3)] hover:shadow-[0_0_15px_rgba(239,110,89,0.5)] transition-all"
         >
           <Brain className="w-4 h-4" />
-          AI Assistant
-          <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary/20 rounded">BETA</span>
+          <span className="text-xs sm:text-sm">AI Help</span>
+          <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary text-white rounded animate-pulse">BETA</span>
         </Button>
       </DialogTrigger>
       

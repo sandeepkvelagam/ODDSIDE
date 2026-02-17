@@ -8,11 +8,11 @@ echo "========================================="
 echo "  Expo Server Restart & QR Generator"
 echo "========================================="
 
-# 1. Kill existing Expo/Metro processes (not all node processes)
+# 1. Kill existing processes
 echo ""
 echo "1. Killing existing processes..."
-pkill -f "node.*expo" 2>/dev/null || true
-pkill -f "node.*metro" 2>/dev/null || true
+pkill -f "npx expo" 2>/dev/null || true
+pkill -f "metro" 2>/dev/null || true
 pkill -f "ngrok" 2>/dev/null || true
 sleep 2
 echo "   Done!"
@@ -20,21 +20,30 @@ echo "   Done!"
 # 2. Clear all caches
 echo ""
 echo "2. Clearing caches..."
-cd /app/mobile
-rm -rf node_modules/.cache .expo /tmp/metro-* /tmp/haste-map-*
+cd /app/frontend && rm -rf node_modules/.cache build .cache 2>/dev/null
+cd /app/mobile && rm -rf node_modules/.cache .expo dist 2>/dev/null
+cd /app/backend && find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+rm -rf /tmp/metro-* /tmp/haste-map-* 2>/dev/null
 echo "   Done!"
 
-# 3. Start Expo with tunnel
+# 3. Restart backend and frontend
 echo ""
-echo "3. Starting Expo server with tunnel..."
+echo "3. Restarting backend & frontend..."
+sudo supervisorctl restart backend frontend 2>/dev/null
+sleep 5
+echo "   Done!"
+
+# 4. Start Expo with tunnel
+echo ""
+echo "4. Starting Expo server with tunnel..."
 cd /app/mobile
 nohup npx expo start --tunnel --clear > /tmp/expo.log 2>&1 &
 echo "   Waiting for server to start (40 seconds)..."
 sleep 40
 
-# 4. Check if server is running
+# 5. Check if server is running
 echo ""
-echo "4. Checking server status..."
+echo "5. Checking server status..."
 STATUS=$(curl -s http://localhost:8081/status 2>/dev/null)
 if [ "$STATUS" = "packager-status:running" ]; then
     echo "   Server is running!"
@@ -42,26 +51,23 @@ else
     echo "   Warning: Server may not be ready yet"
 fi
 
-# 5. Get tunnel URL from Expo settings (wait for tunnel to connect)
+# 6. Get tunnel URL (try ngrok API first, fallback to settings.json)
 echo ""
-echo "5. Getting tunnel URL..."
-for i in {1..10}; do
-    if grep -q "Tunnel ready" /tmp/expo.log 2>/dev/null; then
-        break
+echo "6. Getting tunnel URL..."
+TUNNEL=$(curl -s http://127.0.0.1:4040/api/tunnels 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print('exp://' + d['tunnels'][0]['public_url'].split('://')[1]) if d.get('tunnels') else print('')" 2>/dev/null)
+
+# Fallback to settings.json if ngrok API failed
+if [ -z "$TUNNEL" ]; then
+    RANDOMNESS=$(python3 -c "import json; print(json.load(open('/app/mobile/.expo/settings.json')).get('urlRandomness',''))" 2>/dev/null)
+    if [ -n "$RANDOMNESS" ]; then
+        TUNNEL="exp://${RANDOMNESS}-anonymous-8081.exp.direct"
     fi
-    sleep 2
-done
-RANDOMNESS=$(python3 -c "import json; print(json.load(open('/app/mobile/.expo/settings.json')).get('urlRandomness',''))" 2>/dev/null)
-if [ -n "$RANDOMNESS" ]; then
-    TUNNEL="exp://${RANDOMNESS}-anonymous-8081.exp.direct"
-else
-    TUNNEL=""
 fi
 echo "   Tunnel: $TUNNEL"
 
-# 6. Generate QR code
+# 7. Generate QR code
 echo ""
-echo "6. Generating QR code..."
+echo "7. Generating QR code..."
 pip install qrcode pillow -q 2>/dev/null
 python3 -c "
 import qrcode
@@ -74,13 +80,13 @@ img.save('/app/frontend/public/expo_qr.png')
 "
 echo "   QR saved to: /app/frontend/public/expo_qr.png"
 
-# 7. Trigger bundle (pre-warm)
+# 8. Pre-warm bundle
 echo ""
-echo "7. Pre-warming bundle..."
+echo "8. Pre-warming bundle..."
 curl -s "http://localhost:8081/index.bundle?platform=ios&dev=true" > /dev/null 2>&1 &
-sleep 25
+sleep 20
 
-# 8. Show final status
+# 9. Show final status
 echo ""
 echo "========================================="
 echo "  DONE!"

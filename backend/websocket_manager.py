@@ -211,7 +211,7 @@ async def join_game(sid, data):
         db = client[db_name]
 
         # Check if user is in the game's group or is a player in the game
-        game = await db.game_nights.find_one({'_id': game_id})
+        game = await db.game_nights.find_one({'game_id': game_id})
         if not game:
             logger.warning(f"join_game rejected - game {game_id} not found (user: {user_id})")
             return {'error': 'Game not found'}

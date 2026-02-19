@@ -947,7 +947,18 @@ async def invite_member(group_id: str, data: InviteMemberRequest, user: User = D
         notif_dict = notification.model_dump()
         notif_dict["created_at"] = notif_dict["created_at"].isoformat()
         await db.notifications.insert_one(notif_dict)
-        
+
+        # Push notification to invited user
+        try:
+            await send_push_notification_to_user(
+                invited_user["user_id"],
+                "Group Invitation",
+                f"{inviter['name']} invited you to join {group['name']}",
+                {"type": "group_invite_request", "group_id": group_id, "invite_id": invite.invite_id}
+            )
+        except Exception as e:
+            logger.error(f"Push notification error on group invite: {e}")
+
         # Send email notification
         try:
             from email_service import send_group_invite_email

@@ -114,7 +114,6 @@ Full-stack poker group settlement app with React frontend, FastAPI backend, Mong
 
 ## P0 — Next
 - [ ] Phase 6 QA Pass: Visual test all mobile screens on a real device/Expo build
-- [ ] AI Assistant visibility toggle (show/hide chat interface)
 - [ ] Create Game quick flow from Dashboard (Group selection sheet)
 
 ## P1 — Upcoming
@@ -126,6 +125,5 @@ Full-stack poker group settlement app with React frontend, FastAPI backend, Mong
 ## P2 — Future/Backlog
 - [ ] Spotify player on mobile (currently "Coming Soon")
 - [ ] Refactor monolithic server.py backend
-- [ ] Push notification deep linking (tap notification → go to correct screen)
 - [ ] Admin panel for processing withdrawal requests
 - [ ] Stripe webhook for deposit status (backup to polling)

@@ -56,6 +56,9 @@ export function GroupsScreen() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // Join Group Sheet state (by invite - just shows notification guidance)
+  const [showJoinSheet, setShowJoinSheet] = useState(false);
+
   const load = useCallback(async () => {
     setError(null);
     try {

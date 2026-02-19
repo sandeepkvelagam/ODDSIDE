@@ -535,6 +535,30 @@ async def process_transfer(
             "created_at": now.isoformat()
         }
         await db.notifications.insert_one(notification)
+
+        # Push notification to recipient
+        recipient_user = await db.users.find_one(
+            {"user_id": recipient_wallet["user_id"]},
+            {"_id": 0, "expo_push_token": 1}
+        )
+        if recipient_user and recipient_user.get("expo_push_token", "").startswith("ExponentPushToken["):
+            import httpx as _httpx
+            payload = {
+                "to": recipient_user["expo_push_token"],
+                "title": "Money Received",
+                "body": f"You received ${amount_cents / 100:.2f} from {sender_name}",
+                "sound": "default",
+                "data": {"type": "wallet_received", "transfer_id": transfer_id, "amount_cents": amount_cents}
+            }
+            try:
+                async with _httpx.AsyncClient(timeout=8.0) as client:
+                    await client.post(
+                        "https://exp.host/--/api/v2/push/send",
+                        json=payload,
+                        headers={"Content-Type": "application/json", "Accept": "application/json"}
+                    )
+            except Exception:
+                pass
     except Exception:
         pass  # Don't fail transfer if notification fails
 

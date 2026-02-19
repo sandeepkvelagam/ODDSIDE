@@ -621,6 +621,7 @@ export function SettingsScreen() {
         </Pressable>
       </Modal>
     </View>
+    </BottomSheetScreen>
   );
 }
 

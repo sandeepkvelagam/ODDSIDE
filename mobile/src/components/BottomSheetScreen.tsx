@@ -6,7 +6,6 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
-  StatusBar,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -16,7 +15,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useHaptics } from "../context/HapticsContext";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const TOP_VISIBLE_HEIGHT = 60; // How much of the previous screen shows at top
+const TOP_VISIBLE_HEIGHT = 80; // How much of the previous screen shows at top
 
 interface BottomSheetScreenProps {
   children: React.ReactNode;
@@ -87,11 +86,8 @@ export function BottomSheetScreen({ children }: BottomSheetScreenProps) {
           activeOpacity={1}
           onPress={handleClose}
         >
-          <BlurView
-            intensity={isDark ? 20 : 10}
-            tint={isDark ? "dark" : "light"}
-            style={StyleSheet.absoluteFill}
-          />
+          {/* Semi-transparent dark overlay instead of blur for better visibility */}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.3)" }]} />
         </TouchableOpacity>
       </Animated.View>
 
@@ -100,7 +96,7 @@ export function BottomSheetScreen({ children }: BottomSheetScreenProps) {
         style={[
           styles.contentContainer,
           {
-            backgroundColor: isDark ? colors.surface : "#F5F3EF",
+            backgroundColor: isDark ? "rgba(40, 43, 43, 0.95)" : "rgba(245, 243, 239, 0.95)",
             marginTop: TOP_VISIBLE_HEIGHT + insets.top,
             transform: [{ translateY: slideAnim }],
           },
@@ -138,7 +134,7 @@ const styles = StyleSheet.create({
     // Shadow for depth
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 20,
   },

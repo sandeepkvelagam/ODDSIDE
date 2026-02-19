@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   ScrollView,
   Text,
@@ -9,12 +9,15 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Animated,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
 import { api } from "../api/client";
-import { RightDrawer } from "../components/RightDrawer";
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
+import { GlassSurface, GlassButton, GlassIconButton, GlassInput } from "../components/ui";
 
 type ConsolidatedBalance = {
   user: { user_id: string; name: string; picture?: string };
@@ -24,14 +27,12 @@ type ConsolidatedBalance = {
 };
 
 export function ProfileScreen() {
+  const navigation = useNavigation();
   const { user, refreshUser } = useAuth();
-  const { isDark, colors } = useTheme();
 
   const [fullName, setFullName] = useState(user?.name || "");
   const [nickname, setNickname] = useState(user?.nickname || user?.name?.split(" ")[0] || "");
-  const [preferences, setPreferences] = useState(user?.preferences || "");
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
 
   // Consolidated balances state
   const [balances, setBalances] = useState<{
@@ -43,6 +44,24 @@ export function ProfileScreen() {
   const [balancesLoading, setBalancesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
+
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        ...ANIMATION.spring.bouncy,
+      }),
+    ]).start();
+  }, []);
 
   const fetchBalances = useCallback(async () => {
     try {
@@ -72,7 +91,7 @@ export function ProfileScreen() {
       if (res.data?.optimized > 0) {
         Alert.alert(
           "Debts Optimized",
-          `Consolidated ${res.data.optimized} entries into fewer transactions. Your balances have been simplified.`
+          `Consolidated ${res.data.optimized} entries. Your balances have been simplified.`
         );
         await fetchBalances();
       } else {
@@ -110,25 +129,6 @@ export function ProfileScreen() {
     }
   };
 
-  const handleSavePreferences = async () => {
-    setIsUpdatingPreferences(true);
-    try {
-      await api.put("/users/me", {
-        preferences: preferences.trim(),
-      });
-
-      if (refreshUser) {
-        await refreshUser();
-      }
-
-      Alert.alert("Success", "Preferences saved successfully");
-    } catch (error: any) {
-      Alert.alert("Error", error?.response?.data?.detail || "Failed to save preferences");
-    } finally {
-      setIsUpdatingPreferences(false);
-    }
-  };
-
   const handleDeleteAccount = () => {
     Alert.alert(
       "Delete Account",
@@ -152,422 +152,443 @@ export function ProfileScreen() {
   };
 
   const profileChanged = fullName !== (user?.name || "") || nickname !== (user?.nickname || user?.name?.split(" ")[0] || "");
-  const preferencesChanged = preferences !== (user?.preferences || "");
 
   return (
-    <RightDrawer title="Profile">
-      <ScrollView
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        {/* Header */}
+        <Animated.View
+          style={[
+            styles.header,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          <GlassIconButton
+            icon={<Ionicons name="chevron-back" size={22} color={COLORS.text.primary} />}
+            onPress={() => navigation.goBack()}
+            variant="ghost"
+          />
+          <Text style={styles.headerTitle}>Profile</Text>
+          <View style={{ width: 48 }} />
+        </Animated.View>
+
+        <ScrollView
           style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.orange} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.orange} />
           }
         >
-          {/* Full Name */}
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Full Name</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Enter your full name"
-            placeholderTextColor={colors.textMuted}
-          />
-
-          {/* Nickname */}
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Nickname</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
-            value={nickname}
-            onChangeText={setNickname}
-            placeholder="Enter your nickname"
-            placeholderTextColor={colors.textMuted}
-          />
-
-          {/* Update Profile Button */}
-          <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: profileChanged ? colors.buttonBg : colors.buttonDisabled }
-            ]}
-            onPress={handleUpdateProfile}
-            disabled={!profileChanged || isUpdatingProfile}
-            activeOpacity={0.8}
-          >
-            {isUpdatingProfile ? (
-              <ActivityIndicator color={isDark ? "#1a1a1a" : "#ffffff"} />
-            ) : (
-              <Text style={[styles.buttonText, { color: isDark ? "#1a1a1a" : "#ffffff" }]}>Update Profile</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          {/* Personal Preferences */}
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Personal Preferences</Text>
-          <TextInput
-            style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
-            value={preferences}
-            onChangeText={setPreferences}
-            placeholder="When learning new concepts, I find analogies particularly helpful."
-            placeholderTextColor={colors.textMuted}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-
-          <Text style={[styles.hint, { color: colors.textMuted }]}>
-            Your preferences will apply to all conversations, within Anthropic's guidelines.
-          </Text>
-
-          {/* Save Preferences Button */}
-          <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: preferencesChanged ? colors.buttonBg : colors.buttonDisabled }
-            ]}
-            onPress={handleSavePreferences}
-            disabled={!preferencesChanged || isUpdatingPreferences}
-            activeOpacity={0.8}
-          >
-            {isUpdatingPreferences ? (
-              <ActivityIndicator color={isDark ? "#1a1a1a" : "#ffffff"} />
-            ) : (
-              <Text style={[styles.buttonText, { color: isDark ? "#1a1a1a" : "#ffffff" }]}>Save Preferences</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          {/* Consolidated Balances Section */}
-          <View style={styles.balancesSection}>
-            <View style={styles.balancesSectionHeader}>
-              <View style={styles.balancesTitleRow}>
-                <Ionicons name="wallet-outline" size={20} color={colors.textPrimary} />
-                <Text style={[styles.balancesSectionTitle, { color: colors.textPrimary }]}>
-                  Balances
-                </Text>
-              </View>
-              <Text style={[styles.balancesSubtitle, { color: colors.textMuted }]}>
-                Consolidated across all games
-              </Text>
-            </View>
-
-            {balancesLoading ? (
-              <ActivityIndicator color={colors.orange} style={{ marginVertical: 20 }} />
-            ) : balances && (balances.total_you_owe > 0 || balances.total_owed_to_you > 0) ? (
-              <>
-                {/* Summary Row */}
-                <View style={[styles.balancesSummary, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-                  <View style={styles.balanceSummaryItem}>
-                    <Text style={[styles.balanceSummaryValue, { color: colors.danger }]}>
-                      ${balances.total_you_owe.toFixed(2)}
-                    </Text>
-                    <Text style={[styles.balanceSummaryLabel, { color: colors.textMuted }]}>
-                      You Owe
-                    </Text>
-                  </View>
-                  <View style={[styles.balanceSummaryDivider, { backgroundColor: colors.border }]} />
-                  <View style={styles.balanceSummaryItem}>
-                    <Text style={[styles.balanceSummaryValue, { color: colors.success }]}>
-                      ${balances.total_owed_to_you.toFixed(2)}
-                    </Text>
-                    <Text style={[styles.balanceSummaryLabel, { color: colors.textMuted }]}>
-                      Owed to You
-                    </Text>
-                  </View>
-                  <View style={[styles.balanceSummaryDivider, { backgroundColor: colors.border }]} />
-                  <View style={styles.balanceSummaryItem}>
-                    <Text style={[
-                      styles.balanceSummaryValue,
-                      { color: balances.net_balance >= 0 ? colors.success : colors.danger }
-                    ]}>
-                      {balances.net_balance >= 0 ? "+" : ""}${balances.net_balance.toFixed(2)}
-                    </Text>
-                    <Text style={[styles.balanceSummaryLabel, { color: colors.textMuted }]}>
-                      Net
-                    </Text>
-                  </View>
+          {/* Wallet Balance Section - Screenshot #1 Inspired */}
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            <GlassSurface glowVariant="orange" style={styles.walletCard}>
+              <View style={styles.walletHeader}>
+                <View style={styles.walletHeaderLeft}>
+                  <Text style={styles.walletLabel}>NET BALANCE</Text>
+                  <Text style={[
+                    styles.walletValue,
+                    { color: (balances?.net_balance ?? 0) >= 0 ? COLORS.status.success : COLORS.status.danger }
+                  ]}>
+                    {balancesLoading ? "..." : (
+                      `${(balances?.net_balance ?? 0) >= 0 ? "+" : ""}$${Math.abs(balances?.net_balance ?? 0).toFixed(2)}`
+                    )}
+                  </Text>
                 </View>
+                <View style={styles.walletAvatars}>
+                  {/* Avatar stack like in Screenshot #1 */}
+                  {(balances?.consolidated || []).slice(0, 3).map((item, idx) => (
+                    <View
+                      key={item.user?.user_id || idx}
+                      style={[
+                        styles.avatarStackItem,
+                        { marginLeft: idx > 0 ? -12 : 0, zIndex: 3 - idx }
+                      ]}
+                    >
+                      <Text style={styles.avatarStackText}>
+                        {item.user?.name?.[0]?.toUpperCase() || "?"}
+                      </Text>
+                    </View>
+                  ))}
+                  {(balances?.consolidated?.length ?? 0) > 3 && (
+                    <View style={[styles.avatarStackItem, styles.avatarMore, { marginLeft: -12 }]}>
+                      <Text style={styles.avatarMoreText}>
+                        +{(balances?.consolidated?.length ?? 0) - 3}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
 
-                {/* Individual Balances */}
+              {/* Balance Summary Row */}
+              <View style={styles.balanceSummaryRow}>
+                <View style={styles.balanceSummaryItem}>
+                  <Ionicons name="arrow-down" size={16} color={COLORS.status.danger} />
+                  <Text style={styles.balanceSummaryLabel}>You Owe</Text>
+                  <Text style={[styles.balanceSummaryValue, { color: COLORS.status.danger }]}>
+                    ${(balances?.total_you_owe ?? 0).toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.balanceDivider} />
+                <View style={styles.balanceSummaryItem}>
+                  <Ionicons name="arrow-up" size={16} color={COLORS.status.success} />
+                  <Text style={styles.balanceSummaryLabel}>Owed to You</Text>
+                  <Text style={[styles.balanceSummaryValue, { color: COLORS.status.success }]}>
+                    ${(balances?.total_owed_to_you ?? 0).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Buttons - Screenshot #1 Receive/Send style */}
+              <View style={styles.walletActions}>
+                <TouchableOpacity style={[styles.walletActionBtn, { backgroundColor: COLORS.trustBlue }]} activeOpacity={0.8}>
+                  <Ionicons name="arrow-down" size={20} color="#fff" />
+                  <Text style={styles.walletActionText}>Receive</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.walletActionBtn, { backgroundColor: COLORS.orange }]} activeOpacity={0.8}>
+                  <Ionicons name="arrow-up" size={20} color="#fff" />
+                  <Text style={styles.walletActionText}>Send</Text>
+                </TouchableOpacity>
+              </View>
+            </GlassSurface>
+          </Animated.View>
+
+          {/* Individual Balances */}
+          {!balancesLoading && balances && balances.consolidated.length > 0 && (
+            <Animated.View style={{ opacity: fadeAnim }}>
+              <Text style={styles.sectionTitle}>INDIVIDUAL BALANCES</Text>
+              <GlassSurface style={styles.balancesList}>
                 {balances.consolidated.map((item, index) => (
                   <View
                     key={item.user?.user_id || index}
-                    style={[styles.balanceItem, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                    style={[
+                      styles.balanceItem,
+                      index < balances.consolidated.length - 1 && styles.balanceItemBorder,
+                    ]}
                   >
-                    <View style={[styles.balanceAvatar, { backgroundColor: colors.glassBg }]}>
-                      <Text style={[styles.balanceAvatarText, { color: colors.textPrimary }]}>
+                    <View style={[
+                      styles.balanceAvatar,
+                      { backgroundColor: item.direction === "you_owe" ? COLORS.glass.glowRed : COLORS.glass.glowGreen }
+                    ]}>
+                      <Text style={styles.balanceAvatarText}>
                         {item.user?.name?.[0]?.toUpperCase() || "?"}
                       </Text>
                     </View>
                     <View style={styles.balanceInfo}>
-                      <Text style={[styles.balanceName, { color: colors.textPrimary }]}>
-                        {item.user?.name || "Unknown"}
-                      </Text>
-                      <Text style={[styles.balanceDirection, { color: colors.textMuted }]}>
+                      <Text style={styles.balanceName}>{item.user?.name || "Unknown"}</Text>
+                      <Text style={styles.balanceDirection}>
                         {item.direction === "you_owe" ? "You owe them" : "They owe you"}
                       </Text>
                     </View>
                     <Text style={[
                       styles.balanceAmount,
-                      { color: item.direction === "you_owe" ? colors.danger : colors.success }
+                      { color: item.direction === "you_owe" ? COLORS.status.danger : COLORS.status.success }
                     ]}>
                       {item.direction === "you_owe" ? "-" : "+"}${item.display_amount.toFixed(2)}
                     </Text>
                   </View>
                 ))}
+              </GlassSurface>
 
-                {/* Optimize Debts Button - only show if there are balances to optimize */}
-                {balances.consolidated.length > 1 && (
-                  <TouchableOpacity
-                    style={[styles.optimizeButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-                    onPress={handleOptimizeDebts}
-                    disabled={optimizing}
-                  >
-                    {optimizing ? (
-                      <ActivityIndicator size="small" color={colors.orange} />
-                    ) : (
-                      <>
-                        <Ionicons name="git-merge-outline" size={18} color={colors.orange} />
-                        <Text style={[styles.optimizeButtonText, { color: colors.orange }]}>
-                          Optimize Cross-Game Debts
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </>
-            ) : (
-              <View style={[styles.noBalancesCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-                <Ionicons name="checkmark-circle" size={32} color={colors.success} />
-                <Text style={[styles.noBalancesText, { color: colors.textSecondary }]}>
-                  You're all settled up!
-                </Text>
-                <Text style={[styles.noBalancesSubtext, { color: colors.textMuted }]}>
-                  No pending balances with anyone
-                </Text>
-              </View>
-            )}
-          </View>
+              {/* Optimize Button */}
+              {balances.consolidated.length > 1 && (
+                <TouchableOpacity
+                  style={styles.optimizeButton}
+                  onPress={handleOptimizeDebts}
+                  disabled={optimizing}
+                  activeOpacity={0.8}
+                >
+                  {optimizing ? (
+                    <ActivityIndicator size="small" color={COLORS.orange} />
+                  ) : (
+                    <>
+                      <Ionicons name="git-merge-outline" size={18} color={COLORS.orange} />
+                      <Text style={styles.optimizeButtonText}>Optimize Cross-Game Debts</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </Animated.View>
+          )}
 
-          {/* Divider */}
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          {/* No Balances State */}
+          {!balancesLoading && (!balances || (balances.total_you_owe === 0 && balances.total_owed_to_you === 0)) && (
+            <GlassSurface glowVariant="green" style={styles.noBalancesCard}>
+              <Ionicons name="checkmark-circle" size={40} color={COLORS.status.success} />
+              <Text style={styles.noBalancesText}>You're all settled up!</Text>
+              <Text style={styles.noBalancesSubtext}>No pending balances with anyone</Text>
+            </GlassSurface>
+          )}
 
-          {/* Delete Account */}
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={handleDeleteAccount}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="trash-outline" size={20} color={colors.danger} />
-            <Text style={[styles.deleteText, { color: colors.danger }]}>Delete account</Text>
-          </TouchableOpacity>
+          {/* Profile Section */}
+          <Animated.View style={{ opacity: fadeAnim }}>
+            <Text style={styles.sectionTitle}>PROFILE DETAILS</Text>
+            <GlassSurface>
+              <GlassInput
+                label="Full Name"
+                placeholder="Enter your full name"
+                value={fullName}
+                onChangeText={setFullName}
+                containerStyle={styles.inputContainer}
+              />
 
-          <View style={{ height: 30 }} />
+              <GlassInput
+                label="Nickname"
+                placeholder="Enter your nickname"
+                value={nickname}
+                onChangeText={setNickname}
+                containerStyle={styles.inputContainer}
+              />
+
+              <GlassButton
+                variant={profileChanged ? "primary" : "ghost"}
+                size="large"
+                fullWidth
+                onPress={handleUpdateProfile}
+                loading={isUpdatingProfile}
+                disabled={!profileChanged}
+                style={styles.updateButton}
+              >
+                Update Profile
+              </GlassButton>
+            </GlassSurface>
+          </Animated.View>
+
+          {/* Danger Zone */}
+          <Animated.View style={{ opacity: fadeAnim }}>
+            <Text style={styles.sectionTitle}>DANGER ZONE</Text>
+            <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount} activeOpacity={0.7}>
+              <Ionicons name="trash-outline" size={20} color={COLORS.status.danger} />
+              <Text style={styles.deleteText}>Delete account</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <View style={{ height: 40 }} />
         </ScrollView>
-    </RightDrawer>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.jetDark,
   },
-  mainCard: {
+  safeArea: {
     flex: 1,
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
-    overflow: "hidden",
-    marginTop: 8,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 18,
+    paddingHorizontal: SPACING.container,
+    paddingVertical: SPACING.md,
   },
-  glassButton: {
+  headerTitle: {
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.heading3,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: SPACING.container,
+    paddingBottom: SPACING.xxl,
+  },
+  // Wallet Card - Screenshot #1 Style
+  walletCard: {
+    marginBottom: SPACING.xl,
+  },
+  walletHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: SPACING.lg,
+  },
+  walletHeaderLeft: {},
+  walletLabel: {
+    color: COLORS.moonstone,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+    letterSpacing: 1,
+    marginBottom: SPACING.xs,
+  },
+  walletValue: {
+    fontSize: 36,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    letterSpacing: -1,
+  },
+  walletAvatars: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarStackItem: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.glass.bg,
+    borderWidth: 2,
+    borderColor: COLORS.jetDark,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarStackText: {
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+  },
+  avatarMore: {
+    backgroundColor: COLORS.glass.inner,
+  },
+  avatarMoreText: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.micro,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+  },
+  balanceSummaryRow: {
+    flexDirection: "row",
+    marginBottom: SPACING.lg,
+  },
+  balanceSummaryItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: SPACING.xs,
+  },
+  balanceSummaryLabel: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.caption,
+  },
+  balanceSummaryValue: {
+    fontSize: TYPOGRAPHY.sizes.heading3,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  balanceDivider: {
+    width: 1,
+    backgroundColor: COLORS.glass.border,
+    marginHorizontal: SPACING.md,
+  },
+  walletActions: {
+    flexDirection: "row",
+    gap: SPACING.md,
+  },
+  walletActionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.lg,
+  },
+  walletActionText: {
+    color: "#fff",
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+  },
+  // Section
+  sectionTitle: {
+    color: COLORS.moonstone,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+    letterSpacing: 1,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.lg,
+  },
+  // Balances List
+  balancesList: {
+    marginBottom: SPACING.md,
+  },
+  balanceItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: SPACING.md,
+    gap: SPACING.md,
+  },
+  balanceItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.glass.border,
+  },
+  balanceAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 6,
-    marginTop: 0,
-  },
-  input: {
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    marginBottom: 12,
-  },
-  textArea: {
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    marginBottom: 12,
-    minHeight: 100,
-  },
-  hint: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  button: {
-    borderRadius: 24,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  divider: {
-    height: 1,
-    marginVertical: 14,
-  },
-  deleteButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 8,
-  },
-  deleteText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  // Balances styles
-  balancesSection: {
-    marginBottom: 8,
-  },
-  balancesSectionHeader: {
-    marginBottom: 16,
-  },
-  balancesTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 4,
-  },
-  balancesSectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  balancesSubtitle: {
-    fontSize: 13,
-    marginLeft: 30,
-  },
-  balancesSummary: {
-    flexDirection: "row",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-  },
-  balanceSummaryItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  balanceSummaryValue: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  balanceSummaryLabel: {
-    fontSize: 11,
-    marginTop: 4,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  balanceSummaryDivider: {
-    width: 1,
-    marginHorizontal: 8,
-  },
-  balanceItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    gap: 12,
-  },
-  balanceAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
   },
   balanceAvatarText: {
-    fontSize: 16,
-    fontWeight: "600",
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
   },
   balanceInfo: {
     flex: 1,
   },
   balanceName: {
-    fontSize: 15,
-    fontWeight: "600",
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.medium,
   },
   balanceDirection: {
-    fontSize: 12,
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.caption,
     marginTop: 2,
   },
   balanceAmount: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  noBalancesCard: {
-    borderRadius: 16,
-    padding: 24,
-    alignItems: "center",
-    borderWidth: 1,
-    gap: 8,
-  },
-  noBalancesText: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginTop: 4,
-  },
-  noBalancesSubtext: {
-    fontSize: 13,
+    fontSize: TYPOGRAPHY.sizes.heading3,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   optimizeButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    marginTop: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.glass.bg,
     borderWidth: 1,
+    borderColor: COLORS.glass.border,
   },
   optimizeButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
+    color: COLORS.orange,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+  },
+  // No Balances
+  noBalancesCard: {
+    alignItems: "center",
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+  },
+  noBalancesText: {
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+  },
+  noBalancesSubtext: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.caption,
+  },
+  // Profile Form
+  inputContainer: {
+    marginBottom: SPACING.md,
+  },
+  updateButton: {
+    marginTop: SPACING.sm,
+  },
+  // Delete
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+  },
+  deleteText: {
+    color: COLORS.status.danger,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.medium,
   },
 });
+
+export default ProfileScreen;

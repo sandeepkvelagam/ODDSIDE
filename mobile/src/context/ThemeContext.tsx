@@ -21,20 +21,30 @@ export const LIGHT_COLORS = {
   // Enhanced liquid glass card styles
   glassCardBg: "rgba(255, 255, 255, 0.75)",
   glassCardBorder: "rgba(255, 255, 255, 0.6)",
+  liquidGlassBg: "rgba(0, 0, 0, 0.04)",
+  liquidGlassInner: "rgba(0, 0, 0, 0.02)",
+  liquidGlowOrange: "rgba(238, 108, 41, 0.15)",
+  liquidGlowBlue: "rgba(59, 130, 246, 0.15)",
   textPrimary: "#333333",      // Web: hsl(0, 0%, 20%)
   textSecondary: "#5c5c5c",
   textMuted: "#737373",        // Web: hsl(0, 0%, 45%)
   border: "rgba(0, 0, 0, 0.06)",
-  orange: "#EF6E59",           // Web: hsl(14, 85%, 58%) - Kvitt primary
+  orange: "#EE6C29",           // Kvitt primary orange
+  orangeDark: "#C45A22",       // Darkened orange for buttons
+  trustBlue: "#3B82F6",        // Trust blue accent
+  moonstone: "#7AA6B3",        // Subtle accent for labels
   popupBg: "#FFFFFF",
-  danger: "#DC2626",           // Web: hsl(0, 84%, 55%)
+  danger: "#EF4444",           // Status danger
   buttonBg: "#262626",         // Web: charcoal
   buttonDisabled: "#9a9a9a",
-  success: "#16A34A",          // Web: hsl(142, 76%, 36%)
+  success: "#22C55E",          // Status success
+  warning: "#F59E0B",          // Status warning
   // Dashboard & Drawer specific
   contentBg: "#F5F3EF",        // Match background
   navBg: "#EBE8E3",            // Slightly darker cream for nav
   profileBg: "#FFFFFF",
+  jetDark: "#F5F3EF",          // Light version
+  jetSurface: "#FFFFFF",
 };
 
 // Dark theme colors - aligned with web (frontend/src/index.css) and Liquid Glass design system

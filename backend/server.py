@@ -1116,7 +1116,18 @@ async def respond_to_invite(invite_id: str, data: RespondToInviteRequest, user: 
         notif_dict = notification.model_dump()
         notif_dict["created_at"] = notif_dict["created_at"].isoformat()
         await db.notifications.insert_one(notif_dict)
-        
+
+        # Push notification to inviter
+        try:
+            await send_push_notification_to_user(
+                invite["invited_by"],
+                "Invite Accepted",
+                f"{user.name} joined {group['name']}!",
+                {"type": "invite_accepted", "group_id": invite["group_id"]}
+            )
+        except Exception as e:
+            logger.error(f"Push notification error on invite accept: {e}")
+
         return {"message": "Welcome to the group!", "group_id": invite["group_id"]}
     else:
         # Reject invite

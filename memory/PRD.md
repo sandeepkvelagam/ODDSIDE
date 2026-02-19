@@ -59,7 +59,7 @@ Build a poker ledger application with web and mobile apps for tracking poker nig
 - Disclaimer and checkbox required
 - Accessible from game page header
 
-### February 2025 - Liquid Glass Design System (IN PROGRESS)
+### February 2025 - Liquid Glass Design System (PHASE 4 NEARLY COMPLETE)
 - Created `/app/mobile/src/styles/liquidGlass.ts` with complete design tokens
 - Created reusable glass UI components:
   - `GlassSurface` - Card/panel with double-layer glass effect
@@ -69,9 +69,17 @@ Build a poker ledger application with web and mobile apps for tracking poker nig
   - `GlassListItem` - List row with press animation
   - `SkeletonLoader` - Loading placeholder with shimmer
   - `KvittLogo` - Kvitt branding component (SVG)
-- Updated `LoginScreen` with glass styling matching web app
-- Created new `AIToolkitScreen` based on design reference
+- Updated screens with Liquid Glass styling:
+  - `LoginScreen` - Glass inputs, matching web app poker suits theme
+  - `ProfileScreen` - Wallet balance section (Screenshot #1 style) with avatars, Receive/Send buttons
+  - `LanguageScreen` - Glass list items with press animations
+  - `NotificationsScreen` - Glass toggle cards with icons
+  - `PrivacyScreen` - Glass info cards and toggle sections
+  - `BillingScreen` - Glass plan cards and menu items
+- Created new screen:
+  - `AIToolkitScreen` - Based on Screenshot #2 with model chips, canvas, and input bar
 - Design system documentation: `/app/mobile/LIQUID_GLASS_DESIGN_SYSTEM.md`
+- Remaining screens (already using useTheme glass colors): GroupsScreen, GroupHubScreen, GameNightScreen, AIAssistantScreen, SettingsScreen
 
 ---
 

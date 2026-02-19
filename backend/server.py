@@ -1969,6 +1969,7 @@ async def end_game(game_id: str, user: User = Depends(get_current_user)):
 
     # Notify all players about settlement
     if settlement_result.get("settlements"):
+        player_ids_for_push = []
         for player in players_with_buyin:
             await db.notifications.insert_one({
                 "notification_id": str(uuid.uuid4()),
@@ -1980,6 +1981,18 @@ async def end_game(game_id: str, user: User = Depends(get_current_user)):
                 "read": False,
                 "created_at": datetime.now(timezone.utc).isoformat()
             })
+            player_ids_for_push.append(player["user_id"])
+
+        # Send push notifications for settlement
+        try:
+            await send_push_to_users(
+                player_ids_for_push,
+                "Settlement Ready",
+                "Your poker game ended. Check your settlement — time to pay up!",
+                {"type": "settlement_generated", "game_id": game_id}
+            )
+        except Exception as e:
+            logger.error(f"Push notification error on settlement: {e}")
 
     return {
         "message": "Game ended",

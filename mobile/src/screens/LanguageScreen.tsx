@@ -1,18 +1,13 @@
 import React, { useRef, useEffect } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Animated,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
-import { GlassIconButton, GlassSurface } from "../components/ui";
+import { COLORS, ANIMATION } from "../styles/liquidGlass";
+import { PageHeader } from "../components/ui";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
 
 export function LanguageScreen() {
@@ -20,119 +15,74 @@ export function LanguageScreen() {
   const { language, setLanguage, supportedLanguages, t } = useLanguage();
   const { colors } = useTheme();
 
-  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        ...ANIMATION.spring.bouncy,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, ...ANIMATION.spring.bouncy }),
     ]).start();
   }, []);
-
-  const handleLanguageSelect = async (langCode: typeof language) => {
-    await setLanguage(langCode);
-  };
 
   return (
     <BottomSheetScreen>
       <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
-        {/* Header */}
-        <Animated.View
-          style={[
-            styles.header,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          <GlassIconButton
-            icon={<Ionicons name="chevron-back" size={22} color={colors.textPrimary} />}
-            onPress={() => navigation.goBack()}
-            variant="ghost"
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          <PageHeader
+            title={t.settings.language}
+            subtitle="Select your preferred language"
+            onClose={() => navigation.goBack()}
           />
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t.settings.language}</Text>
-          <View style={{ width: 48 }} />
         </Animated.View>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-            <Text style={styles.sectionDescription}>
-              Choose your preferred language for the app interface
-            </Text>
 
-            <GlassSurface style={styles.languageList} noPadding>
+            <Text style={[styles.sectionLabel, { color: colors.moonstone }]}>AVAILABLE LANGUAGES</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               {supportedLanguages.map((lang, index) => {
                 const isSelected = language === lang.code;
-                const scaleAnim = useRef(new Animated.Value(1)).current;
-
-                const handlePressIn = () => {
-                  Animated.spring(scaleAnim, {
-                    toValue: 0.98,
-                    ...ANIMATION.spring.press,
-                  }).start();
-                };
-
-                const handlePressOut = () => {
-                  Animated.spring(scaleAnim, {
-                    toValue: 1,
-                    ...ANIMATION.spring.snap,
-                  }).start();
-                };
-
                 return (
-                  <Animated.View key={lang.code} style={{ transform: [{ scale: scaleAnim }] }}>
-                    <TouchableOpacity
-                      testID={`language-option-${lang.code}`}
-                      style={[
-                        styles.languageItem,
-                        isSelected && styles.languageItemSelected,
-                        index < supportedLanguages.length - 1 && styles.languageItemBorder,
-                      ]}
-                      onPress={() => handleLanguageSelect(lang.code)}
-                      onPressIn={handlePressIn}
-                      onPressOut={handlePressOut}
-                      activeOpacity={0.9}
-                    >
-                      <Text style={styles.flag}>{lang.flag}</Text>
-                      <View style={styles.languageInfo}>
-                        <Text
-                          style={[
-                            styles.languageName,
-                            isSelected && { color: COLORS.orange },
-                          ]}
-                        >
-                          {lang.nativeName}
-                        </Text>
-                        {lang.name !== lang.nativeName && (
-                          <Text style={styles.languageNameEn}>
-                            {lang.name}
-                          </Text>
-                        )}
-                      </View>
-                      {isSelected && (
-                        <View style={styles.checkContainer}>
-                          <Ionicons name="checkmark-circle" size={24} color={COLORS.orange} />
-                        </View>
+                  <TouchableOpacity
+                    key={lang.code}
+                    testID={`language-option-${lang.code}`}
+                    style={[
+                      styles.langRow,
+                      isSelected && { backgroundColor: COLORS.glass.glowOrange },
+                      index < supportedLanguages.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                    ]}
+                    onPress={() => setLanguage(lang.code)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.flag}>{lang.flag}</Text>
+                    <View style={styles.langInfo}>
+                      <Text style={[styles.langName, { color: isSelected ? COLORS.orange : colors.textPrimary }]}>
+                        {lang.nativeName}
+                      </Text>
+                      {lang.name !== lang.nativeName && (
+                        <Text style={[styles.langNameEn, { color: colors.textMuted }]}>{lang.name}</Text>
                       )}
-                    </TouchableOpacity>
-                  </Animated.View>
+                    </View>
+                    {isSelected ? (
+                      <Ionicons name="checkmark-circle" size={22} color={COLORS.orange} />
+                    ) : (
+                      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                    )}
+                  </TouchableOpacity>
                 );
               })}
-            </GlassSurface>
-          </Animated.View>
+            </View>
 
-          <View style={{ height: 40 }} />
+            <View style={[styles.note, { borderColor: colors.border }]}>
+              <Ionicons name="information-circle-outline" size={15} color={colors.textMuted} />
+              <Text style={[styles.noteText, { color: colors.textMuted }]}>
+                Language affects all text in the app. Restart may be needed for full effect.
+              </Text>
+            </View>
+
+          </Animated.View>
+          <View style={{ height: 50 }} />
         </ScrollView>
       </View>
     </BottomSheetScreen>
@@ -140,70 +90,28 @@ export function LanguageScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scroll: { flex: 1 },
+  content: { padding: 20, paddingBottom: 32 },
+
+  sectionLabel: {
+    fontSize: 11, fontWeight: "600", letterSpacing: 1,
+    marginTop: 8, marginBottom: 10, textTransform: "uppercase",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: SPACING.container,
-    paddingVertical: SPACING.md,
-    paddingTop: 16,
+  card: { borderRadius: 20, borderWidth: 1, overflow: "hidden" },
+  langRow: {
+    flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 18, gap: 14,
   },
-  headerTitle: {
-    color: COLORS.text.primary,
-    fontSize: TYPOGRAPHY.sizes.heading3,
-    fontWeight: TYPOGRAPHY.weights.bold,
+  flag: { fontSize: 28, width: 36, textAlign: "center" },
+  langInfo: { flex: 1 },
+  langName: { fontSize: 16, fontWeight: "500" },
+  langNameEn: { fontSize: 12, marginTop: 2 },
+
+  note: {
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    marginTop: 20, padding: 14, borderRadius: 14, borderWidth: 1,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: SPACING.container,
-  },
-  sectionDescription: {
-    color: COLORS.text.muted,
-    fontSize: TYPOGRAPHY.sizes.bodySmall,
-    marginBottom: SPACING.lg,
-    lineHeight: 20,
-  },
-  languageList: {
-    overflow: "hidden",
-  },
-  languageItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.cardPadding,
-    gap: SPACING.md,
-  },
-  languageItemSelected: {
-    backgroundColor: COLORS.glass.glowOrange,
-  },
-  languageItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.glass.border,
-  },
-  flag: {
-    fontSize: 28,
-  },
-  languageInfo: {
-    flex: 1,
-  },
-  languageName: {
-    color: COLORS.text.primary,
-    fontSize: TYPOGRAPHY.sizes.body,
-    fontWeight: TYPOGRAPHY.weights.medium,
-  },
-  languageNameEn: {
-    color: COLORS.text.muted,
-    fontSize: TYPOGRAPHY.sizes.caption,
-    marginTop: 2,
-  },
-  checkContainer: {
-    marginLeft: SPACING.sm,
-  },
+  noteText: { flex: 1, fontSize: 12, lineHeight: 18 },
 });
 
 export default LanguageScreen;

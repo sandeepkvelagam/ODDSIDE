@@ -22,6 +22,7 @@ import { AIAssistantScreen } from "../screens/AIAssistantScreen";
 import { SettlementScreen } from "../screens/SettlementScreen";
 import { PokerAIScreen } from "../screens/PokerAIScreen";
 import { AIToolkitScreen } from "../screens/AIToolkitScreen";
+import { WalletScreen } from "../screens/WalletScreen";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -33,6 +34,7 @@ export type RootStackParamList = {
   PokerAI: undefined;
   Settings: undefined;
   Profile: undefined;
+  Wallet: undefined;
   Notifications: undefined;
   Privacy: undefined;
   Billing: undefined;

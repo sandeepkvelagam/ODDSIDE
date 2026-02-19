@@ -121,13 +121,15 @@ export function DashboardScreenV2() {
   const fetchDashboard = useCallback(async () => {
     try {
       setError(null);
-      const [statsRes, gamesRes, notifRes, groupsRes] = await Promise.all([
+      const [statsRes, gamesRes, notifRes, groupsRes, balancesRes] = await Promise.all([
         api.get("/stats/me").catch(() => ({ data: null })),
         api.get("/games").catch(() => ({ data: [] })),
         api.get("/notifications").catch(() => ({ data: [] })),
         api.get("/groups").catch(() => ({ data: [] })),
+        api.get("/ledger/consolidated").catch(() => ({ data: { net_balance: 0, total_you_owe: 0, total_owed_to_you: 0 } })),
       ]);
       setStats(statsRes.data);
+      setBalances(balancesRes.data);
       const games = Array.isArray(gamesRes.data) ? gamesRes.data : [];
       setActiveGames(games.filter((g: any) => g.status === "active" || g.status === "scheduled"));
       setRecentGames(games.slice(0, 5));

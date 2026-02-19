@@ -282,43 +282,71 @@ export function DashboardScreenV2() {
             </View>
           )}
 
-          {/* Stats Cards - Liquid Glass with Inner Padding */}
-          <View style={styles.statsRow}>
+          {/* Stats Cards - 3 Column Grid like Web */}
+          <View style={styles.statsRowThree}>
             {/* Net Profit Card - Orange Glow */}
-            <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
-              <View style={[styles.liquidInner, { backgroundColor: lc.liquidGlowOrange }]}>
-                <View style={styles.statIconRow}>
-                  <Text style={[styles.statLabel, { color: lc.moonstone }]}>NET PROFIT</Text>
+            <TouchableOpacity 
+              style={[styles.liquidCardThird, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate("Profile")}
+            >
+              <View style={[styles.liquidInnerSmall, { backgroundColor: lc.liquidGlowOrange }]}>
+                <View style={styles.statIconRowSmall}>
+                  <Text style={[styles.statLabelSmall, { color: lc.moonstone }]}>NET PROFIT</Text>
                   <Ionicons
                     name={netProfit >= 0 ? "trending-up" : "trending-down"}
-                    size={16}
+                    size={12}
                     color={netProfit >= 0 ? lc.success : lc.danger}
                   />
                 </View>
-                <Text style={[styles.statValue, { color: netProfit >= 0 ? lc.success : lc.danger }]}>
+                <Text style={[styles.statValueSmall, { color: netProfit >= 0 ? lc.success : lc.danger }]}>
                   {netProfit >= 0 ? '+' : ''}${Math.abs(netProfit).toFixed(0)}
                 </Text>
-                <Text style={[styles.statSubtext, { color: lc.textMuted }]}>
-                  {totalGames} games played
+                <Text style={[styles.statSubtextSmall, { color: lc.textMuted }]}>
+                  {totalGames} games
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Win Rate Card - Blue Glow */}
-            <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
-              <View style={[styles.liquidInner, { backgroundColor: lc.liquidGlowBlue }]}>
-                <View style={styles.statIconRow}>
-                  <Text style={[styles.statLabel, { color: lc.moonstone }]}>WIN RATE</Text>
-                  <Ionicons name="analytics-outline" size={16} color={lc.trustBlue} />
+            <TouchableOpacity 
+              style={[styles.liquidCardThird, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate("Profile")}
+            >
+              <View style={[styles.liquidInnerSmall, { backgroundColor: lc.liquidGlowBlue }]}>
+                <View style={styles.statIconRowSmall}>
+                  <Text style={[styles.statLabelSmall, { color: lc.moonstone }]}>WIN RATE</Text>
+                  <Ionicons name="analytics-outline" size={12} color={lc.trustBlue} />
                 </View>
-                <Text style={[styles.statValue, { color: lc.trustBlue }]}>
+                <Text style={[styles.statValueSmall, { color: lc.trustBlue }]}>
                   {winRate.toFixed(0)}%
                 </Text>
-                <Text style={[styles.statSubtext, { color: lc.textMuted }]}>
+                <Text style={[styles.statSubtextSmall, { color: lc.textMuted }]}>
                   {wins}W / {losses}L
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
+
+            {/* Balance Card - Green/Red Glow */}
+            <TouchableOpacity 
+              style={[styles.liquidCardThird, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate("Wallet")}
+            >
+              <View style={[styles.liquidInnerSmall, { backgroundColor: balances.net_balance >= 0 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)" }]}>
+                <View style={styles.statIconRowSmall}>
+                  <Text style={[styles.statLabelSmall, { color: lc.moonstone }]}>BALANCE</Text>
+                  <Ionicons name="wallet-outline" size={12} color={balances.net_balance >= 0 ? lc.success : lc.danger} />
+                </View>
+                <Text style={[styles.statValueSmall, { color: balances.net_balance >= 0 ? lc.success : lc.danger }]}>
+                  {balances.net_balance >= 0 ? '+' : ''}${Math.abs(balances.net_balance || 0).toFixed(0)}
+                </Text>
+                <Text style={[styles.statSubtextSmall, { color: lc.textMuted }]}>
+                  ${(balances.total_you_owe || 0).toFixed(0)} owed
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* Performance Card - Full Width Liquid Glass */}

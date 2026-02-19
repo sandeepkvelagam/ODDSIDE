@@ -750,6 +750,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  helpButtonSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -764,7 +772,48 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
   },
-  // Liquid Glass Cards
+  // Liquid Glass Cards - 3 Column
+  statsRowThree: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  liquidCardThird: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 3,
+    borderWidth: 1.5,
+    shadowColor: "rgba(255, 255, 255, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  liquidInnerSmall: {
+    borderRadius: 15,
+    padding: 12,
+  },
+  statIconRowSmall: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  statLabelSmall: {
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  statValueSmall: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    marginBottom: 2,
+  },
+  statSubtextSmall: {
+    fontSize: 9,
+  },
+  // Liquid Glass Cards - 2 Column (legacy)
   statsRow: {
     flexDirection: "row",
     gap: 14,

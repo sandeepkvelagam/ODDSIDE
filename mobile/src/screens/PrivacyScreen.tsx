@@ -11,13 +11,13 @@ import {
   TouchableOpacity,
   Animated,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { GlassIconButton, GlassSurface } from "../components/ui";
+import { BottomSheetScreen } from "../components/BottomSheetScreen";
 
 export function PrivacyScreen() {
   const navigation = useNavigation();

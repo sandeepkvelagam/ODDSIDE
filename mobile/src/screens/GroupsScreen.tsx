@@ -119,10 +119,22 @@ export function GroupsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]} testID="groups-screen">
       {/* Page Header */}
       <View style={styles.pageHeader}>
-        <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>MY GROUPS</Text>
-        <Text style={[styles.pageSubtitle, { color: colors.textMuted }]}>
-          Manage your poker circles
-        </Text>
+        <View style={styles.pageHeaderRow}>
+          <View>
+            <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>MY GROUPS</Text>
+            <Text style={[styles.pageSubtitle, { color: colors.textMuted }]}>
+              Manage your poker circles
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.joinGroupBtn, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
+            onPress={() => navigation.navigate("Notifications")}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="mail-open-outline" size={16} color={colors.orange} />
+            <Text style={[styles.joinGroupBtnText, { color: colors.orange }]}>Invites</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {error && (

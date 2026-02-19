@@ -1803,7 +1803,24 @@ async def start_game(game_id: str, user: User = Depends(get_current_user)):
     msg_dict = message.model_dump()
     msg_dict["created_at"] = msg_dict["created_at"].isoformat()
     await db.game_threads.insert_one(msg_dict)
-    
+
+    # Push notification to all players
+    try:
+        players_yes = await db.players.find(
+            {"game_id": game_id, "rsvp_status": "yes"},
+            {"_id": 0, "user_id": 1}
+        ).to_list(50)
+        player_ids = [p["user_id"] for p in players_yes if p["user_id"] != user.user_id]
+        if player_ids:
+            await send_push_to_users(
+                player_ids,
+                "Game Started! ",
+                f"Your poker game has started. Buy in to join the action!",
+                {"type": "game_started", "game_id": game_id}
+            )
+    except Exception as e:
+        logger.error(f"Push notification error on game start: {e}")
+
     return {"message": "Game started", "player_count": player_count}
 
 

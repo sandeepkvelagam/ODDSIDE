@@ -46,6 +46,7 @@ const LIQUID_COLORS = {
   liquidGlowOrange: "rgba(238, 108, 41, 0.15)",
   liquidGlowBlue: "rgba(59, 130, 246, 0.15)",
   glassBg: "rgba(255, 255, 255, 0.08)",
+  glassBorder: "rgba(255, 255, 255, 0.12)",
 
   // Text
   textPrimary: "#F5F5F5",

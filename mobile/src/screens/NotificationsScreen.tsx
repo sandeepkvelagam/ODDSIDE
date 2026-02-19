@@ -125,16 +125,13 @@ export function NotificationsScreen() {
     setNotifications(prev => prev.map(n => n.notification_id === id ? { ...n, read: true } : n));
   };
 
-  const unread = notifications.filter(n => !n.read).length;
-  const badge = pendingInvites.length + unread;
-
   return (
     <BottomSheetScreen>
       <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           <PageHeader
             title="Notifications"
-            subtitle={badge > 0 ? `${badge} new` : "All caught up"}
+            subtitle={pendingInvites.length > 0 ? `${pendingInvites.length} pending invite${pendingInvites.length > 1 ? 's' : ''}` : "Manage your alerts"}
             onClose={() => navigation.goBack()}
           />
         </Animated.View>
@@ -197,48 +194,12 @@ export function NotificationsScreen() {
                 </>
               )}
 
-              {/* ── Activity ── */}
-              {notifications.length > 0 && (
-                <>
-                  <Text style={[styles.sectionLabel, { color: colors.moonstone, marginTop: pendingInvites.length > 0 ? 20 : 8 }]}>
-                    ACTIVITY
-                  </Text>
-                  <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    {notifications.slice(0, 20).map((n, i) => {
-                      const { icon, color } = getNotifStyle(n.type);
-                      return (
-                        <TouchableOpacity
-                          key={n.notification_id || i}
-                          style={[
-                            styles.notifRow,
-                            !n.read && { backgroundColor: COLORS.glass.glowOrange },
-                            i < notifications.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-                          ]}
-                          onPress={() => handleMarkRead(n.notification_id)}
-                          activeOpacity={0.75}
-                        >
-                          <View style={[styles.notifIcon, { backgroundColor: color + "20" }]}>
-                            <Ionicons name={icon as any} size={17} color={color} />
-                          </View>
-                          <View style={styles.notifBody}>
-                            <Text style={[styles.notifTitle, { color: colors.textPrimary }]} numberOfLines={1}>{n.title}</Text>
-                            <Text style={[styles.notifMsg, { color: colors.textMuted }]} numberOfLines={2}>{n.message}</Text>
-                            <Text style={[styles.notifTime, { color: colors.textMuted }]}>{formatTime(n.created_at)}</Text>
-                          </View>
-                          {!n.read && <View style={styles.unreadDot} />}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-
               {/* ── Empty ── */}
-              {pendingInvites.length === 0 && notifications.length === 0 && (
+              {pendingInvites.length === 0 && (
                 <View style={styles.emptyWrap}>
                   <Ionicons name="notifications-outline" size={44} color={colors.textMuted} />
                   <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>All Caught Up</Text>
-                  <Text style={[styles.emptySub, { color: colors.textMuted }]}>No pending invites or activity yet</Text>
+                  <Text style={[styles.emptySub, { color: colors.textMuted }]}>No pending invites</Text>
                 </View>
               )}
 

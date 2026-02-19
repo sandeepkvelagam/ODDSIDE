@@ -214,7 +214,7 @@ export function SettingsScreen() {
   };
 
   return (
-    <BottomSheetScreen noBorderRadius>
+    <BottomSheetScreen>
       <View
         testID="settings-screen"
         style={[styles.container, { backgroundColor: colors.contentBg }]}
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.92 }],
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "600",
   },
   scrollView: {

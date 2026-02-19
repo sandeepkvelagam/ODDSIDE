@@ -404,7 +404,7 @@ export function WalletScreen() {
         <View style={[styles.container, { backgroundColor: tc.bg }]}>
           <View style={styles.header}>
             <TouchableOpacity style={[styles.closeBtn, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]} onPress={() => navigation.goBack()}>
-              <Ionicons name="close" size={22} color={tc.textPrimary} />
+              <Ionicons name="chevron-back" size={24} color={tc.textPrimary} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Kvitt Wallet</Text>
             <View style={{ width: 48 }} />
@@ -504,7 +504,7 @@ export function WalletScreen() {
         {/* Header */}
         <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <TouchableOpacity style={[styles.closeBtn, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]} onPress={() => navigation.goBack()}>
-            <Ionicons name="close" size={22} color={tc.textPrimary} />
+            <Ionicons name="chevron-back" size={24} color={tc.textPrimary} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Kvitt Wallet</Text>
           <TouchableOpacity

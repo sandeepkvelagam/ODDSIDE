@@ -11,6 +11,7 @@ import {
   Animated,
 } from "react-native";
 import { COLORS, TYPOGRAPHY, RADIUS, SPACING } from "../../styles/liquidGlass";
+import { useTheme } from "../../context/ThemeContext";
 
 interface GlassInputProps extends TextInputProps {
   label?: string;
@@ -47,6 +48,7 @@ export function GlassInput({
   containerStyle,
   ...props
 }: GlassInputProps) {
+  const { colors } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const borderAnim = useRef(new Animated.Value(0)).current;
 
@@ -72,16 +74,16 @@ export function GlassInput({
 
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [COLORS.input.border, COLORS.input.focusBorder],
+    outputRange: [colors.glassBorder, COLORS.input.focusBorder],
   });
 
   return (
     <View style={containerStyle}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>}
       <Animated.View
         style={[
           styles.container,
-          { borderColor },
+          { borderColor, backgroundColor: colors.inputBg },
           error && styles.errorBorder,
         ]}
       >
@@ -90,11 +92,12 @@ export function GlassInput({
           {...props}
           style={[
             styles.input,
+            { color: colors.textPrimary },
             leftIcon ? { paddingLeft: 0 } : undefined,
             rightIcon ? { paddingRight: 0 } : undefined,
             props.style,
           ]}
-          placeholderTextColor={COLORS.input.placeholder}
+          placeholderTextColor={colors.textMuted}
           onFocus={handleFocus}
           onBlur={handleBlur}
         />
@@ -124,17 +127,23 @@ export function GlassSearchInput({
   containerStyle,
   ...props
 }: GlassSearchInputProps) {
+  const { colors } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <View style={[styles.searchContainer, isFocused && styles.searchFocused, containerStyle]}>
+    <View style={[
+      styles.searchContainer,
+      { backgroundColor: colors.inputBg, borderColor: colors.glassBorder },
+      isFocused && styles.searchFocused,
+      containerStyle
+    ]}>
       <View style={styles.searchIcon}>
-        <Text style={{ color: COLORS.text.muted, fontSize: 16 }}>🔍</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 16 }}>🔍</Text>
       </View>
       <TextInput
         {...props}
-        style={styles.searchInput}
-        placeholderTextColor={COLORS.input.placeholder}
+        style={[styles.searchInput, { color: colors.textPrimary }]}
+        placeholderTextColor={colors.textMuted}
         onFocus={(e) => {
           setIsFocused(true);
           props.onFocus?.(e);
@@ -150,7 +159,7 @@ export function GlassSearchInput({
 
 const styles = StyleSheet.create({
   label: {
-    color: COLORS.text.muted,
+    color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.caption,
     fontWeight: TYPOGRAPHY.weights.medium,
     textTransform: "uppercase",

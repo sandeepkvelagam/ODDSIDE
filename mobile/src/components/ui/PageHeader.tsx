@@ -28,7 +28,7 @@ export function PageHeader({ title, subtitle, onClose, rightElement }: PageHeade
         onPress={onClose}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
-        <Ionicons name="close" size={20} color={colors.textPrimary} />
+        <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
       </Pressable>
 
       <View style={styles.centerBlock}>
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   title: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "600",
   },
   subtitle: {

@@ -112,7 +112,6 @@ export function ProfileScreen() {
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           <PageHeader
             title="Profile"
-            subtitle={user?.email || ""}
             onClose={() => navigation.goBack()}
           />
         </Animated.View>
@@ -124,6 +123,35 @@ export function ProfileScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.orange} />}
         >
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+
+            {/* ── Profile Details ── */}
+            <Text style={[styles.sectionLabel, { color: colors.moonstone, marginTop: 0 }]}>PROFILE DETAILS</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <GlassInput
+                label="Full Name"
+                placeholder="Enter your full name"
+                value={fullName}
+                onChangeText={setFullName}
+                containerStyle={{ marginBottom: 12 }}
+              />
+              <GlassInput
+                label="Nickname"
+                placeholder="Enter your nickname"
+                value={nickname}
+                onChangeText={setNickname}
+                containerStyle={{ marginBottom: 16 }}
+              />
+              <GlassButton
+                variant={changed ? "primary" : "ghost"}
+                size="large"
+                fullWidth
+                onPress={handleUpdate}
+                loading={isUpdating}
+                disabled={!changed}
+              >
+                Save Changes
+              </GlassButton>
+            </View>
 
             {/* ── Net Balance Hero ── */}
             <View style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -198,35 +226,6 @@ export function ProfileScreen() {
                 <Text style={[styles.emptySub, { color: colors.textMuted }]}>No pending balances</Text>
               </View>
             )}
-
-            {/* ── Profile Details ── */}
-            <Text style={[styles.sectionLabel, { color: colors.moonstone }]}>PROFILE DETAILS</Text>
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <GlassInput
-                label="Full Name"
-                placeholder="Enter your full name"
-                value={fullName}
-                onChangeText={setFullName}
-                containerStyle={{ marginBottom: 12 }}
-              />
-              <GlassInput
-                label="Nickname"
-                placeholder="Enter your nickname"
-                value={nickname}
-                onChangeText={setNickname}
-                containerStyle={{ marginBottom: 16 }}
-              />
-              <GlassButton
-                variant={changed ? "primary" : "ghost"}
-                size="large"
-                fullWidth
-                onPress={handleUpdate}
-                loading={isUpdating}
-                disabled={!changed}
-              >
-                Save Changes
-              </GlassButton>
-            </View>
 
             {/* ── Danger Zone ── */}
             <Text style={[styles.sectionLabel, { color: COLORS.status.danger + "CC" }]}>DANGER ZONE</Text>

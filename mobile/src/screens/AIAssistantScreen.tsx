@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,21 +17,10 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { api } from "../api/client";
 import type { RootStackParamList } from "../navigation/RootNavigator";
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
+import { GlassIconButton } from "../components/ui";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-// Claude-style warm dark theme colors
-const COLORS = {
-  navBg: "#1a1816",
-  contentBg: "#252320",
-  textPrimary: "#ffffff",
-  textSecondary: "#9a9a9a",
-  textMuted: "#666666",
-  border: "rgba(255, 255, 255, 0.06)",
-  glassBg: "rgba(255, 255, 255, 0.05)",
-  glassBorder: "rgba(255, 255, 255, 0.08)",
-  orange: "#e8845c",
-};
 
 type Message = {
   role: "user" | "assistant";
@@ -58,6 +48,24 @@ export function AIAssistantScreen() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Entrance animation
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        ...ANIMATION.spring.bouncy,
+      }),
+    ]).start();
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
@@ -105,14 +113,17 @@ export function AIAssistantScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.glassButton}
+      <Animated.View
+        style={[
+          styles.header,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+        ]}
+      >
+        <GlassIconButton
+          icon={<Ionicons name="chevron-down" size={22} color={COLORS.text.secondary} />}
           onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-down" size={24} color={COLORS.textSecondary} />
-        </TouchableOpacity>
+          variant="ghost"
+        />
 
         <View style={styles.headerCenter}>
           <View style={styles.headerIcon}>
@@ -132,7 +143,7 @@ export function AIAssistantScreen() {
           <Ionicons name="diamond" size={16} color={COLORS.orange} />
           <Text style={styles.pokerAIText}>Poker AI</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       <KeyboardAvoidingView
         style={styles.keyboardView}
@@ -147,13 +158,14 @@ export function AIAssistantScreen() {
           showsVerticalScrollIndicator={false}
         >
           {messages.map((msg, i) => (
-            <View
+            <Animated.View
               key={i}
               style={[
                 styles.messageRow,
                 msg.role === "user"
                   ? styles.messageRowUser
                   : styles.messageRowAssistant,
+                { opacity: fadeAnim },
               ]}
             >
               {msg.role === "assistant" && (
@@ -185,7 +197,7 @@ export function AIAssistantScreen() {
                   <Ionicons name="person" size={12} color="#fff5ee" />
                 </View>
               )}
-            </View>
+            </Animated.View>
           ))}
 
           {loading && (
@@ -194,7 +206,7 @@ export function AIAssistantScreen() {
                 <Ionicons name="sparkles" size={12} color={COLORS.orange} />
               </View>
               <View style={styles.messageBubbleAssistant}>
-                <ActivityIndicator size="small" color={COLORS.textSecondary} />
+                <ActivityIndicator size="small" color={COLORS.text.secondary} />
               </View>
             </View>
           )}
@@ -231,7 +243,7 @@ export function AIAssistantScreen() {
               value={input}
               onChangeText={setInput}
               placeholder="Message Kvitt..."
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={COLORS.text.muted}
               editable={!loading}
               onSubmitEditing={() => sendMessage(input)}
               returnKeyType="send"
@@ -248,7 +260,7 @@ export function AIAssistantScreen() {
               <Ionicons
                 name="send"
                 size={18}
-                color={!input.trim() || loading ? COLORS.textMuted : "#fff5ee"}
+                color={!input.trim() || loading ? COLORS.text.muted : "#fff"}
               />
             </TouchableOpacity>
           </View>
@@ -261,65 +273,53 @@ export function AIAssistantScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.contentBg,
+    backgroundColor: COLORS.jetDark,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.container,
+    paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  glassButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.glassBg,
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    alignItems: "center",
-    justifyContent: "center",
+    borderBottomColor: COLORS.glass.border,
   },
   headerCenter: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
+    gap: SPACING.md,
+    marginLeft: SPACING.md,
   },
   headerIcon: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(232,132,92,0.15)",
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.glass.glowOrange,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
   },
   headerSubtitle: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.caption,
   },
   pokerAIButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: "rgba(232,132,92,0.15)",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(232,132,92,0.3)",
+    gap: SPACING.xs,
+    backgroundColor: COLORS.glass.glowOrange,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.full,
   },
   pokerAIText: {
-    fontSize: 13,
-    fontWeight: "600",
     color: COLORS.orange,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
   },
   keyboardView: {
     flex: 1,
@@ -328,13 +328,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContent: {
-    padding: 16,
-    gap: 12,
+    padding: SPACING.container,
+    paddingBottom: SPACING.xxl,
+    gap: SPACING.md,
   },
   messageRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 8,
+    gap: SPACING.sm,
   },
   messageRowUser: {
     justifyContent: "flex-end",
@@ -343,94 +344,96 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   avatarBot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(232,132,92,0.15)",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.glass.glowOrange,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarUser: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.orange,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.orangeDark,
     alignItems: "center",
     justifyContent: "center",
   },
   messageBubble: {
     maxWidth: "75%",
-    padding: 12,
-    borderRadius: 16,
-  },
-  messageBubbleUser: {
-    backgroundColor: COLORS.orange,
-    borderBottomRightRadius: 4,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
   },
   messageBubbleAssistant: {
-    backgroundColor: COLORS.glassBg,
+    backgroundColor: COLORS.glass.bg,
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    borderBottomLeftRadius: 4,
+    borderColor: COLORS.glass.border,
+  },
+  messageBubbleUser: {
+    backgroundColor: COLORS.orangeDark,
   },
   messageBubbleError: {
-    backgroundColor: "rgba(239,68,68,0.15)",
-    borderBottomLeftRadius: 4,
+    backgroundColor: COLORS.glass.glowRed,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
   },
   messageText: {
-    fontSize: 14,
-    color: COLORS.textPrimary,
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
     lineHeight: 20,
   },
   messageTextUser: {
-    color: "#fff5ee",
+    color: "#ffffff",
   },
   suggestionsContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: SPACING.container,
+    paddingVertical: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.glass.border,
   },
   suggestionsLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    marginBottom: SPACING.sm,
   },
   suggestionsList: {
-    gap: 8,
+    gap: SPACING.sm,
   },
   suggestionChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: COLORS.glassBg,
-    borderRadius: 16,
+    backgroundColor: COLORS.glass.bg,
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
+    borderColor: COLORS.glass.border,
+    borderRadius: RADIUS.full,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
   },
   suggestionText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+    color: COLORS.text.secondary,
+    fontSize: TYPOGRAPHY.sizes.caption,
   },
   inputContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: SPACING.container,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.glass.border,
+    backgroundColor: COLORS.jetDark,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.glassBg,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    paddingLeft: 16,
-    paddingRight: 6,
-    paddingVertical: 6,
+    backgroundColor: COLORS.glass.bg,
+    borderRadius: RADIUS.xxl,
+    borderWidth: 1.5,
+    borderColor: COLORS.glass.border,
+    paddingLeft: SPACING.lg,
+    paddingRight: SPACING.xs,
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    color: COLORS.textPrimary,
-    paddingVertical: 8,
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.body,
+    paddingVertical: SPACING.md,
   },
   sendButton: {
     width: 40,
@@ -441,6 +444,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sendButtonDisabled: {
-    backgroundColor: COLORS.glassBg,
+    backgroundColor: COLORS.glass.bg,
   },
 });
+
+export default AIAssistantScreen;

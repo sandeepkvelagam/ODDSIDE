@@ -59,7 +59,7 @@ Build a poker ledger application with web and mobile apps for tracking poker nig
 - Disclaimer and checkbox required
 - Accessible from game page header
 
-### February 2025 - Liquid Glass Design System (PHASES 1-5 COMPLETE)
+### February 2025 - Liquid Glass Design System (ALL PHASES COMPLETE)
 - Created `/app/mobile/src/styles/liquidGlass.ts` with complete design tokens
 - Created reusable glass UI components:
   - `GlassSurface` - Card/panel with double-layer glass effect
@@ -69,25 +69,27 @@ Build a poker ledger application with web and mobile apps for tracking poker nig
   - `GlassListItem` - List row with press animation
   - `SkeletonLoader` - Loading placeholder with shimmer
   - `KvittLogo` - Kvitt branding component (SVG)
+  - `BottomSheetScreen` - **NEW** Screen wrapper with curved top corners, transparent backdrop
 - Updated screens with Liquid Glass styling:
   - `LoginScreen` - Glass inputs, matching web app poker suits theme, Kvitt logo
-  - `ProfileScreen` - Wallet balance section (Screenshot #1 style) with avatars, Receive/Send
-  - `LanguageScreen` - Glass list items with press animations
-  - `NotificationsScreen` - Glass toggle cards with icons
-  - `PrivacyScreen` - Glass info cards and toggle sections
-  - `BillingScreen` - Glass plan cards and menu items
+  - `ProfileScreen` - Wallet balance section (Screenshot #1 style) + **bottom sheet presentation**
+  - `SettingsScreen` - **Bottom sheet presentation** with curved top corners
+  - `LanguageScreen` - Glass list items + **bottom sheet presentation**
+  - `NotificationsScreen` - Glass toggle cards + **bottom sheet presentation**
+  - `PrivacyScreen` - Glass info cards + **bottom sheet presentation**
+  - `BillingScreen` - Glass plan cards + **bottom sheet presentation**
   - `DashboardScreenV2` - Demo card added to help modal
   - `PokerAIScreen` - Added show/hide toggle for your hand (eye icon)
-  - `AIAssistantScreen` - **UPDATED** with liquid glass tokens
+  - `AIAssistantScreen` - Fully updated with liquidGlass tokens
 - Created new screen:
   - `AIToolkitScreen` - Based on Screenshot #2 with model chips, canvas, input bar
 - Updated `ThemeContext.tsx` with new colors: `orangeDark`, `trustBlue`, `moonstone`, liquid glass tokens
+- Navigation updated: Settings/Profile pages now use `presentation: "transparentModal"` with `slide_from_bottom`
+- All close buttons changed from chevron-back to X (close) icon
 - Design system documentation: `/app/mobile/LIQUID_GLASS_DESIGN_SYSTEM.md`
-- Button colors: orangeDark (#C45A22) and trustBlue (#3B82F6) with proper borders
-- GroupHubScreen, GameNightScreen now have access to orangeDark/trustBlue via ThemeContext
 
 ### Missing Features (Future Tasks)
-- **Spotify/Music**: Not implemented in mobile (web only has Spotify player)
+- **Spotify/Music**: Has "Coming Soon" badge in GameNightScreen
 - **Voice Command Business Logic**: Transcription works, needs game integration
 
 ---

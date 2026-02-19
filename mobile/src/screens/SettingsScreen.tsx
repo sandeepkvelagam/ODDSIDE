@@ -214,12 +214,13 @@ export function SettingsScreen() {
   };
 
   return (
-    <View
-      testID="settings-screen"
-      style={[styles.container, { backgroundColor: colors.surface, paddingTop: insets.top + 12, paddingBottom: insets.bottom }]}
-    >
-      {/* Header */}
-      <View style={styles.header}>
+    <BottomSheetScreen>
+      <View
+        testID="settings-screen"
+        style={[styles.container, { backgroundColor: colors.surface }]}
+      >
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: 16 }]}>
           <Pressable
             testID="settings-close-button"
             style={({ pressed }) => [

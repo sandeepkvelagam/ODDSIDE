@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, RADIUS, SPACING } from "../../styles/liquidGlass";
 
 interface SkeletonProps {
-  width?: number | string;
+  width?: DimensionValue;
   height?: number;
   borderRadius?: number;
   style?: StyleProp<ViewStyle>;

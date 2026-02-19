@@ -62,7 +62,22 @@ Full-stack poker group settlement app with React frontend, FastAPI backend, Mong
 - Withdraw request: amount + destination + PIN → submitted to backend
 - Transaction history list
 
-### Mobile App — Push Notifications (Complete - Dec 2025)
+### Mobile App — AI Assistant (Complete - Dec 2025)
+- Visibility toggle: eye-off/eye button in header collapses/expands full chat body
+- When hidden: shows minimized pill bar "Tap to show conversation"
+- Auto-expands when a new message is sent
+- Smooth LayoutAnimation collapse/expand on both iOS and Android
+
+### Mobile App — Push Notification Deep Linking (Complete - Dec 2025)
+- `navigationRef` exported from RootNavigator for navigation outside React tree
+- `handleNotificationDeepLink` routes by `data.type`:
+  - `game_started/ended/buy_in/cash_out` → GameNight screen
+  - `settlement_generated` → Settlement screen
+  - `wallet_received/withdrawal_requested` → Wallet screen
+  - `group_invite_request/invite_accepted` → Notifications screen
+  - `admin_transferred/invite_sent` → GroupHub or Groups screen
+  - fallback → Notifications screen
+- Listener set up in `useEffect` tied to session, cleaned up on logout
 - expo-notifications integration (APNs/FCM via Expo Push Service)
 - Permission request on login, token registered with backend
 - Token unregistered on logout

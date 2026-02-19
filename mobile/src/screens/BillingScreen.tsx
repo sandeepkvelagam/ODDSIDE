@@ -7,11 +7,11 @@ import {
   ScrollView,
   Animated,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { GlassIconButton, GlassSurface } from "../components/ui";
+import { BottomSheetScreen } from "../components/BottomSheetScreen";
 
 export function BillingScreen() {
   const navigation = useNavigation();
@@ -35,8 +35,8 @@ export function BillingScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <BottomSheetScreen>
+      <View style={styles.container}>
         {/* Header */}
         <Animated.View
           style={[
@@ -45,7 +45,7 @@ export function BillingScreen() {
           ]}
         >
           <GlassIconButton
-            icon={<Ionicons name="chevron-back" size={22} color={COLORS.text.primary} />}
+            icon={<Ionicons name="close" size={22} color={COLORS.text.primary} />}
             onPress={() => navigation.goBack()}
             variant="ghost"
           />

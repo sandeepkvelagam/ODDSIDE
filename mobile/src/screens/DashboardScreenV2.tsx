@@ -239,7 +239,7 @@ export function DashboardScreenV2() {
               { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder },
               pressed && styles.glassButtonPressed
             ]}
-            onPress={() => navigation.navigate("Settings")}
+            onPress={() => navigation.navigate("Notifications")}
           >
             <Ionicons name="notifications-outline" size={22} color={lc.textSecondary} />
             {notifications.length > 0 && <View style={[styles.notifDot, { backgroundColor: lc.orange }]} />}

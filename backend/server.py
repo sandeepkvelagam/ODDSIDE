@@ -4969,7 +4969,184 @@ async def reconcile_wallet(user: User = Depends(get_current_user)):
     return result
 
 
-# ============== LEDGER SUMMARY ENDPOINTS ==============
+@api_router.post("/wallet/withdraw")
+async def request_withdrawal(
+    data: WithdrawRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Request a withdrawal from wallet (simple flow, processed by admin).
+    PIN is verified before creating the request.
+    """
+    wallet = await db.wallets.find_one({"user_id": user.user_id})
+    if not wallet or not wallet.get("wallet_id"):
+        raise HTTPException(status_code=404, detail="Wallet not found. Set up wallet first.")
+
+    # Verify PIN
+    pin_ok = await wallet_service.verify_pin(wallet["wallet_id"], data.pin, db)
+    if not pin_ok:
+        raise HTTPException(status_code=400, detail="Invalid PIN")
+
+    # Check balance
+    if wallet.get("balance_cents", 0) < data.amount_cents:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+
+    # Rate limit: 3 withdrawals per day
+    if not await wallet_service.check_rate_limit(
+        f"wallet:{wallet['wallet_id']}", "withdraw", 3, 86400, db
+    ):
+        raise HTTPException(status_code=429, detail="Withdrawal limit reached. Try again tomorrow.")
+
+    # Create withdrawal request record
+    withdrawal_id = f"wdr_{uuid.uuid4().hex[:12]}"
+    await db.wallet_withdrawals.insert_one({
+        "withdrawal_id": withdrawal_id,
+        "wallet_id": wallet["wallet_id"],
+        "user_id": user.user_id,
+        "amount_cents": data.amount_cents,
+        "method": data.method,
+        "destination_details": data.destination_details,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "processed_at": None,
+        "note": None
+    })
+
+    # Log audit
+    await wallet_service.log_wallet_audit(
+        wallet["wallet_id"], user.user_id, "withdraw_requested",
+        db, {"amount_cents": data.amount_cents, "method": data.method}
+    )
+
+    # Send push notification to user
+    await send_push_notification_to_user(
+        user.user_id,
+        "Withdrawal Requested",
+        f"Your withdrawal of ${data.amount_cents / 100:.2f} has been submitted and will be processed within 1-2 business days.",
+        {"type": "withdrawal_requested", "withdrawal_id": withdrawal_id}
+    )
+
+    return {
+        "success": True,
+        "withdrawal_id": withdrawal_id,
+        "message": f"Withdrawal of ${data.amount_cents / 100:.2f} submitted. Will be processed within 1-2 business days."
+    }
+
+
+@api_router.get("/wallet/withdrawals")
+async def get_withdrawals(user: User = Depends(get_current_user)):
+    """Get user's withdrawal history."""
+    withdrawals = await db.wallet_withdrawals.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(20)
+    return {"withdrawals": withdrawals}
+
+
+# ============== PUSH NOTIFICATION ENDPOINTS ==============
+
+EXPO_PUSH_API_URL = "https://exp.host/--/api/v2/push/send"
+
+
+async def send_push_notification_to_user(
+    user_id: str,
+    title: str,
+    body: str,
+    data: Optional[Dict[str, Any]] = None
+):
+    """Helper: send Expo push notification to a user if they have a token."""
+    try:
+        user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "expo_push_token": 1})
+        if not user_doc or not user_doc.get("expo_push_token"):
+            return  # No token, skip silently
+
+        token = user_doc["expo_push_token"]
+        if not token.startswith("ExponentPushToken["):
+            return
+
+        payload = {
+            "to": token,
+            "title": title,
+            "body": body,
+            "sound": "default",
+            "data": data or {},
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                EXPO_PUSH_API_URL,
+                json=payload,
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
+            )
+            if resp.status_code != 200:
+                logger.warning(f"Push notification failed for {user_id}: {resp.text}")
+    except Exception as e:
+        logger.error(f"Push notification error for {user_id}: {e}")
+
+
+async def send_push_to_users(user_ids: List[str], title: str, body: str, data: Optional[Dict[str, Any]] = None):
+    """Send push notification to multiple users."""
+    if not user_ids:
+        return
+    try:
+        users = await db.users.find(
+            {"user_id": {"$in": user_ids}, "expo_push_token": {"$exists": True, "$ne": None}},
+            {"_id": 0, "expo_push_token": 1}
+        ).to_list(100)
+
+        tokens = [
+            u["expo_push_token"] for u in users
+            if u.get("expo_push_token", "").startswith("ExponentPushToken[")
+        ]
+        if not tokens:
+            return
+
+        messages = [
+            {"to": t, "title": title, "body": body, "sound": "default", "data": data or {}}
+            for t in tokens
+        ]
+
+        # Chunk to 100
+        for i in range(0, len(messages), 100):
+            chunk = messages[i:i + 100]
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                await client.post(
+                    EXPO_PUSH_API_URL,
+                    json=chunk,
+                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                )
+    except Exception as e:
+        logger.error(f"Batch push notification error: {e}")
+
+
+@api_router.post("/users/push-token")
+async def register_push_token(
+    data: RegisterPushTokenRequest,
+    user: User = Depends(get_current_user)
+):
+    """Register or update the Expo push notification token for the current user."""
+    token = data.expo_push_token.strip()
+
+    # Accept ExponentPushToken or fcm/apns raw tokens from Expo
+    if not (token.startswith("ExponentPushToken[") or token.startswith("ExpoPushToken[")):
+        raise HTTPException(status_code=400, detail="Invalid Expo push token format")
+
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"expo_push_token": token, "push_token_updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=False,
+    )
+    return {"success": True, "message": "Push token registered"}
+
+
+@api_router.delete("/users/push-token")
+async def unregister_push_token(user: User = Depends(get_current_user)):
+    """Remove push token (on logout)."""
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$unset": {"expo_push_token": "", "push_token_updated_at": ""}}
+    )
+    return {"success": True}
 
 @api_router.get("/ledger/balances")
 async def get_balances(user: User = Depends(get_current_user)):

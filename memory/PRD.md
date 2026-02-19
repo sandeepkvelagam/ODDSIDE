@@ -59,7 +59,7 @@ Build a poker ledger application with web and mobile apps for tracking poker nig
 - Disclaimer and checkbox required
 - Accessible from game page header
 
-### February 2025 - Liquid Glass Design System (PHASE 4 NEARLY COMPLETE)
+### February 2025 - Liquid Glass Design System (PHASES 1-5 COMPLETE)
 - Created `/app/mobile/src/styles/liquidGlass.ts` with complete design tokens
 - Created reusable glass UI components:
   - `GlassSurface` - Card/panel with double-layer glass effect
@@ -78,11 +78,13 @@ Build a poker ledger application with web and mobile apps for tracking poker nig
   - `BillingScreen` - Glass plan cards and menu items
   - `DashboardScreenV2` - Demo card added to help modal
   - `PokerAIScreen` - Added show/hide toggle for your hand (eye icon)
+  - `AIAssistantScreen` - **UPDATED** with liquid glass tokens
 - Created new screen:
   - `AIToolkitScreen` - Based on Screenshot #2 with model chips, canvas, input bar
+- Updated `ThemeContext.tsx` with new colors: `orangeDark`, `trustBlue`, `moonstone`, liquid glass tokens
 - Design system documentation: `/app/mobile/LIQUID_GLASS_DESIGN_SYSTEM.md`
 - Button colors: orangeDark (#C45A22) and trustBlue (#3B82F6) with proper borders
-- Remaining: GroupsScreen, GroupHubScreen, GameNightScreen use ThemeContext glass colors
+- GroupHubScreen, GameNightScreen now have access to orangeDark/trustBlue via ThemeContext
 
 ### Missing Features (Future Tasks)
 - **Spotify/Music**: Not implemented in mobile (web only has Spotify player)

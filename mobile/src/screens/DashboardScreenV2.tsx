@@ -64,6 +64,7 @@ export function DashboardScreenV2() {
   const { toggleDrawer } = useDrawer();
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<any>(null);
+  const [balances, setBalances] = useState<any>({ net_balance: 0, total_you_owe: 0, total_owed_to_you: 0 });
   const [recentGames, setRecentGames] = useState<any[]>([]);
   const [activeGames, setActiveGames] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);

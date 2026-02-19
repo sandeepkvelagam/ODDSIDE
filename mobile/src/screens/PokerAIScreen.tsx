@@ -169,9 +169,22 @@ export function PokerAIScreen() {
 
         {/* Your Hand */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Your Hand</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Your Hand</Text>
+            <TouchableOpacity
+              style={[styles.visibilityToggle, { backgroundColor: colors.glassBg }]}
+              onPress={() => setShowHand(!showHand)}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={showHand ? "eye" : "eye-off"} 
+                size={18} 
+                color={colors.textMuted} 
+              />
+            </TouchableOpacity>
+          </View>
           <View style={styles.cardRow}>
-            {handCards.map((card, idx) => renderCardSlot(card, "hand", idx))}
+            {handCards.map((card, idx) => renderCardSlot(card, "hand", idx, !showHand))}
           </View>
         </View>
 

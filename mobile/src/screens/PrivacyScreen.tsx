@@ -76,11 +76,11 @@ export function PrivacyScreen() {
           ]}
         >
           <GlassIconButton
-            icon={<Ionicons name="close" size={22} color={colors.textPrimary} />}
+            icon={<Ionicons name="chevron-back" size={22} color={colors.textPrimary} />}
             onPress={() => navigation.goBack()}
             variant="ghost"
           />
-          <Text style={styles.headerTitle}>Privacy</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Privacy</Text>
           <View style={{ width: 48 }} />
         </Animated.View>
 

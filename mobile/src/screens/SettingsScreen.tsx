@@ -214,7 +214,7 @@ export function SettingsScreen() {
   };
 
   return (
-    <BottomSheetScreen>
+    <BottomSheetScreen noBorderRadius>
       <View
         testID="settings-screen"
         style={[styles.container, { backgroundColor: colors.contentBg }]}

@@ -47,12 +47,12 @@ export function BillingScreen() {
           ]}
         >
           <GlassIconButton
-            icon={<Ionicons name="close" size={22} color={colors.textPrimary} />}
+            icon={<Ionicons name="chevron-back" size={22} color={colors.textPrimary} />}
             onPress={() => navigation.goBack()}
             variant="ghost"
           />
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Billing</Text>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Billing</Text>
             <View style={styles.comingSoonBadge}>
               <Text style={styles.comingSoonText}>Coming Soon</Text>
             </View>

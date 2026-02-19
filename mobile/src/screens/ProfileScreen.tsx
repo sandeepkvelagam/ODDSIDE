@@ -165,7 +165,7 @@ export function ProfileScreen() {
           ]}
         >
           <GlassIconButton
-            icon={<Ionicons name="close" size={22} color={colors.textPrimary} />}
+            icon={<Ionicons name="chevron-back" size={22} color={colors.textPrimary} />}
             onPress={() => navigation.goBack()}
             variant="ghost"
           />
@@ -257,7 +257,7 @@ export function ProfileScreen() {
           {/* Individual Balances */}
           {!balancesLoading && balances && balances.consolidated.length > 0 && (
             <Animated.View style={{ opacity: fadeAnim }}>
-              <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>INDIVIDUAL BALANCES</Text>
+              <Text style={[styles.sectionTitle, { color: colors.moonstone }]}>INDIVIDUAL BALANCES</Text>
               <GlassSurface style={styles.balancesList}>
                 {balances.consolidated.map((item, index) => (
                   <View
@@ -323,7 +323,7 @@ export function ProfileScreen() {
 
           {/* Profile Section */}
           <Animated.View style={{ opacity: fadeAnim }}>
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>PROFILE DETAILS</Text>
+            <Text style={[styles.sectionTitle, { color: colors.moonstone }]}>PROFILE DETAILS</Text>
             <GlassSurface>
               <GlassInput
                 label="Full Name"
@@ -357,7 +357,7 @@ export function ProfileScreen() {
 
           {/* Danger Zone */}
           <Animated.View style={{ opacity: fadeAnim }}>
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>DANGER ZONE</Text>
+            <Text style={[styles.sectionTitle, { color: colors.moonstone }]}>DANGER ZONE</Text>
             <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount} activeOpacity={0.7}>
               <Ionicons name="trash-outline" size={20} color={COLORS.status.danger} />
               <Text style={styles.deleteText}>Delete account</Text>
@@ -475,13 +475,13 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.bodySmall,
     fontWeight: TYPOGRAPHY.weights.semiBold,
   },
-  // Section
+  // Section - Dashboard style
   sectionTitle: {
-    fontSize: TYPOGRAPHY.sizes.caption,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
+    fontSize: 12,
+    fontWeight: "600",
     letterSpacing: 1,
-    marginBottom: SPACING.md,
-    marginTop: SPACING.lg,
+    marginBottom: 12,
+    marginTop: 20,
   },
   // Balances List
   balancesList: {

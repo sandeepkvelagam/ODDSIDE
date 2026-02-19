@@ -180,10 +180,10 @@ export function NotificationsScreen() {
         {/* Header */}
         <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <TouchableOpacity style={[styles.closeBtn, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]} onPress={() => navigation.goBack()}>
-            <Ionicons name="close" size={22} color={colors.textPrimary} />
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Notifications</Text>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
             {totalBadge > 0 && (
               <View style={styles.headerBadge}>
                 <Text style={styles.headerBadgeText}>{totalBadge}</Text>

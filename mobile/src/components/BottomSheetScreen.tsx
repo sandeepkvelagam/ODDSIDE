@@ -19,6 +19,7 @@ const TOP_VISIBLE_HEIGHT = 24; // How much of the previous screen shows at top
 
 interface BottomSheetScreenProps {
   children: React.ReactNode;
+  noBorderRadius?: boolean;
 }
 
 /**
@@ -30,7 +31,7 @@ interface BottomSheetScreenProps {
  * - Spring slide-up animation
  * - Blur backdrop at top
  */
-export function BottomSheetScreen({ children }: BottomSheetScreenProps) {
+export function BottomSheetScreen({ children, noBorderRadius }: BottomSheetScreenProps) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -99,6 +100,10 @@ export function BottomSheetScreen({ children }: BottomSheetScreenProps) {
             backgroundColor: isDark ? colors.jetDark : colors.contentBg,
             marginTop: TOP_VISIBLE_HEIGHT + insets.top,
             transform: [{ translateY: slideAnim }],
+            ...(noBorderRadius && {
+              borderTopLeftRadius: 0,
+              borderTopRightRadius: 0,
+            }),
           },
         ]}
       >

@@ -53,11 +53,11 @@ export function LanguageScreen() {
           ]}
         >
           <GlassIconButton
-            icon={<Ionicons name="close" size={22} color={colors.textPrimary} />}
+            icon={<Ionicons name="chevron-back" size={22} color={colors.textPrimary} />}
             onPress={() => navigation.goBack()}
             variant="ghost"
           />
-          <Text style={styles.headerTitle}>{t.settings.language}</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t.settings.language}</Text>
           <View style={{ width: 48 }} />
         </Animated.View>
 

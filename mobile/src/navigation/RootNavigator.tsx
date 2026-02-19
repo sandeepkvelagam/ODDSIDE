@@ -147,7 +147,8 @@ export default function RootNavigator() {
                 component={SettingsScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "slide_from_bottom",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -155,7 +156,8 @@ export default function RootNavigator() {
                 component={ProfileScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "slide_from_bottom",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -163,7 +165,8 @@ export default function RootNavigator() {
                 component={NotificationsScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "slide_from_bottom",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -171,7 +174,8 @@ export default function RootNavigator() {
                 component={PrivacyScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "slide_from_bottom",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -179,7 +183,8 @@ export default function RootNavigator() {
                 component={BillingScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "slide_from_bottom",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -187,7 +192,8 @@ export default function RootNavigator() {
                 component={LanguageScreen}
                 options={{
                   headerShown: false,
-                  animation: "slide_from_right",
+                  animation: "slide_from_bottom",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen

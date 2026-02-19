@@ -141,8 +141,8 @@ export function BillingScreen() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
-      </SafeAreaView>
-    </View>
+      </View>
+    </BottomSheetScreen>
   );
 }
 
@@ -151,15 +151,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.jetDark,
   },
-  safeArea: {
-    flex: 1,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: SPACING.container,
     paddingVertical: SPACING.md,
+    paddingTop: 16,
   },
   headerCenter: {
     flexDirection: "row",

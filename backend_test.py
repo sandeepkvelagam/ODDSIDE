@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 import uuid
 
 class KvittAPITester:
-    def __init__(self, base_url: str = "https://glass-ui-refactor.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://mobile-redesign-14.preview.emergentagent.com"):
         self.base_url = base_url
         self.session_token = None
         self.user_id = None

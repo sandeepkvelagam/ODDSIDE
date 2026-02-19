@@ -22,8 +22,8 @@ Create `/app/mobile/.env`:
 ```bash
 EXPO_PUBLIC_SUPABASE_URL=https://hbqngvptbuvocjrozcgw.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_7QRLcLUP1gucdsenXw780w_FMrmmQw0
-EXPO_PUBLIC_API_URL=https://glass-ui-refactor.preview.emergentagent.com/api
-EXPO_PUBLIC_SOCKET_URL=https://glass-ui-refactor.preview.emergentagent.com
+EXPO_PUBLIC_API_URL=https://mobile-redesign-14.preview.emergentagent.com/api
+EXPO_PUBLIC_SOCKET_URL=https://mobile-redesign-14.preview.emergentagent.com
 ```
 
 ### 2. Run Mobile App

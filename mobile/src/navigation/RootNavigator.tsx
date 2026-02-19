@@ -213,6 +213,7 @@ export default function RootNavigator() {
                 options={{
                   headerShown: false,
                   animation: "slide_from_bottom",
+                  presentation: "transparentModal",
                 }}
               />
               <Stack.Screen
@@ -231,6 +232,7 @@ export default function RootNavigator() {
                 options={{
                   headerShown: false,
                   animation: "slide_from_bottom",
+                  presentation: "transparentModal",
                 }}
               />
             </>

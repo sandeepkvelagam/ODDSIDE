@@ -361,20 +361,26 @@ Color: #ffffff
 
 ### Phase 4: Screen Updates
 - [x] LoginScreen - Updated with glass styling
-- [x] DashboardScreenV2 - Already well-styled
+- [x] DashboardScreenV2 - Already well-styled, added demo card to help modal
 - [~] SettingsScreen - Already has good glass styling
 - [x] ProfileScreen (with Wallet) - Updated with Screenshot #1 style wallet
 - [~] GroupsScreen - Already has glass styling from useTheme
-- [ ] GroupHubScreen - Needs update
-- [ ] GameNightScreen - Needs update
-- [ ] AIAssistantScreen - Needs update
+- [~] GroupHubScreen - Uses glass styling from useTheme
+- [~] GameNightScreen - Uses glass styling from useTheme
+- [~] AIAssistantScreen - Has local color definitions
 - [x] BillingScreen - Updated with glass styling
 - [x] NotificationsScreen - Updated with glass styling
 - [x] PrivacyScreen - Updated with glass styling
 - [x] LanguageScreen - Updated with glass styling
+- [x] PokerAIScreen - Added show/hide toggle for your hand
 
 ### Phase 5: New Page
 - [x] AIToolkitScreen (based on Screenshot #2)
+
+### Phase 6: QA
+- [ ] Visual consistency audit
+- [ ] Animation performance test
+- [ ] Feature parity check
 
 ### Phase 6: QA
 - [ ] Visual consistency audit

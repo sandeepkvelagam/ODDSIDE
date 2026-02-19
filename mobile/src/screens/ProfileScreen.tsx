@@ -153,8 +153,8 @@ export function ProfileScreen() {
   const profileChanged = fullName !== (user?.name || "") || nickname !== (user?.nickname || user?.name?.split(" ")[0] || "");
 
   return (
-    <View style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <BottomSheetScreen>
+      <View style={styles.container}>
         {/* Header */}
         <Animated.View
           style={[
@@ -163,7 +163,7 @@ export function ProfileScreen() {
           ]}
         >
           <GlassIconButton
-            icon={<Ionicons name="chevron-back" size={22} color={COLORS.text.primary} />}
+            icon={<Ionicons name="close" size={22} color={COLORS.text.primary} />}
             onPress={() => navigation.goBack()}
             variant="ghost"
           />

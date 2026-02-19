@@ -5,19 +5,18 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Alert,
   ActivityIndicator,
   RefreshControl,
   Animated,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { GlassSurface, GlassButton, GlassIconButton, GlassInput } from "../components/ui";
+import { BottomSheetScreen } from "../components/BottomSheetScreen";
 
 type ConsolidatedBalance = {
   user: { user_id: string; name: string; picture?: string };

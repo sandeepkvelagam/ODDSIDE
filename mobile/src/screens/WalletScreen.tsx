@@ -25,7 +25,6 @@ import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquid
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
 import { QRCodeDisplay } from "../components/ui/QRCodeDisplay";
 import { QRCodeScanner } from "../components/ui/QRCodeScanner";
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type WalletData = {

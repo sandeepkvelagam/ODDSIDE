@@ -152,7 +152,7 @@ export function GroupsScreen() {
           <Ionicons name="people-outline" size={48} color={colors.textMuted} />
           <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No Groups Yet</Text>
           <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
-            Create a group to start playing with friends
+            Create a group or accept an invite to start playing
           </Text>
           <TouchableOpacity
             style={[styles.emptyCreateButton, { backgroundColor: colors.orange }]}
@@ -161,6 +161,14 @@ export function GroupsScreen() {
           >
             <Ionicons name="add" size={20} color="#fff" />
             <Text style={styles.emptyCreateText}>Create Group</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.emptyCreateButton, { backgroundColor: colors.glassBg, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 4 }]}
+            onPress={() => navigation.navigate("Notifications")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="mail-open-outline" size={20} color={colors.orange} />
+            <Text style={[styles.emptyCreateText, { color: colors.orange }]}>View Invites</Text>
           </TouchableOpacity>
         </View>
       ) : (

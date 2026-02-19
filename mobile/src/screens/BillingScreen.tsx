@@ -1,147 +1,139 @@
 import React, { useRef, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Animated,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Linking } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
-import { GlassIconButton, GlassSurface } from "../components/ui";
+import { PageHeader } from "../components/ui";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
 import { useTheme } from "../context/ThemeContext";
+
+const PLAN_FEATURES = [
+  { icon: "people-outline", text: "Unlimited groups & members" },
+  { icon: "game-controller-outline", text: "Unlimited games" },
+  { icon: "sparkles-outline", text: "AI Poker Assistant" },
+  { icon: "wallet-outline", text: "Kvitt Wallet" },
+];
 
 export function BillingScreen() {
   const navigation = useNavigation();
   const { colors } = useTheme();
 
-  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        ...ANIMATION.spring.bouncy,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, ...ANIMATION.spring.bouncy }),
     ]).start();
   }, []);
 
   return (
     <BottomSheetScreen>
       <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
-        {/* Header */}
-        <Animated.View
-          style={[
-            styles.header,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          <GlassIconButton
-            icon={<Ionicons name="chevron-back" size={22} color={colors.textPrimary} />}
-            onPress={() => navigation.goBack()}
-            variant="ghost"
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          <PageHeader
+            title="Billing"
+            subtitle="Subscription & payments"
+            onClose={() => navigation.goBack()}
           />
-          <View style={styles.headerCenter}>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Billing</Text>
-            <View style={styles.comingSoonBadge}>
-              <Text style={styles.comingSoonText}>Coming Soon</Text>
-            </View>
-          </View>
-          <View style={{ width: 48 }} />
         </Animated.View>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-            {/* Coming Soon Notice */}
-            <GlassSurface glowVariant="orange" style={styles.noticeCard}>
-              <View style={styles.noticeIcon}>
-                <Ionicons name="time" size={32} color={COLORS.orange} />
-              </View>
-              <Text style={styles.noticeTitle}>Premium Features</Text>
-              <Text style={styles.noticeDesc}>
-                We're working on exciting premium features. Stay tuned for updates!
-              </Text>
-            </GlassSurface>
 
-            {/* Current Plan */}
-            <Text style={styles.sectionTitle}>CURRENT PLAN</Text>
-            <GlassSurface style={styles.planCard}>
-              <View style={styles.planHeader}>
-                <View style={[styles.planIcon, { backgroundColor: COLORS.glass.glowGreen }]}>
-                  <Ionicons name="diamond" size={24} color={COLORS.status.success} />
+            {/* ── Current Plan ── */}
+            <View style={[styles.planHero, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.planHeroTop}>
+                <View style={styles.planIconWrap}>
+                  <Ionicons name="diamond" size={26} color={COLORS.status.success} />
                 </View>
-                <View style={styles.planInfo}>
-                  <Text style={styles.planName}>Free Plan</Text>
-                  <Text style={styles.planPrice}>$0.00/month</Text>
-                </View>
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeText}>Active</Text>
+                <View style={styles.planHeroInfo}>
+                  <View style={styles.planNameRow}>
+                    <Text style={[styles.planName, { color: colors.textPrimary }]}>Free Plan</Text>
+                    <View style={styles.activePill}>
+                      <Text style={styles.activePillText}>Active</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.planPrice, { color: colors.textMuted }]}>$0.00 / month</Text>
                 </View>
               </View>
-              <View style={styles.planFeatures}>
-                <View style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={18} color={COLORS.status.success} />
-                  <Text style={styles.featureText}>Unlimited groups</Text>
-                </View>
-                <View style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={18} color={COLORS.status.success} />
-                  <Text style={styles.featureText}>Unlimited games</Text>
-                </View>
-                <View style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={18} color={COLORS.status.success} />
-                  <Text style={styles.featureText}>AI Poker Assistant</Text>
-                </View>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <View style={styles.featureGrid}>
+                {PLAN_FEATURES.map((f, i) => (
+                  <View key={i} style={styles.featureRow}>
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.status.success} />
+                    <Text style={[styles.featureText, { color: colors.textSecondary }]}>{f.text}</Text>
+                  </View>
+                ))}
               </View>
-            </GlassSurface>
+            </View>
 
-            {/* Menu Items */}
-            <Text style={styles.sectionTitle}>SUBSCRIPTION OPTIONS</Text>
-            <GlassSurface noPadding>
-              <TouchableOpacity
-                style={[styles.menuItem, styles.borderBottom]}
-                activeOpacity={0.7}
-                disabled
-              >
-                <View style={[styles.menuIcon, { backgroundColor: COLORS.glass.glowBlue }]}>
-                  <Ionicons name="card" size={18} color={COLORS.trustBlue} />
-                </View>
-                <Text style={styles.menuLabel}>Manage subscription</Text>
-                <View style={styles.menuBadge}>
-                  <Text style={styles.menuBadgeText}>Soon</Text>
-                </View>
-              </TouchableOpacity>
+            {/* ── Coming Soon Banner ── */}
+            <View style={[styles.bannerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.bannerIcon}>
+                <Ionicons name="time-outline" size={24} color={COLORS.orange} />
+              </View>
+              <View style={styles.bannerText}>
+                <Text style={[styles.bannerTitle, { color: colors.textPrimary }]}>Premium Features Coming</Text>
+                <Text style={[styles.bannerDesc, { color: colors.textMuted }]}>
+                  Advanced analytics, priority support, and unlimited AI credits are on the way.
+                </Text>
+              </View>
+            </View>
 
-              <TouchableOpacity
-                style={styles.menuItem}
-                activeOpacity={0.7}
-                disabled
-              >
-                <View style={[styles.menuIcon, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
-                  <Ionicons name="refresh" size={18} color="#A855F7" />
-                </View>
-                <Text style={styles.menuLabel}>Restore purchases</Text>
-                <View style={styles.menuBadge}>
-                  <Text style={styles.menuBadgeText}>Soon</Text>
-                </View>
-              </TouchableOpacity>
-            </GlassSurface>
+            {/* ── Subscription Options ── */}
+            <Text style={[styles.sectionLabel, { color: colors.moonstone }]}>SUBSCRIPTION OPTIONS</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {[
+                { icon: "card-outline", color: COLORS.trustBlue, label: "Manage subscription", sub: "Upgrade or cancel your plan" },
+                { icon: "refresh-outline", color: "#A855F7", label: "Restore purchases", sub: "Restore previous app purchases" },
+              ].map((item, i, arr) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={[styles.menuRow, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+                  disabled
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.menuIcon, { backgroundColor: item.color + "20" }]}>
+                    <Ionicons name={item.icon as any} size={18} color={item.color} />
+                  </View>
+                  <View style={styles.menuText}>
+                    <Text style={[styles.menuLabel, { color: colors.textMuted }]}>{item.label}</Text>
+                    <Text style={[styles.menuSub, { color: colors.textMuted }]}>{item.sub}</Text>
+                  </View>
+                  <View style={styles.soonPill}>
+                    <Text style={styles.soonText}>Soon</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* ── Links ── */}
+            <Text style={[styles.sectionLabel, { color: colors.moonstone }]}>LEGAL</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {[
+                { icon: "document-text-outline", label: "Terms of Service", url: "https://kvitt.app/terms" },
+                { icon: "shield-outline", label: "Privacy Policy", url: "https://kvitt.app/privacy" },
+                { icon: "document-outline", label: "Acceptable Use Policy", url: "https://kvitt.app/acceptable-use" },
+              ].map((item, i, arr) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={[styles.menuRow, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+                  onPress={() => Linking.openURL(item.url)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.menuIcon, { backgroundColor: COLORS.glass.glowOrange }]}>
+                    <Ionicons name={item.icon as any} size={18} color={COLORS.orange} />
+                  </View>
+                  <Text style={[styles.menuLabel, { color: colors.textPrimary, flex: 1 }]}>{item.label}</Text>
+                  <Ionicons name="open-outline" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
           </Animated.View>
-
-          <View style={{ height: 40 }} />
+          <View style={{ height: 50 }} />
         </ScrollView>
       </View>
     </BottomSheetScreen>
@@ -149,168 +141,62 @@ export function BillingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scroll: { flex: 1 },
+  content: { padding: 20, paddingBottom: 32 },
+
+  planHero: {
+    borderRadius: 20, borderWidth: 1, padding: 20, marginBottom: 16,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: SPACING.container,
-    paddingVertical: SPACING.md,
-    paddingTop: 16,
+  planHeroTop: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 16 },
+  planIconWrap: {
+    width: 52, height: 52, borderRadius: 14,
+    backgroundColor: COLORS.glass.glowGreen, alignItems: "center", justifyContent: "center",
   },
-  headerCenter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
+  planHeroInfo: { flex: 1 },
+  planNameRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+  planName: { fontSize: 18, fontWeight: "700" },
+  activePill: {
+    backgroundColor: COLORS.glass.glowGreen, borderRadius: 20,
+    paddingHorizontal: 8, paddingVertical: 3,
   },
-  headerTitle: {
-    color: COLORS.text.primary,
-    fontSize: TYPOGRAPHY.sizes.heading3,
-    fontWeight: TYPOGRAPHY.weights.bold,
+  activePillText: { color: COLORS.status.success, fontSize: 11, fontWeight: "700" },
+  planPrice: { fontSize: 14 },
+  divider: { height: 1, marginBottom: 16 },
+  featureGrid: { gap: 10 },
+  featureRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  featureText: { fontSize: 14 },
+
+  bannerCard: {
+    borderRadius: 16, borderWidth: 1, padding: 16, flexDirection: "row",
+    alignItems: "flex-start", gap: 14, marginBottom: 8,
   },
-  comingSoonBadge: {
-    backgroundColor: COLORS.orange,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.full,
+  bannerIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: COLORS.glass.glowOrange, alignItems: "center", justifyContent: "center",
   },
-  comingSoonText: {
-    color: "#fff",
-    fontSize: TYPOGRAPHY.sizes.micro,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
+  bannerText: { flex: 1 },
+  bannerTitle: { fontSize: 15, fontWeight: "600", marginBottom: 4 },
+  bannerDesc: { fontSize: 13, lineHeight: 18 },
+
+  sectionLabel: {
+    fontSize: 11, fontWeight: "600", letterSpacing: 1,
+    marginTop: 24, marginBottom: 10, textTransform: "uppercase",
   },
-  scrollView: {
-    flex: 1,
+  card: { borderRadius: 20, borderWidth: 1, overflow: "hidden" },
+  menuRow: {
+    flexDirection: "row", alignItems: "center", padding: 16, gap: 14,
   },
-  scrollContent: {
-    padding: SPACING.container,
+  menuIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  menuText: { flex: 1 },
+  menuLabel: { fontSize: 15, fontWeight: "500" },
+  menuSub: { fontSize: 12, marginTop: 2 },
+  soonPill: {
+    backgroundColor: COLORS.glass.bg, borderRadius: 10,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: COLORS.glass.border,
   },
-  // Notice Card
-  noticeCard: {
-    alignItems: "center",
-    marginBottom: SPACING.lg,
-  },
-  noticeIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.glass.glowOrange,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: SPACING.md,
-  },
-  noticeTitle: {
-    color: COLORS.text.primary,
-    fontSize: TYPOGRAPHY.sizes.heading3,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
-    marginBottom: SPACING.xs,
-  },
-  noticeDesc: {
-    color: COLORS.text.muted,
-    fontSize: TYPOGRAPHY.sizes.bodySmall,
-    textAlign: "center",
-    maxWidth: 280,
-    lineHeight: 20,
-  },
-  // Section
-  sectionTitle: {
-    color: COLORS.moonstone,
-    fontSize: TYPOGRAPHY.sizes.caption,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
-    letterSpacing: 1,
-    marginBottom: SPACING.md,
-    marginTop: SPACING.lg,
-  },
-  // Plan Card
-  planCard: {},
-  planHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: SPACING.lg,
-    gap: SPACING.md,
-  },
-  planIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  planInfo: {
-    flex: 1,
-  },
-  planName: {
-    color: COLORS.text.primary,
-    fontSize: TYPOGRAPHY.sizes.body,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
-  },
-  planPrice: {
-    color: COLORS.text.muted,
-    fontSize: TYPOGRAPHY.sizes.caption,
-    marginTop: 2,
-  },
-  activeBadge: {
-    backgroundColor: COLORS.glass.glowGreen,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.full,
-  },
-  activeText: {
-    color: COLORS.status.success,
-    fontSize: TYPOGRAPHY.sizes.caption,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
-  },
-  planFeatures: {
-    gap: SPACING.sm,
-  },
-  featureRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
-  },
-  featureText: {
-    color: COLORS.text.secondary,
-    fontSize: TYPOGRAPHY.sizes.bodySmall,
-  },
-  // Menu Items
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.cardPadding,
-    gap: SPACING.md,
-  },
-  borderBottom: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.glass.border,
-  },
-  menuIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  menuLabel: {
-    flex: 1,
-    color: COLORS.text.muted,
-    fontSize: TYPOGRAPHY.sizes.body,
-  },
-  menuBadge: {
-    backgroundColor: COLORS.glass.bg,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: COLORS.glass.border,
-  },
-  menuBadgeText: {
-    color: COLORS.text.muted,
-    fontSize: TYPOGRAPHY.sizes.micro,
-    fontWeight: TYPOGRAPHY.weights.medium,
-  },
+  soonText: { color: COLORS.text.muted, fontSize: 11, fontWeight: "600" },
 });
 
 export default BillingScreen;

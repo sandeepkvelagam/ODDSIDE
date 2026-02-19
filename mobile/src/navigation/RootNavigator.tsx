@@ -21,6 +21,7 @@ import { LanguageScreen } from "../screens/LanguageScreen";
 import { AIAssistantScreen } from "../screens/AIAssistantScreen";
 import { SettlementScreen } from "../screens/SettlementScreen";
 import { PokerAIScreen } from "../screens/PokerAIScreen";
+import { AIToolkitScreen } from "../screens/AIToolkitScreen";
 
 export type RootStackParamList = {
   Login: undefined;

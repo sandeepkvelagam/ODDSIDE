@@ -208,6 +208,14 @@ export default function RootNavigator() {
                 component={PokerAIScreen}
                 options={{ title: "Poker AI", headerBackTitle: "" }}
               />
+              <Stack.Screen
+                name="AIToolkit"
+                component={AIToolkitScreen}
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_bottom",
+                }}
+              />
             </>
           )}
         </Stack.Navigator>

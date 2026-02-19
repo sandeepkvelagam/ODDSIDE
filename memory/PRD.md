@@ -63,23 +63,30 @@ Build a poker ledger application with web and mobile apps for tracking poker nig
 - Created `/app/mobile/src/styles/liquidGlass.ts` with complete design tokens
 - Created reusable glass UI components:
   - `GlassSurface` - Card/panel with double-layer glass effect
-  - `GlassButton` - Button with spring press animations
+  - `GlassButton` - Button with spring press animations (0.95 scale + bounce back)
   - `GlassInput` - Text input with glass styling and focus glow
   - `GlassModal` / `GlassBottomSheet` - Modal with spring animations
   - `GlassListItem` - List row with press animation
   - `SkeletonLoader` - Loading placeholder with shimmer
   - `KvittLogo` - Kvitt branding component (SVG)
 - Updated screens with Liquid Glass styling:
-  - `LoginScreen` - Glass inputs, matching web app poker suits theme
-  - `ProfileScreen` - Wallet balance section (Screenshot #1 style) with avatars, Receive/Send buttons
+  - `LoginScreen` - Glass inputs, matching web app poker suits theme, Kvitt logo
+  - `ProfileScreen` - Wallet balance section (Screenshot #1 style) with avatars, Receive/Send
   - `LanguageScreen` - Glass list items with press animations
   - `NotificationsScreen` - Glass toggle cards with icons
   - `PrivacyScreen` - Glass info cards and toggle sections
   - `BillingScreen` - Glass plan cards and menu items
+  - `DashboardScreenV2` - Demo card added to help modal
+  - `PokerAIScreen` - Added show/hide toggle for your hand (eye icon)
 - Created new screen:
-  - `AIToolkitScreen` - Based on Screenshot #2 with model chips, canvas, and input bar
+  - `AIToolkitScreen` - Based on Screenshot #2 with model chips, canvas, input bar
 - Design system documentation: `/app/mobile/LIQUID_GLASS_DESIGN_SYSTEM.md`
-- Remaining screens (already using useTheme glass colors): GroupsScreen, GroupHubScreen, GameNightScreen, AIAssistantScreen, SettingsScreen
+- Button colors: orangeDark (#C45A22) and trustBlue (#3B82F6) with proper borders
+- Remaining: GroupsScreen, GroupHubScreen, GameNightScreen use ThemeContext glass colors
+
+### Missing Features (Future Tasks)
+- **Spotify/Music**: Not implemented in mobile (web only has Spotify player)
+- **Voice Command Business Logic**: Transcription works, needs game integration
 
 ---
 

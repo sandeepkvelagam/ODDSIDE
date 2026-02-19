@@ -111,10 +111,10 @@ export function setupNotificationListeners(
 
   return () => {
     if (notificationSubscription) {
-      Notifications.removeNotificationSubscription(notificationSubscription);
+      notificationSubscription.remove();
     }
     if (responseSubscription) {
-      Notifications.removeNotificationSubscription(responseSubscription);
+      responseSubscription.remove();
     }
   };
 }

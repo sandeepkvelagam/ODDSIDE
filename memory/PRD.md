@@ -1,192 +1,126 @@
-# Kvitt Poker Ledger - Product Requirements Document
+# Kvitt — Product Requirements Document
 
 ## Original Problem Statement
-Build a poker ledger application with web and mobile apps for tracking poker nights, buy-ins, cash-outs, and settlements. The app should allow users to create groups, host games, manage players, and automatically calculate who owes whom at the end.
+Full-stack poker group settlement app with React frontend, FastAPI backend, MongoDB, and React Native (Expo) mobile app. The mobile app is undergoing a "Dashboard v2 Mobile — Liquid Glass Styling + Motion System" overhaul. All mobile screens should match a "Liquid Glass" aesthetic with spring-based animations for a premium feel, ensuring feature parity with the web application.
+
+## App Architecture
+```
+/app
+├── frontend/          # React web app
+├── backend/           # FastAPI + MongoDB
+└── mobile/            # React Native (Expo)
+    ├── src/
+    │   ├── components/
+    │   │   ├── ui/             # Reusable Liquid Glass components
+    │   │   └── BottomSheetScreen.tsx
+    │   ├── screens/            # All app screens
+    │   ├── styles/
+    │   │   └── liquidGlass.ts  # Design tokens
+    │   ├── navigation/
+    │   │   └── RootNavigator.tsx
+    │   └── context/
+    │       └── ThemeContext.tsx
+    └── LIQUID_GLASS_DESIGN_SYSTEM.md
+```
 
 ## User Personas
-1. **Host**: Creates and manages poker games, controls buy-ins/cash-outs, settles games
-2. **Player**: Joins games, requests buy-ins, cashes out, views their stats
-3. **Group Admin**: Manages group membership, invites players
+- Poker group organizers managing buy-ins, cash-outs, and settlements
+- Group members tracking their P&L and settling debts
+- Players using the AI poker assistant for game analysis
 
 ## Core Requirements
-- User authentication (Supabase)
-- Group creation and management
-- Game night creation and hosting
-- Real-time buy-in/cash-out tracking
-- Automatic settlement calculation
-- Game history and stats
-- Mobile app (Expo/React Native)
-
----
+1. Mobile app Liquid Glass design system on all screens
+2. Full Wallet functionality (create, send, receive, PIN protection, transaction history)
+3. Group management: create group, invite members, accept/reject invites
+4. Game management: create game, track buy-ins/cash-outs, settle
+5. AI features: poker assistant, hand analysis, AI toolkit
+6. Notifications: group invites, game updates, settlements
 
 ## What's Been Implemented
 
-### December 2024 - Web App Core ✅
-- Full authentication with Supabase
-- Group CRUD operations
-- Game night management
-- Real-time WebSocket updates
-- Player buy-ins and cash-outs
-- Settlement calculation
-- Game history and stats
-- Premium features with Stripe
-- AI Assistant (chat-based help)
+### Web App (Complete)
+- Dashboard with stats, recent games, balance overview
+- Groups management with invite system
+- Game night tracking (buy-ins, cash-outs, settlements)
+- Settlement generation and ledger system
+- AI Assistant (GPT-4o), Voice Commands (Whisper)
+- Spotify integration, Wallet system (backend complete)
+- Supabase authentication
 
-### February 2025 - Mobile App Fixes ✅
-- Fixed mobile auth 401 errors (sync-user integration)
-- Refactored navigation to drawer style
-- Created AuthContext for mobile
-- Fixed API endpoint URLs in DashboardScreen
+### Mobile App — Liquid Glass Design System (Complete)
+- Design tokens in `/app/mobile/src/styles/liquidGlass.ts`
+- Reusable components: `GlassSurface`, `GlassButton`, `BottomSheetScreen`
+- Login screen with charcoal theme and poker suits background
+- Dashboard V2 with 3-column stats layout, help modal
+- AI Toolkit screen (new)
+- Poker AI screen with card visibility toggle
+- All settings/profile/privacy/billing pages as BottomSheetScreens with transparent modal presentation
 
-### February 2025 - Spotify Integration (On Hold)
-- Backend OAuth2 flow built
-- Frontend component built
-- **STATUS**: On hold due to Spotify API restrictions (5 user limit)
-- Changed to "Coming Soon" banner
+### Mobile App — Wallet (Complete - Dec 2025)
+- Full wallet setup flow: intro → create → PIN setup → active
+- View balance, wallet ID display
+- Send money: search recipient → amount → PIN confirm → success
+- Receive: display wallet ID for sharing
+- Transaction history list
+- Backend: All endpoints fully functional (setup, PIN, transfer, transactions, search)
 
-### February 2025 - AI Poker Assistant ✅
-- Backend endpoint: `POST /api/poker/analyze`
-- Uses GPT-4o-mini for fast analysis
-- Frontend modal: Card selector UI
+### Mobile App — Notifications & Group Invites (Complete - Dec 2025)
+- Pending group invites with Accept/Reject buttons
+- Activity feed with notification history  
+- Push notification settings toggles
+- Groups screen has "Invites" shortcut to Notifications
 
-### December 2025 - Voice Commands & Multi-Language ✅
-- Backend endpoint: `POST /api/voice/transcribe` using OpenAI Whisper
-- Multi-language support: EN, ES, FR, DE, HI, PT, ZH
-- Mobile LanguageContext for state management with AsyncStorage persistence
-- Voice commands: buy_in, rebuy, cash_out, start_game, end_game, check_balance, ai_help
-- Mobile SettingsScreen voice modal with expo-av Audio.Recording
-- Returns: action, potential, reasoning
-- Disclaimer and checkbox required
-- Accessible from game page header
+### Mobile App — Navigation (Complete - Dec 2025)
+- All bottom sheet screens use `presentation: "transparentModal"` for see-through modal effect
+- TypeScript compiles with 0 errors (glassBg property fixed)
 
-### February 2025 - Liquid Glass Design System (ALL PHASES COMPLETE)
-- Created `/app/mobile/src/styles/liquidGlass.ts` with complete design tokens
-- Created reusable glass UI components:
-  - `GlassSurface` - Card/panel with double-layer glass effect
-  - `GlassButton` - Button with spring press animations (0.95 scale + bounce back)
-  - `GlassInput` - Text input with glass styling and focus glow
-  - `GlassModal` / `GlassBottomSheet` - Modal with spring animations
-  - `GlassListItem` - List row with press animation
-  - `SkeletonLoader` - Loading placeholder with shimmer
-  - `KvittLogo` - Kvitt branding component (SVG)
-  - `BottomSheetScreen` - **NEW** Screen wrapper with curved top corners, transparent backdrop
-- Updated screens with Liquid Glass styling:
-  - `LoginScreen` - Glass inputs, matching web app poker suits theme, Kvitt logo
-  - `ProfileScreen` - Wallet balance section (Screenshot #1 style) + **bottom sheet presentation**
-  - `SettingsScreen` - **Bottom sheet presentation** with curved top corners
-  - `LanguageScreen` - Glass list items + **bottom sheet presentation**
-  - `NotificationsScreen` - Glass toggle cards + **bottom sheet presentation**
-  - `PrivacyScreen` - Glass info cards + **bottom sheet presentation**
-  - `BillingScreen` - Glass plan cards + **bottom sheet presentation**
-  - `DashboardScreenV2` - Demo card added to help modal
-  - `PokerAIScreen` - Added show/hide toggle for your hand (eye icon)
-  - `AIAssistantScreen` - Fully updated with liquidGlass tokens
-- Created new screen:
-  - `AIToolkitScreen` - Based on Screenshot #2 with model chips, canvas, input bar
-- Updated `ThemeContext.tsx` with new colors: `orangeDark`, `trustBlue`, `moonstone`, liquid glass tokens
-- Navigation updated: Settings/Profile pages now use `presentation: "transparentModal"` with `slide_from_bottom`
-- All close buttons changed from chevron-back to X (close) icon
-- Design system documentation: `/app/mobile/LIQUID_GLASS_DESIGN_SYSTEM.md`
+## Tech Stack
+- **Frontend**: React, TypeScript, TailwindCSS
+- **Backend**: FastAPI, MongoDB, Supabase Auth
+- **Mobile**: React Native (Expo), TypeScript, react-native-reanimated, expo-blur, expo-linear-gradient
+- **AI**: OpenAI GPT-4o, Whisper
+- **Auth**: Supabase
 
-### Missing Features (Future Tasks)
-- **Spotify/Music**: Has "Coming Soon" badge in GameNightScreen
-- **Voice Command Business Logic**: Transcription works, needs game integration
+## 3rd Party Integrations
+- Supabase: Authentication
+- MongoDB: Database
+- OpenAI GPT-4o / Whisper: AI features
+- Spotify: Music player (Web only)
+
+## Credentials for Testing
+- Email: sandeep.kmr8384@gmail.com
+- Password: Padma@8384
 
 ---
 
-## Pending Issues
+# CHANGELOG
 
-### P0 - Critical
-- None currently
-
-### P1 - High Priority  
-- Fix game history view on mobile
-- Implement "create game" flow on mobile
-- Fix/implement "join group" flow on mobile
-
-### P2 - Medium Priority
-- User profile editing on mobile
-- Spotify integration (when API restrictions lifted)
-- Apple Music integration
+## December 2025 — Mobile Liquid Glass Overhaul & Wallet/Invites
+- Fixed TypeScript build error in DashboardScreenV2.tsx (glassBg property)
+- Implemented full WalletScreen with create/setup flow, send/receive, transaction history
+- Updated NotificationsScreen with pending group invites (accept/reject), activity feed
+- GroupsScreen now has "Invites" button navigating to Notifications
+- All modal screens (Settings, Profile, Wallet, Notifications, AIAssistant, AIToolkit, etc.) now use `presentation: "transparentModal"`
+- TypeScript compiles clean (0 errors)
 
 ---
 
-## Technical Architecture
+# ROADMAP
 
-### Backend (FastAPI)
-- `/app/backend/server.py` - Main API
-- `/app/backend/ai_assistant.py` - AI chat assistant
-- MongoDB collections: users, groups, game_nights, players, transactions, ledger, spotify_tokens
-- Supabase JWT authentication
-- WebSocket for real-time updates
+## P0 — Next
+- [ ] Phase 6 QA Pass: Visual QA on all mobile screens (layout/spacing/theme consistency)
+- [ ] AI Assistant visibility toggle (show/hide chat interface)
+- [ ] Create Game quick flow from Dashboard (Group selection sheet)
 
-### Web Frontend (React)
-- `/app/frontend/src/` - React app with Tailwind/shadcn
-- Key pages: Dashboard, Groups, GroupHub, GameNight, Settlement
-- Components: PokerAIAssistant, SpotifyPlayer, AIAssistant, Navbar
+## P1 — Upcoming
+- [ ] Voice command business logic implementation
+- [ ] GroupHubScreen and GameNightScreen refactor to use Liquid Glass components
+- [ ] Blinds Timer feature
+- [ ] Game invite notifications → navigate to correct game
 
-### Mobile App (Expo/React Native)
-- `/app/mobile/src/` - Expo app
-- Drawer navigation
-- AuthContext for Supabase integration
-
-### Environment Variables
-```
-# Backend
-MONGO_URL, DB_NAME, SUPABASE_URL, SUPABASE_JWT_SECRET
-EMERGENT_LLM_KEY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
-
-# Frontend  
-REACT_APP_BACKEND_URL
-
-# Mobile
-EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_API_URL
-```
-
----
-
-## Key API Endpoints
-
-### Auth
-- `POST /api/auth/sync-user` - Sync Supabase user to MongoDB
-
-### Groups
-- `GET/POST /api/groups` - List/Create groups
-- `GET /api/groups/:id` - Group details
-- `POST /api/groups/:id/join` - Join group
-
-### Games
-- `GET/POST /api/games` - List/Create games
-- `PUT /api/games/:id/start` - Start game
-- `PUT /api/games/:id/end` - End game
-- `POST /api/games/:id/buy-in` - Process buy-in
-- `POST /api/games/:id/cash-out` - Process cash-out
-
-### AI
-- `POST /api/assistant/ask` - Chat assistant
-- `POST /api/poker/analyze` - Poker hand analysis
-
-### Spotify (On Hold)
-- `GET /api/spotify/auth-url` - Get OAuth URL
-- `POST /api/spotify/token` - Exchange code for token
-- Playback endpoints (play, pause, etc.)
-
----
-
-## Files of Reference
-- `/app/backend/server.py` - All API endpoints
-- `/app/frontend/src/pages/GameNight.jsx` - Main game page
-- `/app/frontend/src/components/PokerAIAssistant.jsx` - AI poker helper
-- `/app/frontend/src/components/SpotifyPlayer.jsx` - Music player (coming soon)
-- `/app/mobile/src/context/AuthContext.tsx` - Mobile auth
-- `/app/mobile/src/screens/DashboardScreen.tsx` - Mobile dashboard
-- `/app/mobile/src/screens/DashboardScreenV2.tsx` - V2 dashboard with liquid glass
-- `/app/mobile/src/screens/LoginScreen.tsx` - Updated login with glass styling
-- `/app/mobile/src/screens/AIToolkitScreen.tsx` - New AI toolkit page
-- `/app/mobile/src/styles/liquidGlass.ts` - Design system tokens
-- `/app/mobile/src/components/ui/` - Glass UI components
-- `/app/mobile/LIQUID_GLASS_DESIGN_SYSTEM.md` - Design system documentation
-- `/app/mobile/src/i18n/translations.ts` - Multi-language strings (7 languages)
-- `/app/mobile/src/context/LanguageContext.tsx` - Language state management
-- `/app/mobile/src/screens/LanguageScreen.tsx` - Language selection UI
-- `/app/mobile/src/screens/SettingsScreen.tsx` - Voice commands UI
+## P2 — Future/Backlog
+- [ ] Spotify player on mobile (currently "Coming Soon")
+- [ ] Refactor monolithic server.py backend
+- [ ] QR code scanner for wallet receiving
+- [ ] Deposit/withdraw flows (Stripe integration for real money deposit)
+- [ ] Push notification delivery (APNs/FCM integration)

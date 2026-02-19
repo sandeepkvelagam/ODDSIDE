@@ -588,13 +588,13 @@ export function DashboardScreenV2() {
           <View style={[styles.helpModalContent, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.helpModalHeader}>
               <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>Getting Started</Text>
-              <AnimatedButton
-                style={styles.closeButton}
+              <TouchableOpacity
+                style={[styles.closeButton, { backgroundColor: lc.glassBg }]}
                 onPress={() => setShowHelpModal(false)}
-                glowColor="rgba(255,255,255,0.1)"
+                activeOpacity={0.7}
               >
-                <Ionicons name="close" size={24} color={lc.textMuted} />
-              </AnimatedButton>
+                <Ionicons name="close" size={22} color={lc.textMuted} />
+              </TouchableOpacity>
             </View>
 
             {/* Demo Card - Typewriter style */}
@@ -648,13 +648,13 @@ export function DashboardScreenV2() {
               </View>
             </View>
 
-            <AnimatedButton
+            <TouchableOpacity
               style={[styles.helpModalButton, { backgroundColor: lc.trustBlue }]}
               onPress={() => setShowHelpModal(false)}
-              glowColor="rgba(59, 130, 246, 0.3)"
+              activeOpacity={0.8}
             >
               <Text style={styles.helpModalButtonText}>Got it!</Text>
-            </AnimatedButton>
+            </TouchableOpacity>
           </View>
         </AnimatedModal>
 

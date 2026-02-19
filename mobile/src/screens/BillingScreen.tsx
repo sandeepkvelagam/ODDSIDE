@@ -1,125 +1,317 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
+  Animated,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../context/ThemeContext";
-import { RightDrawer } from "../components/RightDrawer";
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
+import { GlassIconButton, GlassSurface } from "../components/ui";
 
 export function BillingScreen() {
-  const { colors } = useTheme();
+  const navigation = useNavigation();
 
-  const titleWithBadge = (
-    <View style={styles.headerTitleRow}>
-      <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Billing</Text>
-      <View style={[styles.comingSoonBadge, { backgroundColor: colors.orange }]}>
-        <Text style={styles.comingSoonText}>Coming Soon</Text>
-      </View>
-    </View>
-  );
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        ...ANIMATION.spring.bouncy,
+      }),
+    ]).start();
+  }, []);
 
   return (
-    <RightDrawer title="Billing">
-      <View style={styles.content}>
-        {/* Coming Soon Badge */}
-        <View style={[styles.comingSoonHeader, { backgroundColor: colors.orange + "15" }]}>
-          <Ionicons name="time-outline" size={20} color={colors.orange} />
-          <Text style={[styles.comingSoonHeaderText, { color: colors.orange }]}>Coming Soon</Text>
-        </View>
-
-        {/* Account Plan Box */}
-        <View style={[styles.planBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-          <Text style={[styles.planLabel, { color: colors.textSecondary }]}>Account plan</Text>
-          <Text style={[styles.planValue, { color: colors.textPrimary }]}>Free</Text>
-        </View>
-
-        {/* Menu Items */}
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: colors.border }]}
-          activeOpacity={0.7}
-          disabled
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        {/* Header */}
+        <Animated.View
+          style={[
+            styles.header,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
         >
-          <Ionicons name="cash-outline" size={22} color={colors.textMuted} />
-          <Text style={[styles.menuLabel, { color: colors.textMuted }]}>Manage subscription</Text>
-        </TouchableOpacity>
+          <GlassIconButton
+            icon={<Ionicons name="chevron-back" size={22} color={COLORS.text.primary} />}
+            onPress={() => navigation.goBack()}
+            variant="ghost"
+          />
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Billing</Text>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Coming Soon</Text>
+            </View>
+          </View>
+          <View style={{ width: 48 }} />
+        </Animated.View>
 
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: "transparent" }]}
-          activeOpacity={0.7}
-          disabled
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Ionicons name="refresh-outline" size={22} color={colors.textMuted} />
-          <Text style={[styles.menuLabel, { color: colors.textMuted }]}>Restore purchases</Text>
-        </TouchableOpacity>
-      </View>
-    </RightDrawer>
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            {/* Coming Soon Notice */}
+            <GlassSurface glowVariant="orange" style={styles.noticeCard}>
+              <View style={styles.noticeIcon}>
+                <Ionicons name="time" size={32} color={COLORS.orange} />
+              </View>
+              <Text style={styles.noticeTitle}>Premium Features</Text>
+              <Text style={styles.noticeDesc}>
+                We're working on exciting premium features. Stay tuned for updates!
+              </Text>
+            </GlassSurface>
+
+            {/* Current Plan */}
+            <Text style={styles.sectionTitle}>CURRENT PLAN</Text>
+            <GlassSurface style={styles.planCard}>
+              <View style={styles.planHeader}>
+                <View style={[styles.planIcon, { backgroundColor: COLORS.glass.glowGreen }]}>
+                  <Ionicons name="diamond" size={24} color={COLORS.status.success} />
+                </View>
+                <View style={styles.planInfo}>
+                  <Text style={styles.planName}>Free Plan</Text>
+                  <Text style={styles.planPrice}>$0.00/month</Text>
+                </View>
+                <View style={styles.activeBadge}>
+                  <Text style={styles.activeText}>Active</Text>
+                </View>
+              </View>
+              <View style={styles.planFeatures}>
+                <View style={styles.featureRow}>
+                  <Ionicons name="checkmark-circle" size={18} color={COLORS.status.success} />
+                  <Text style={styles.featureText}>Unlimited groups</Text>
+                </View>
+                <View style={styles.featureRow}>
+                  <Ionicons name="checkmark-circle" size={18} color={COLORS.status.success} />
+                  <Text style={styles.featureText}>Unlimited games</Text>
+                </View>
+                <View style={styles.featureRow}>
+                  <Ionicons name="checkmark-circle" size={18} color={COLORS.status.success} />
+                  <Text style={styles.featureText}>AI Poker Assistant</Text>
+                </View>
+              </View>
+            </GlassSurface>
+
+            {/* Menu Items */}
+            <Text style={styles.sectionTitle}>SUBSCRIPTION OPTIONS</Text>
+            <GlassSurface noPadding>
+              <TouchableOpacity
+                style={[styles.menuItem, styles.borderBottom]}
+                activeOpacity={0.7}
+                disabled
+              >
+                <View style={[styles.menuIcon, { backgroundColor: COLORS.glass.glowBlue }]}>
+                  <Ionicons name="card" size={18} color={COLORS.trustBlue} />
+                </View>
+                <Text style={styles.menuLabel}>Manage subscription</Text>
+                <View style={styles.menuBadge}>
+                  <Text style={styles.menuBadgeText}>Soon</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                activeOpacity={0.7}
+                disabled
+              >
+                <View style={[styles.menuIcon, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
+                  <Ionicons name="refresh" size={18} color="#A855F7" />
+                </View>
+                <Text style={styles.menuLabel}>Restore purchases</Text>
+                <View style={styles.menuBadge}>
+                  <Text style={styles.menuBadgeText}>Soon</Text>
+                </View>
+              </TouchableOpacity>
+            </GlassSurface>
+          </Animated.View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerTitleRow: {
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.jetDark,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+    paddingHorizontal: SPACING.container,
+    paddingVertical: SPACING.md,
+  },
+  headerCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: "600",
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.heading3,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   comingSoonBadge: {
-    paddingHorizontal: 8,
+    backgroundColor: COLORS.orange,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: RADIUS.full,
   },
   comingSoonText: {
     color: "#fff",
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.micro,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
   },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+  scrollView: {
+    flex: 1,
   },
-  comingSoonHeader: {
+  scrollContent: {
+    padding: SPACING.container,
+  },
+  // Notice Card
+  noticeCard: {
+    alignItems: "center",
+    marginBottom: SPACING.lg,
+  },
+  noticeIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.glass.glowOrange,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACING.md,
+  },
+  noticeTitle: {
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.heading3,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+    marginBottom: SPACING.xs,
+  },
+  noticeDesc: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+    textAlign: "center",
+    maxWidth: 280,
+    lineHeight: 20,
+  },
+  // Section
+  sectionTitle: {
+    color: COLORS.moonstone,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+    letterSpacing: 1,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.lg,
+  },
+  // Plan Card
+  planCard: {},
+  planHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
+    gap: SPACING.md,
   },
-  comingSoonHeaderText: {
-    fontSize: 14,
-    fontWeight: "600",
+  planIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  planBox: {
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-    borderWidth: 1,
+  planInfo: {
+    flex: 1,
   },
-  planLabel: {
-    fontSize: 13,
-    marginBottom: 2,
+  planName: {
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
   },
-  planValue: {
-    fontSize: 17,
-    fontWeight: "600",
+  planPrice: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    marginTop: 2,
   },
+  activeBadge: {
+    backgroundColor: COLORS.glass.glowGreen,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+  },
+  activeText: {
+    color: COLORS.status.success,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+  },
+  planFeatures: {
+    gap: SPACING.sm,
+  },
+  featureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  featureText: {
+    color: COLORS.text.secondary,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+  },
+  // Menu Items
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 18,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.cardPadding,
+    gap: SPACING.md,
+  },
+  borderBottom: {
     borderBottomWidth: 1,
-    gap: 14,
+    borderBottomColor: COLORS.glass.border,
+  },
+  menuIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
   menuLabel: {
     flex: 1,
-    fontSize: 16,
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.body,
+  },
+  menuBadge: {
+    backgroundColor: COLORS.glass.bg,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.glass.border,
+  },
+  menuBadgeText: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.micro,
+    fontWeight: TYPOGRAPHY.weights.medium,
   },
 });
+
+export default BillingScreen;

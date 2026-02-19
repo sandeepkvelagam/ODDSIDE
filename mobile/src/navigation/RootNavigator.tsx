@@ -38,6 +38,7 @@ export type RootStackParamList = {
   Billing: undefined;
   Language: undefined;
   AIAssistant: undefined;
+  AIToolkit: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

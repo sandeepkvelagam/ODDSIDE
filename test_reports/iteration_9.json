@@ -1,0 +1,112 @@
+{
+  "summary": "Completed code structure verification for Iteration 9: AI Assistant visibility toggle and Push notification deep linking features. TypeScript compiles with 0 errors. All 17 feature requirements verified through code inspection.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": [
+    "TypeScript compiles with 0 errors: `cd /app/mobile && npx tsc --noEmit`",
+    "AIAssistantScreen has chatVisible state toggle (line 60)",
+    "Eye-off/eye-outline icon button in header with testID='ai-chat-visibility-toggle' (lines 144-156)",
+    "When chatVisible=false, shows minimizedBar with 'Tap to show conversation' testID='ai-chat-show-bar' (lines 170-183)",
+    "KeyboardAvoidingView hidden when chatVisible=false (lines 186-298 conditional render)",
+    "LayoutAnimation.Presets.easeInEaseOut used for smooth collapse/expand (lines 80, 94)",
+    "Sending message while chat is hidden re-expands it automatically (lines 92-96)",
+    "RootNavigator exports navigationRef via createNavigationContainerRef (line 50)",
+    "RootNavigator imports setupNotificationListeners from pushNotifications service (line 7)",
+    "handleNotificationDeepLink routes game_started → GameNight (lines 61-67)",
+    "handleNotificationDeepLink routes settlement_generated → Settlement (lines 69-73)",
+    "handleNotificationDeepLink routes wallet_received → Wallet (lines 75-78)",
+    "handleNotificationDeepLink routes group_invite_request → Notifications (lines 80-84)",
+    "handleNotificationDeepLink routes withdrawal_requested → Wallet (lines 75-78)",
+    "handleNotificationDeepLink has fallback → Notifications for unknown types (lines 95-98)",
+    "useEffect sets up notification listener when session exists, cleans up on session change (lines 136-150)",
+    "NavigationContainer receives ref={navigationRef} (line 163)"
+  ],
+
+  "code_structure_verification": {
+    "AIAssistantScreen_visibility_toggle": {
+      "chatVisible_state": "useState<boolean>(true) at line 60",
+      "toggleChatVisibility_function": "LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut) at line 80",
+      "toggle_button": "TouchableOpacity with testID='ai-chat-visibility-toggle', Ionicons eye-off-outline/eye-outline at lines 144-156",
+      "minimized_bar": "TouchableOpacity with testID='ai-chat-show-bar', shows 'Tap to show conversation' at lines 170-183",
+      "conditional_render": "KeyboardAvoidingView rendered only when chatVisible (lines 186-298)",
+      "auto_expand_on_send": "if (!chatVisible) { setChatVisible(true) } in sendMessage at lines 92-96"
+    },
+    "RootNavigator_deep_linking": {
+      "navigationRef_export": "export const navigationRef = createNavigationContainerRef<RootStackParamList>() at line 50",
+      "setupNotificationListeners_import": "import { setupNotificationListeners } from '../services/pushNotifications' at line 7",
+      "handleNotificationDeepLink_function": "function handleNotificationDeepLink(data) at lines 55-100",
+      "deep_link_routes": {
+        "game_started": "GameNight (line 66)",
+        "game_ended": "GameNight (line 66)",
+        "buy_in": "GameNight (line 66)",
+        "cash_out": "GameNight (line 66)",
+        "settlement_generated": "Settlement (line 72)",
+        "wallet_received": "Wallet (line 78)",
+        "withdrawal_requested": "Wallet (line 78)",
+        "group_invite_request": "Notifications (line 83)",
+        "invite_accepted": "Notifications (line 83)",
+        "admin_transferred": "GroupHub or Groups (lines 88-92)",
+        "invite_sent": "GroupHub or Groups (lines 88-92)",
+        "default": "Notifications (line 97)"
+      },
+      "useEffect_listener_setup": "Lines 136-150 - sets up listener when session exists, returns cleanup function",
+      "NavigationContainer_ref": "ref={navigationRef} at line 163"
+    }
+  },
+
+  "test_report_links": [],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "LayoutAnimation enabled on Android via UIManager.setLayoutAnimationEnabledExperimental (lines 26-28)",
+    "Header subtitle shows message count when chat is hidden (line 137)",
+    "Loading indicator shown in minimized bar when assistant is thinking (lines 180-181)",
+    "handleNotificationDeepLink checks navigationRef.isReady() before navigating (line 56)",
+    "Deep link handler covers all notification types: game_started, game_ended, buy_in, cash_out, settlement_generated, wallet_received, withdrawal_requested, group_invite_request, invite_accepted, admin_transferred, invite_sent"
+  ],
+
+  "updated_files": [],
+
+  "success_rate": {
+    "backend": "N/A (no backend changes in this iteration)",
+    "frontend": "100% (17/17 features verified)"
+  },
+
+  "seed_data_creation": "None - code structure verification only",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+
+  "context_for_next_testing_agent": "Iteration 9 features fully verified: 1) AI Assistant visibility toggle with eye-off/eye-outline button, minimized bar, LayoutAnimation smooth collapse/expand, auto-expand on message send. 2) Push notification deep linking with navigationRef, handleNotificationDeepLink routing to correct screens based on notification data.type, listener setup in useEffect with cleanup. TypeScript compiles with 0 errors. Cannot do UI testing since this is React Native/Expo mobile app.",
+
+  "verified_features": {
+    "typescript_compilation": "0 errors",
+    "ai_assistant_visibility_toggle": {
+      "state": "chatVisible useState at line 60",
+      "toggle_button_testid": "ai-chat-visibility-toggle",
+      "minimized_bar_testid": "ai-chat-show-bar",
+      "minimized_bar_text": "Tap to show conversation",
+      "animation": "LayoutAnimation.Presets.easeInEaseOut",
+      "auto_expand_on_send": "true"
+    },
+    "push_notification_deep_linking": {
+      "navigationRef": "exported at line 50",
+      "handleNotificationDeepLink": "function at lines 55-100",
+      "listener_setup": "useEffect at lines 136-150",
+      "cleanup": "returns cleanup function"
+    }
+  },
+
+  "mobile_app_note": "This is a React Native/Expo mobile app (not web). UI testing via Playwright is not possible. All code structure verified through file inspection. All 17 features from test request verified successfully."
+}

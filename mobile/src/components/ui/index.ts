@@ -8,3 +8,4 @@ export { GlassModal, GlassBottomSheet } from "./GlassModal";
 export { GlassListItem, GlassListSection, GlassListDivider } from "./GlassListItem";
 export { Skeleton, SkeletonCard, SkeletonListItem, SkeletonStats } from "./SkeletonLoader";
 export { KvittLogo } from "./KvittLogo";
+export { PageHeader } from "./PageHeader";

@@ -40,6 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fetch user profile from backend
       const res = await api.get("/auth/me");
       setUser(res.data);
+
+      // Register push notification token
+      try {
+        await setupPushNotifications();
+      } catch (e) {
+        console.log("Push notification setup skipped:", e);
+      }
     } catch (error) {
       console.error("Error syncing user:", error);
     }

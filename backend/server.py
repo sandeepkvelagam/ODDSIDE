@@ -467,6 +467,19 @@ class WalletDepositRequest(BaseModel):
     origin_url: str
 
 
+class WithdrawRequest(BaseModel):
+    """Simple withdrawal request (processed manually by admin)."""
+    amount_cents: int = Field(..., ge=500, le=50000)  # $5 - $500
+    method: str = "bank_transfer"  # bank_transfer, venmo, paypal
+    destination_details: str  # email, phone, account number
+    pin: str
+
+
+class RegisterPushTokenRequest(BaseModel):
+    """Register Expo push notification token for a user."""
+    expo_push_token: str
+
+
 # ============== AUTH HELPERS ==============
 
 async def verify_supabase_jwt(token: str) -> dict:

@@ -41,8 +41,8 @@ export function LanguageScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <BottomSheetScreen>
+      <View style={styles.container}>
         {/* Header */}
         <Animated.View
           style={[
@@ -51,7 +51,7 @@ export function LanguageScreen() {
           ]}
         >
           <GlassIconButton
-            icon={<Ionicons name="chevron-back" size={22} color={COLORS.text.primary} />}
+            icon={<Ionicons name="close" size={22} color={COLORS.text.primary} />}
             onPress={() => navigation.goBack()}
             variant="ghost"
           />

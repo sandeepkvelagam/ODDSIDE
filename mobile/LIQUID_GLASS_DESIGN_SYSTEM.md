@@ -361,17 +361,17 @@ Color: #ffffff
 
 ### Phase 4: Screen Updates
 - [x] LoginScreen - Updated with glass styling
-- [~] DashboardScreenV2 - Already well-styled
-- [ ] SettingsScreen - Needs update
-- [ ] ProfileScreen (with Wallet) - Needs update
-- [ ] GroupsScreen - Needs update
+- [x] DashboardScreenV2 - Already well-styled
+- [~] SettingsScreen - Already has good glass styling
+- [x] ProfileScreen (with Wallet) - Updated with Screenshot #1 style wallet
+- [~] GroupsScreen - Already has glass styling from useTheme
 - [ ] GroupHubScreen - Needs update
 - [ ] GameNightScreen - Needs update
 - [ ] AIAssistantScreen - Needs update
-- [ ] BillingScreen - Needs update
-- [ ] NotificationsScreen - Needs update
-- [ ] PrivacyScreen - Needs update
-- [ ] LanguageScreen - Needs update
+- [x] BillingScreen - Updated with glass styling
+- [x] NotificationsScreen - Updated with glass styling
+- [x] PrivacyScreen - Updated with glass styling
+- [x] LanguageScreen - Updated with glass styling
 
 ### Phase 5: New Page
 - [x] AIToolkitScreen (based on Screenshot #2)

@@ -917,10 +917,6 @@ export function WalletScreen() {
   );
 }
 
-const SPACING = {
-  micro: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32, container: 24,
-};
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.jetDark },
   header: {

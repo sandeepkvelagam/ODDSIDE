@@ -128,8 +128,8 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 48,
+    borderTopRightRadius: 48,
     overflow: "hidden",
     // Shadow for depth
     shadowColor: "#000",

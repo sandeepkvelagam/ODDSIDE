@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { COLORS, TYPOGRAPHY, RADIUS, SPACING, SHADOWS, ANIMATION } from "../../styles/liquidGlass";
+import { useTheme } from "../../context/ThemeContext";
 
 type ButtonVariant = "primary" | "primaryDark" | "secondary" | "ghost" | "destructive";
 type ButtonSize = "large" | "medium" | "small";
@@ -58,6 +59,7 @@ export function GlassButton({
   textStyle,
   testID,
 }: GlassButtonProps) {
+  const { colors } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -84,9 +86,9 @@ export function GlassButton({
         return { backgroundColor: COLORS.trustBlue };
       case "ghost":
         return {
-          backgroundColor: COLORS.glass.bg,
+          backgroundColor: colors.glassBg,
           borderWidth: 1.5,
-          borderColor: COLORS.glass.border,
+          borderColor: colors.glassBorder,
         };
       case "destructive":
         return { backgroundColor: COLORS.status.danger };
@@ -110,7 +112,7 @@ export function GlassButton({
 
   const getTextColor = (): string => {
     if (variant === "ghost") {
-      return COLORS.text.primary;
+      return colors.textPrimary;
     }
     return "#FFFFFF";
   };
@@ -189,6 +191,7 @@ export function GlassIconButton({
   style,
   testID,
 }: GlassIconButtonProps) {
+  const { colors } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -227,9 +230,9 @@ export function GlassIconButton({
       case "ghost":
       default:
         return {
-          backgroundColor: COLORS.glass.bg,
+          backgroundColor: colors.glassBg,
           borderWidth: 1.5,
-          borderColor: COLORS.glass.border,
+          borderColor: colors.glassBorder,
         };
     }
   };
@@ -280,7 +283,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   iconButton: {
-    borderRadius: RADIUS.lg,
+    borderRadius: 22, // Fully circular (matches 44x44 button size)
     alignItems: "center",
     justifyContent: "center",
   },

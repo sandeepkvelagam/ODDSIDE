@@ -76,6 +76,7 @@ export function DashboardScreenV2() {
   const [error, setError] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showStatModal, setShowStatModal] = useState<'profit' | 'winrate' | null>(null);
+  const [showBalanceModal, setShowBalanceModal] = useState(false);
 
   // Animated pulse for live indicator
   const pulseAnim = useState(new Animated.Value(1))[0];
@@ -354,10 +355,10 @@ export function DashboardScreenV2() {
             </TouchableOpacity>
 
             {/* Balance Card - Green/Red Glow */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.liquidCardThird, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate("Wallet")}
+              onPress={() => setShowBalanceModal(true)}
             >
               <View style={[styles.liquidInnerSmall, { backgroundColor: balances.net_balance >= 0 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)" }]}>
                 <View style={styles.statIconRowSmall}>
@@ -421,6 +422,25 @@ export function DashboardScreenV2() {
                     </Text>
                     <Text style={[styles.perfLabel, { color: lc.textMuted }]}>ROI</Text>
                   </View>
+                </View>
+
+                {/* ROI Progress Bar - like web app */}
+                <View style={styles.roiBarContainer}>
+                  <Text style={[styles.roiBarLabel, { color: lc.textMuted }]}>ROI:</Text>
+                  <View style={[styles.roiBarTrack, { backgroundColor: lc.liquidGlassBg }]}>
+                    <View
+                      style={[
+                        styles.roiBarFill,
+                        {
+                          width: `${Math.min(Math.max(roiPercent, 0), 100)}%`,
+                          backgroundColor: lc.orange
+                        }
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.roiBarValue, { color: roiPercent >= 0 ? lc.success : lc.danger }]}>
+                    {roiPercent.toFixed(0)}%
+                  </Text>
                 </View>
               </View>
             </Animated.View>
@@ -874,6 +894,67 @@ export function DashboardScreenV2() {
           </View>
         </AnimatedModal>
 
+        {/* Balance Details Modal */}
+        <AnimatedModal
+          visible={showBalanceModal}
+          onClose={() => setShowBalanceModal(false)}
+          blurIntensity={60}
+        >
+          <View style={[styles.helpModalContent, { backgroundColor: lc.jetSurface }]}>
+            <View style={styles.helpModalHeader}>
+              <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>Balance Details</Text>
+              <TouchableOpacity
+                style={[styles.closeButton, { backgroundColor: lc.glassBg }]}
+                onPress={() => setShowBalanceModal(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={22} color={lc.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Gradient Hero */}
+            <LinearGradient
+              colors={balances.net_balance >= 0 ? ['#166534', '#22C55E', '#4ADE80'] : ['#991B1B', '#EF4444', '#F87171']}
+              style={styles.statHeroCard}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="wallet" size={32} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.statHeroValue}>
+                {balances.net_balance >= 0 ? '+' : ''}${Math.abs(balances.net_balance || 0).toFixed(2)}
+              </Text>
+              <Text style={styles.statHeroLabel}>Net Balance</Text>
+            </LinearGradient>
+
+            {/* Stat Pills */}
+            <View style={styles.statPillsGrid}>
+              <View style={[styles.statPill, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+                <Text style={[styles.statPillValue, { color: lc.danger }]}>
+                  ${(balances.total_you_owe || 0).toFixed(0)}
+                </Text>
+                <Text style={styles.statPillLabel}>You Owe</Text>
+              </View>
+              <View style={[styles.statPill, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
+                <Text style={[styles.statPillValue, { color: lc.success }]}>
+                  ${(balances.total_owed_to_you || 0).toFixed(0)}
+                </Text>
+                <Text style={styles.statPillLabel}>Owed to You</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.helpModalButton, { backgroundColor: lc.trustBlue }]}
+              onPress={() => {
+                setShowBalanceModal(false);
+                navigation.navigate("Wallet");
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.helpModalButtonText}>Open Wallet</Text>
+            </TouchableOpacity>
+          </View>
+        </AnimatedModal>
+
         {/* AI Chat FAB */}
         <AIChatFab />
       </View>
@@ -1124,6 +1205,34 @@ const styles = StyleSheet.create({
     fontSize: 9,
     marginTop: 4,
     letterSpacing: 0.5,
+  },
+  // ROI Progress Bar
+  roiBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
+  roiBarLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    width: 30,
+  },
+  roiBarTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 8,
+  },
+  roiBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  roiBarValue: {
+    fontSize: 12,
+    fontWeight: "600",
+    width: 35,
+    textAlign: "right",
   },
   // Section
   sectionHeader: {

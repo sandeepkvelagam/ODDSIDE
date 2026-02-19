@@ -179,8 +179,8 @@ export function NotificationsScreen() {
       <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
         {/* Header */}
         <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="close" size={22} color={COLORS.text.primary} />
+          <TouchableOpacity style={[styles.closeBtn, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]} onPress={() => navigation.goBack()}>
+            <Ionicons name="close" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>Notifications</Text>
@@ -396,10 +396,8 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: 44,
     height: 44,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.glass.bg,
+    borderRadius: 22, // Fully circular
     borderWidth: 1,
-    borderColor: COLORS.glass.border,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -165,11 +165,11 @@ export function ProfileScreen() {
           ]}
         >
           <GlassIconButton
-            icon={<Ionicons name="close" size={22} color={COLORS.text.primary} />}
+            icon={<Ionicons name="close" size={22} color={colors.textPrimary} />}
             onPress={() => navigation.goBack()}
             variant="ghost"
           />
-          <Text style={styles.headerTitle}>Profile</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Profile</Text>
           <View style={{ width: 48 }} />
         </Animated.View>
 
@@ -186,7 +186,7 @@ export function ProfileScreen() {
             <GlassSurface glowVariant="orange" style={styles.walletCard}>
               <View style={styles.walletHeader}>
                 <View style={styles.walletHeaderLeft}>
-                  <Text style={styles.walletLabel}>NET BALANCE</Text>
+                  <Text style={[styles.walletLabel, { color: colors.textMuted }]}>NET BALANCE</Text>
                   <Text style={[
                     styles.walletValue,
                     { color: (balances?.net_balance ?? 0) >= 0 ? COLORS.status.success : COLORS.status.danger }
@@ -203,17 +203,17 @@ export function ProfileScreen() {
                       key={item.user?.user_id || idx}
                       style={[
                         styles.avatarStackItem,
-                        { marginLeft: idx > 0 ? -12 : 0, zIndex: 3 - idx }
+                        { marginLeft: idx > 0 ? -12 : 0, zIndex: 3 - idx, backgroundColor: colors.glassBg, borderColor: colors.surface }
                       ]}
                     >
-                      <Text style={styles.avatarStackText}>
+                      <Text style={[styles.avatarStackText, { color: colors.textPrimary }]}>
                         {item.user?.name?.[0]?.toUpperCase() || "?"}
                       </Text>
                     </View>
                   ))}
                   {(balances?.consolidated?.length ?? 0) > 3 && (
-                    <View style={[styles.avatarStackItem, styles.avatarMore, { marginLeft: -12 }]}>
-                      <Text style={styles.avatarMoreText}>
+                    <View style={[styles.avatarStackItem, styles.avatarMore, { marginLeft: -12, backgroundColor: colors.glassBg }]}>
+                      <Text style={[styles.avatarMoreText, { color: colors.textMuted }]}>
                         +{(balances?.consolidated?.length ?? 0) - 3}
                       </Text>
                     </View>
@@ -225,15 +225,15 @@ export function ProfileScreen() {
               <View style={styles.balanceSummaryRow}>
                 <View style={styles.balanceSummaryItem}>
                   <Ionicons name="arrow-down" size={16} color={COLORS.status.danger} />
-                  <Text style={styles.balanceSummaryLabel}>You Owe</Text>
+                  <Text style={[styles.balanceSummaryLabel, { color: colors.textMuted }]}>You Owe</Text>
                   <Text style={[styles.balanceSummaryValue, { color: COLORS.status.danger }]}>
                     ${(balances?.total_you_owe ?? 0).toFixed(2)}
                   </Text>
                 </View>
-                <View style={styles.balanceDivider} />
+                <View style={[styles.balanceDivider, { backgroundColor: colors.border }]} />
                 <View style={styles.balanceSummaryItem}>
                   <Ionicons name="arrow-up" size={16} color={COLORS.status.success} />
-                  <Text style={styles.balanceSummaryLabel}>Owed to You</Text>
+                  <Text style={[styles.balanceSummaryLabel, { color: colors.textMuted }]}>Owed to You</Text>
                   <Text style={[styles.balanceSummaryValue, { color: COLORS.status.success }]}>
                     ${(balances?.total_owed_to_you ?? 0).toFixed(2)}
                   </Text>
@@ -257,27 +257,27 @@ export function ProfileScreen() {
           {/* Individual Balances */}
           {!balancesLoading && balances && balances.consolidated.length > 0 && (
             <Animated.View style={{ opacity: fadeAnim }}>
-              <Text style={styles.sectionTitle}>INDIVIDUAL BALANCES</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>INDIVIDUAL BALANCES</Text>
               <GlassSurface style={styles.balancesList}>
                 {balances.consolidated.map((item, index) => (
                   <View
                     key={item.user?.user_id || index}
                     style={[
                       styles.balanceItem,
-                      index < balances.consolidated.length - 1 && styles.balanceItemBorder,
+                      index < balances.consolidated.length - 1 && [styles.balanceItemBorder, { borderBottomColor: colors.border }],
                     ]}
                   >
                     <View style={[
                       styles.balanceAvatar,
                       { backgroundColor: item.direction === "you_owe" ? COLORS.glass.glowRed : COLORS.glass.glowGreen }
                     ]}>
-                      <Text style={styles.balanceAvatarText}>
+                      <Text style={[styles.balanceAvatarText, { color: colors.textPrimary }]}>
                         {item.user?.name?.[0]?.toUpperCase() || "?"}
                       </Text>
                     </View>
                     <View style={styles.balanceInfo}>
-                      <Text style={styles.balanceName}>{item.user?.name || "Unknown"}</Text>
-                      <Text style={styles.balanceDirection}>
+                      <Text style={[styles.balanceName, { color: colors.textPrimary }]}>{item.user?.name || "Unknown"}</Text>
+                      <Text style={[styles.balanceDirection, { color: colors.textMuted }]}>
                         {item.direction === "you_owe" ? "You owe them" : "They owe you"}
                       </Text>
                     </View>
@@ -294,7 +294,7 @@ export function ProfileScreen() {
               {/* Optimize Button */}
               {balances.consolidated.length > 1 && (
                 <TouchableOpacity
-                  style={styles.optimizeButton}
+                  style={[styles.optimizeButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
                   onPress={handleOptimizeDebts}
                   disabled={optimizing}
                   activeOpacity={0.8}
@@ -316,14 +316,14 @@ export function ProfileScreen() {
           {!balancesLoading && (!balances || (balances.total_you_owe === 0 && balances.total_owed_to_you === 0)) && (
             <GlassSurface glowVariant="green" style={styles.noBalancesCard}>
               <Ionicons name="checkmark-circle" size={40} color={COLORS.status.success} />
-              <Text style={styles.noBalancesText}>You're all settled up!</Text>
-              <Text style={styles.noBalancesSubtext}>No pending balances with anyone</Text>
+              <Text style={[styles.noBalancesText, { color: colors.textPrimary }]}>You're all settled up!</Text>
+              <Text style={[styles.noBalancesSubtext, { color: colors.textMuted }]}>No pending balances with anyone</Text>
             </GlassSurface>
           )}
 
           {/* Profile Section */}
           <Animated.View style={{ opacity: fadeAnim }}>
-            <Text style={styles.sectionTitle}>PROFILE DETAILS</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>PROFILE DETAILS</Text>
             <GlassSurface>
               <GlassInput
                 label="Full Name"
@@ -357,7 +357,7 @@ export function ProfileScreen() {
 
           {/* Danger Zone */}
           <Animated.View style={{ opacity: fadeAnim }}>
-            <Text style={styles.sectionTitle}>DANGER ZONE</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>DANGER ZONE</Text>
             <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount} activeOpacity={0.7}>
               <Ionicons name="trash-outline" size={20} color={COLORS.status.danger} />
               <Text style={styles.deleteText}>Delete account</Text>
@@ -384,7 +384,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   headerTitle: {
-    color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.heading3,
     fontWeight: TYPOGRAPHY.weights.bold,
   },
@@ -407,7 +406,6 @@ const styles = StyleSheet.create({
   },
   walletHeaderLeft: {},
   walletLabel: {
-    color: COLORS.moonstone,
     fontSize: TYPOGRAPHY.sizes.caption,
     fontWeight: TYPOGRAPHY.weights.semiBold,
     letterSpacing: 1,
@@ -426,22 +424,16 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.glass.bg,
     borderWidth: 2,
-    borderColor: COLORS.jetDark,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarStackText: {
-    color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.caption,
     fontWeight: TYPOGRAPHY.weights.semiBold,
   },
-  avatarMore: {
-    backgroundColor: COLORS.glass.inner,
-  },
+  avatarMore: {},
   avatarMoreText: {
-    color: COLORS.text.muted,
     fontSize: TYPOGRAPHY.sizes.micro,
     fontWeight: TYPOGRAPHY.weights.semiBold,
   },
@@ -455,7 +447,6 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   balanceSummaryLabel: {
-    color: COLORS.text.muted,
     fontSize: TYPOGRAPHY.sizes.caption,
   },
   balanceSummaryValue: {
@@ -464,7 +455,6 @@ const styles = StyleSheet.create({
   },
   balanceDivider: {
     width: 1,
-    backgroundColor: COLORS.glass.border,
     marginHorizontal: SPACING.md,
   },
   walletActions: {
@@ -487,7 +477,6 @@ const styles = StyleSheet.create({
   },
   // Section
   sectionTitle: {
-    color: COLORS.moonstone,
     fontSize: TYPOGRAPHY.sizes.caption,
     fontWeight: TYPOGRAPHY.weights.semiBold,
     letterSpacing: 1,
@@ -506,7 +495,6 @@ const styles = StyleSheet.create({
   },
   balanceItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.glass.border,
   },
   balanceAvatar: {
     width: 44,
@@ -516,7 +504,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   balanceAvatarText: {
-    color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: TYPOGRAPHY.weights.semiBold,
   },
@@ -524,12 +511,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   balanceName: {
-    color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: TYPOGRAPHY.weights.medium,
   },
   balanceDirection: {
-    color: COLORS.text.muted,
     fontSize: TYPOGRAPHY.sizes.caption,
     marginTop: 2,
   },
@@ -544,9 +529,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.glass.bg,
     borderWidth: 1,
-    borderColor: COLORS.glass.border,
   },
   optimizeButtonText: {
     color: COLORS.orange,
@@ -560,12 +543,10 @@ const styles = StyleSheet.create({
     marginTop: SPACING.lg,
   },
   noBalancesText: {
-    color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: TYPOGRAPHY.weights.semiBold,
   },
   noBalancesSubtext: {
-    color: COLORS.text.muted,
     fontSize: TYPOGRAPHY.sizes.caption,
   },
   // Profile Form

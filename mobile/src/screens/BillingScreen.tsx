@@ -47,7 +47,7 @@ export function BillingScreen() {
           ]}
         >
           <GlassIconButton
-            icon={<Ionicons name="close" size={22} color={COLORS.text.primary} />}
+            icon={<Ionicons name="close" size={22} color={colors.textPrimary} />}
             onPress={() => navigation.goBack()}
             variant="ghost"
           />

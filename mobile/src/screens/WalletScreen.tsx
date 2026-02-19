@@ -17,6 +17,7 @@ import {
   Linking,
   Dimensions,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
@@ -451,9 +452,16 @@ export function WalletScreen() {
             </KeyboardAvoidingView>
           ) : setupStep === "done" ? (
             <View style={styles.centeredContent}>
-              <Ionicons name="checkmark-circle" size={64} color={COLORS.status.success} />
-              <Text style={styles.setupTitle}>Wallet Ready!</Text>
-              <Text style={styles.setupSubtitle}>You can now send and receive money</Text>
+              <LinearGradient
+                colors={['#166534', '#22C55E', '#4ADE80']}
+                style={styles.successHero}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons name="wallet" size={48} color="rgba(255,255,255,0.95)" />
+                <Text style={styles.successHeroValue}>Wallet Ready!</Text>
+                <Text style={styles.successHeroLabel}>You can now send and receive money</Text>
+              </LinearGradient>
             </View>
           ) : (
             <View style={styles.setupContainer}>
@@ -675,9 +683,20 @@ export function WalletScreen() {
 
               {sendStep === "done" ? (
                 <View style={styles.centeredContent}>
-                  <Ionicons name="checkmark-circle" size={64} color={COLORS.status.success} />
-                  <Text style={styles.setupTitle}>Sent!</Text>
-                  <Text style={styles.setupSubtitle}>${parseFloat(sendAmount || "0").toFixed(2)} sent to {selectedRecipient?.display_name}</Text>
+                  <LinearGradient
+                    colors={['#166534', '#22C55E', '#4ADE80']}
+                    style={styles.successHero}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Ionicons name="checkmark-circle" size={48} color="rgba(255,255,255,0.95)" />
+                    <Text style={styles.successHeroValue}>${parseFloat(sendAmount || "0").toFixed(2)}</Text>
+                    <Text style={styles.successHeroLabel}>Sent Successfully</Text>
+                  </LinearGradient>
+                  <View style={styles.successRecipient}>
+                    <Text style={styles.successRecipientLabel}>To</Text>
+                    <Text style={styles.successRecipientName}>{selectedRecipient?.display_name}</Text>
+                  </View>
                 </View>
               ) : sendStep === "search" ? (
                 <>
@@ -759,16 +778,30 @@ export function WalletScreen() {
 
             {depositStep === "success" ? (
               <View style={styles.centeredContent}>
-                <Ionicons name="checkmark-circle" size={64} color={COLORS.status.success} />
-                <Text style={styles.setupTitle}>Deposited!</Text>
-                <Text style={styles.setupSubtitle}>Your balance has been updated</Text>
+                <LinearGradient
+                  colors={['#1E40AF', '#3B82F6', '#60A5FA']}
+                  style={styles.successHero}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="wallet" size={48} color="rgba(255,255,255,0.95)" />
+                  <Text style={styles.successHeroValue}>Deposited!</Text>
+                  <Text style={styles.successHeroLabel}>Your balance has been updated</Text>
+                </LinearGradient>
               </View>
             ) : depositStep === "failed" ? (
               <View style={styles.centeredContent}>
-                <Ionicons name="close-circle" size={64} color={COLORS.status.danger} />
-                <Text style={styles.setupTitle}>Payment Failed</Text>
-                <Text style={styles.setupSubtitle}>Payment was cancelled or expired</Text>
-                <TouchableOpacity style={[styles.primaryButton, { marginTop: SPACING.lg }]} onPress={() => setDepositStep("amount")}>
+                <LinearGradient
+                  colors={['#991B1B', '#EF4444', '#F87171']}
+                  style={styles.successHero}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="close-circle" size={48} color="rgba(255,255,255,0.95)" />
+                  <Text style={styles.successHeroValue}>Payment Failed</Text>
+                  <Text style={styles.successHeroLabel}>Payment was cancelled or expired</Text>
+                </LinearGradient>
+                <TouchableOpacity style={[styles.primaryButton, { marginTop: SPACING.xl }]} onPress={() => setDepositStep("amount")}>
                   <Text style={styles.primaryButtonText}>Try Again</Text>
                 </TouchableOpacity>
               </View>
@@ -1176,6 +1209,46 @@ const styles = StyleSheet.create({
   methodChipSelected: { backgroundColor: COLORS.orange, borderColor: COLORS.orange },
   methodChipText: { color: COLORS.text.muted, fontSize: TYPOGRAPHY.sizes.body, fontWeight: TYPOGRAPHY.weights.semiBold },
   methodChipTextSelected: { color: "#fff" },
+
+  // Success Hero
+  successHero: {
+    borderRadius: 20,
+    padding: 28,
+    alignItems: "center",
+    width: "100%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  successHeroValue: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#fff",
+    marginTop: 12,
+    letterSpacing: -0.5,
+  },
+  successHeroLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.85)",
+    marginTop: 4,
+  },
+  successRecipient: {
+    marginTop: SPACING.xl,
+    alignItems: "center",
+  },
+  successRecipientLabel: {
+    fontSize: TYPOGRAPHY.sizes.caption,
+    color: COLORS.text.muted,
+    marginBottom: 4,
+  },
+  successRecipientName: {
+    fontSize: TYPOGRAPHY.sizes.heading3,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+    color: COLORS.text.primary,
+  },
 
   // Buttons
   primaryButton: {

@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useDrawer } from "../context/DrawerContext";
@@ -693,40 +694,43 @@ export function DashboardScreenV2() {
             </View>
 
             <View style={styles.helpTipsList}>
-              <View style={styles.helpTip}>
-                <View style={[styles.helpTipIcon, { backgroundColor: lc.liquidGlowOrange }]}>
-                  <Ionicons name="people" size={20} color={lc.orange} />
+              <View style={[styles.helpTipCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.glassBorder }]}>
+                <View style={[styles.helpTipIconLarge, { backgroundColor: lc.liquidGlowOrange }]}>
+                  <Ionicons name="people" size={28} color={lc.orange} />
                 </View>
-                <View style={styles.helpTipText}>
+                <View style={styles.helpTipContent}>
                   <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Create a Group</Text>
                   <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
                     Start by creating a poker group and inviting friends
                   </Text>
                 </View>
+                <Ionicons name="chevron-forward" size={20} color={lc.textMuted} />
               </View>
 
-              <View style={styles.helpTip}>
-                <View style={[styles.helpTipIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
-                  <Ionicons name="game-controller" size={20} color={lc.success} />
+              <View style={[styles.helpTipCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.glassBorder }]}>
+                <View style={[styles.helpTipIconLarge, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
+                  <Ionicons name="game-controller" size={28} color={lc.success} />
                 </View>
-                <View style={styles.helpTipText}>
+                <View style={styles.helpTipContent}>
                   <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Start a Game Night</Text>
                   <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
                     Track buy-ins, rebuys, and cash-outs in real-time
                   </Text>
                 </View>
+                <Ionicons name="chevron-forward" size={20} color={lc.textMuted} />
               </View>
 
-              <View style={styles.helpTip}>
-                <View style={[styles.helpTipIcon, { backgroundColor: lc.liquidGlowBlue }]}>
-                  <Ionicons name="wallet" size={20} color={lc.trustBlue} />
+              <View style={[styles.helpTipCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.glassBorder }]}>
+                <View style={[styles.helpTipIconLarge, { backgroundColor: lc.liquidGlowBlue }]}>
+                  <Ionicons name="wallet" size={28} color={lc.trustBlue} />
                 </View>
-                <View style={styles.helpTipText}>
+                <View style={styles.helpTipContent}>
                   <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Auto Settlement</Text>
                   <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
                     We calculate who owes whom automatically
                   </Text>
                 </View>
+                <Ionicons name="chevron-forward" size={20} color={lc.textMuted} />
               </View>
             </View>
 
@@ -740,7 +744,7 @@ export function DashboardScreenV2() {
           </View>
         </AnimatedModal>
 
-        {/* Stat Details Modal */}
+        {/* Stat Details Modal - Enhanced with Gradient Hero */}
         <AnimatedModal
           visible={showStatModal !== null}
           onClose={() => setShowStatModal(null)}
@@ -761,65 +765,103 @@ export function DashboardScreenV2() {
             </View>
 
             {showStatModal === 'profit' ? (
-              <View style={styles.statDetailsList}>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Total Profit/Loss</Text>
-                  <Text style={[styles.statDetailValue, { color: netProfit >= 0 ? lc.success : lc.danger }]}>
+              <>
+                {/* Gradient Hero Card */}
+                <LinearGradient
+                  colors={netProfit >= 0 ? ['#166534', '#22C55E', '#4ADE80'] : ['#991B1B', '#EF4444', '#F87171']}
+                  style={styles.statHeroCard}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons
+                    name={netProfit >= 0 ? "trending-up" : "trending-down"}
+                    size={32}
+                    color="rgba(255,255,255,0.9)"
+                  />
+                  <Text style={styles.statHeroValue}>
                     {netProfit >= 0 ? '+' : ''}${Math.abs(netProfit).toFixed(2)}
                   </Text>
+                  <Text style={styles.statHeroLabel}>Total Profit/Loss</Text>
+                </LinearGradient>
+
+                {/* Stat Pills Grid */}
+                <View style={styles.statPillsGrid}>
+                  <View style={styles.statPill}>
+                    <Text style={styles.statPillValue}>{totalGames}</Text>
+                    <Text style={styles.statPillLabel}>Games</Text>
+                  </View>
+                  <View style={styles.statPill}>
+                    <Text style={[styles.statPillValue, { color: avgProfit >= 0 ? lc.success : lc.danger }]}>
+                      ${Math.abs(avgProfit).toFixed(0)}
+                    </Text>
+                    <Text style={styles.statPillLabel}>Avg</Text>
+                  </View>
+                  <View style={[styles.statPill, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
+                    <Text style={[styles.statPillValue, { color: lc.success }]}>+${bestWin.toFixed(0)}</Text>
+                    <Text style={styles.statPillLabel}>Best</Text>
+                  </View>
+                  <View style={[styles.statPill, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+                    <Text style={[styles.statPillValue, { color: lc.danger }]}>-${Math.abs(worstLoss).toFixed(0)}</Text>
+                    <Text style={styles.statPillLabel}>Worst</Text>
+                  </View>
                 </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Total Buy-ins</Text>
-                  <Text style={[styles.statDetailValue, { color: lc.textPrimary }]}>${totalBuyIns.toFixed(2)}</Text>
+
+                {/* Additional Stats */}
+                <View style={styles.statDetailSection}>
+                  <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                    <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Total Buy-ins</Text>
+                    <Text style={[styles.statDetailValue, { color: lc.textPrimary }]}>${totalBuyIns.toFixed(2)}</Text>
+                  </View>
+                  <View style={[styles.statDetailRow, { borderBottomColor: 'transparent' }]}>
+                    <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>ROI</Text>
+                    <Text style={[styles.statDetailValue, { color: roiPercent >= 0 ? lc.success : lc.danger }]}>
+                      {roiPercent >= 0 ? '+' : ''}{roiPercent.toFixed(1)}%
+                    </Text>
+                  </View>
                 </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>ROI</Text>
-                  <Text style={[styles.statDetailValue, { color: roiPercent >= 0 ? lc.success : lc.danger }]}>
-                    {roiPercent >= 0 ? '+' : ''}{roiPercent.toFixed(1)}%
-                  </Text>
-                </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Avg per Game</Text>
-                  <Text style={[styles.statDetailValue, { color: avgProfit >= 0 ? lc.success : lc.danger }]}>
-                    {avgProfit >= 0 ? '+' : ''}${Math.abs(avgProfit).toFixed(2)}
-                  </Text>
-                </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Best Win</Text>
-                  <Text style={[styles.statDetailValue, { color: lc.success }]}>+${bestWin.toFixed(2)}</Text>
-                </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: 'transparent' }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Worst Loss</Text>
-                  <Text style={[styles.statDetailValue, { color: lc.danger }]}>-${Math.abs(worstLoss).toFixed(2)}</Text>
-                </View>
-              </View>
+              </>
             ) : (
-              <View style={styles.statDetailsList}>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Win Rate</Text>
-                  <Text style={[styles.statDetailValue, { color: lc.trustBlue }]}>{winRate.toFixed(1)}%</Text>
+              <>
+                {/* Blue Gradient Hero for Win Rate */}
+                <LinearGradient
+                  colors={['#1E40AF', '#3B82F6', '#60A5FA']}
+                  style={styles.statHeroCard}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="analytics" size={32} color="rgba(255,255,255,0.9)" />
+                  <Text style={styles.statHeroValue}>{winRate.toFixed(1)}%</Text>
+                  <Text style={styles.statHeroLabel}>Win Rate</Text>
+                </LinearGradient>
+
+                {/* W/L Stat Pills */}
+                <View style={styles.statPillsGrid}>
+                  <View style={styles.statPill}>
+                    <Text style={styles.statPillValue}>{totalGames}</Text>
+                    <Text style={styles.statPillLabel}>Games</Text>
+                  </View>
+                  <View style={[styles.statPill, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
+                    <Text style={[styles.statPillValue, { color: lc.success }]}>{wins}</Text>
+                    <Text style={styles.statPillLabel}>Wins</Text>
+                  </View>
+                  <View style={[styles.statPill, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+                    <Text style={[styles.statPillValue, { color: lc.danger }]}>{losses}</Text>
+                    <Text style={styles.statPillLabel}>Losses</Text>
+                  </View>
                 </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Total Games</Text>
-                  <Text style={[styles.statDetailValue, { color: lc.textPrimary }]}>{totalGames}</Text>
+
+                {/* Additional Stats */}
+                <View style={styles.statDetailSection}>
+                  <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                    <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Best Win</Text>
+                    <Text style={[styles.statDetailValue, { color: lc.success }]}>+${bestWin.toFixed(2)}</Text>
+                  </View>
+                  <View style={[styles.statDetailRow, { borderBottomColor: 'transparent' }]}>
+                    <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Worst Loss</Text>
+                    <Text style={[styles.statDetailValue, { color: lc.danger }]}>-${Math.abs(worstLoss).toFixed(2)}</Text>
+                  </View>
                 </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Wins</Text>
-                  <Text style={[styles.statDetailValue, { color: lc.success }]}>{wins}</Text>
-                </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Losses</Text>
-                  <Text style={[styles.statDetailValue, { color: lc.danger }]}>{losses}</Text>
-                </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Best Win</Text>
-                  <Text style={[styles.statDetailValue, { color: lc.success }]}>+${bestWin.toFixed(2)}</Text>
-                </View>
-                <View style={[styles.statDetailRow, { borderBottomColor: 'transparent' }]}>
-                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Worst Loss</Text>
-                  <Text style={[styles.statDetailValue, { color: lc.danger }]}>-${Math.abs(worstLoss).toFixed(2)}</Text>
-                </View>
-              </View>
+              </>
             )}
 
             <TouchableOpacity
@@ -1319,25 +1361,29 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   helpTipsList: {
-    gap: 18,
+    gap: 12,
   },
-  helpTip: {
+  helpTipCard: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 14,
+    alignItems: "center",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
   },
-  helpTipIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+  helpTipIconLarge: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  helpTipText: {
+  helpTipContent: {
     flex: 1,
+    marginLeft: 16,
+    marginRight: 12,
   },
   helpTipTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
     marginBottom: 4,
   },
@@ -1358,15 +1404,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  // Stat Details Modal
+  // Stat Details Modal - Enhanced
   statDetailsList: {
     gap: 4,
+  },
+  statDetailSection: {
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: 16,
+    padding: 4,
+    marginTop: 8,
   },
   statDetailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
   statDetailLabel: {
@@ -1376,5 +1429,57 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     fontFamily: "monospace",
+  },
+  // Gradient Hero Card
+  statHeroCard: {
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  statHeroValue: {
+    fontSize: 42,
+    fontWeight: "800",
+    color: "#fff",
+    marginTop: 12,
+    letterSpacing: -1,
+  },
+  statHeroLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 4,
+  },
+  // Stat Pills Grid
+  statPillsGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 16,
+  },
+  statPill: {
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  statPillValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#F5F5F5",
+  },
+  statPillLabel: {
+    fontSize: 11,
+    color: "#7A7A7A",
+    marginTop: 4,
+    fontWeight: "500",
+    letterSpacing: 0.3,
   },
 });

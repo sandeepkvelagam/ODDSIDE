@@ -47,10 +47,17 @@ Full-stack poker group settlement app with React frontend, FastAPI backend, Mong
 - Supabase authentication
 
 ### Mobile App — Liquid Glass Design System (Complete)
-- Design tokens, reusable components (GlassSurface, GlassButton, BottomSheetScreen)
+- Design tokens, reusable components (GlassSurface, GlassButton, BottomSheetScreen, PageHeader)
 - Login, Dashboard V2, AI Toolkit, Poker AI, all settings/profile pages
 - All modal screens use `presentation: "transparentModal"`
 - TypeScript compiles 0 errors
+
+### Mobile App — Settings Screens UI Refactor (Complete - Dec 2025)
+- New PageHeader component for consistent header styling (title, subtitle, close button)
+- 6 screens refactored: ProfileScreen, BillingScreen, WalletScreen, LanguageScreen, NotificationsScreen, PrivacyScreen
+- All screens use curved corners (borderRadius: 20), grouped content in GlassSurface cards
+- Consistent entrance animations (fadeAnim + slideAnim with spring.bouncy)
+- All screens wrapped in BottomSheetScreen for modal presentation
 
 ### Mobile App — Wallet (Complete - Dec 2025)
 - Setup flow: intro → create → PIN setup → active

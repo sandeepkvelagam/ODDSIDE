@@ -90,8 +90,8 @@ export function GlassInput({
           {...props}
           style={[
             styles.input,
-            leftIcon && { paddingLeft: 0 },
-            rightIcon && { paddingRight: 0 },
+            leftIcon ? { paddingLeft: 0 } : undefined,
+            rightIcon ? { paddingRight: 0 } : undefined,
             props.style,
           ]}
           placeholderTextColor={COLORS.input.placeholder}

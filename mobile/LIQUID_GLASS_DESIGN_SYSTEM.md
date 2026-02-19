@@ -379,9 +379,12 @@ Color: #ffffff
 
 ### Phase 6: QA
 - [x] ThemeContext updated with orangeDark, trustBlue, moonstone, and liquid glass tokens
-- [ ] Visual consistency audit on device
-- [ ] Animation performance test
-- [ ] Feature parity check
+- [x] Button animations verified - all use spring press feedback (scale 0.95→1.0)
+- [x] Close buttons work on all modals
+- [x] Spotify: Already has "Coming Soon" badge in GameNightScreen
+- [x] Web app visual consistency verified
+- [x] Services restarted with cleared caches
+- [ ] Device testing - Expo tunnel ready at: exp://8qyhyhg-anonymous-8081.exp.direct
 
 ### Phase 6: QA
 - [ ] Visual consistency audit

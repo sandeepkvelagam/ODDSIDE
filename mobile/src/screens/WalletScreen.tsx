@@ -10,38 +10,72 @@ import {
   RefreshControl,
   Animated,
   TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Clipboard,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
-import { GlassSurface, GlassButton, GlassIconButton, GlassInput } from "../components/ui";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
 
-type ConsolidatedBalance = {
-  user: { user_id: string; name: string; picture?: string };
-  net_amount: number;
-  direction: "owed_to_you" | "you_owe";
-  display_amount: number;
+type WalletData = {
+  wallet_id: string | null;
+  user_id: string;
+  balance_cents: number;
+  balance: number;
+  currency: string;
+  status: string;
+  has_pin: boolean;
+  daily_transfer_limit_cents?: number;
+  per_transaction_limit_cents?: number;
+  daily_transferred_cents?: number;
 };
+
+type Transaction = {
+  transaction_id: string;
+  type: string;
+  amount_cents: number;
+  description: string;
+  created_at: string;
+  counterparty?: { name?: string; wallet_id?: string };
+};
+
+// Step screens for wallet setup
+type SetupStep = "intro" | "creating" | "pin_setup" | "done";
 
 export function WalletScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
 
-  const [balances, setBalances] = useState<{
-    consolidated: ConsolidatedBalance[];
-    total_you_owe: number;
-    total_owed_to_you: number;
-    net_balance: number;
-  } | null>(null);
+  const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [optimizing, setOptimizing] = useState(false);
+
+  // Setup flow
+  const [setupStep, setSetupStep] = useState<SetupStep>("intro");
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [settingUpPin, setSettingUpPin] = useState(false);
+
+  // Send modal
   const [showSendModal, setShowSendModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<ConsolidatedBalance | null>(null);
+  const [sendStep, setSendStep] = useState<"search" | "amount" | "pin" | "done">("search");
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedRecipient, setSelectedRecipient] = useState<any>(null);
   const [sendAmount, setSendAmount] = useState("");
+  const [sendPin, setSendPin] = useState("");
+  const [sendNote, setSendNote] = useState("");
+  const [sending, setSending] = useState(false);
+
+  // Receive modal
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -49,109 +83,274 @@ export function WalletScreen() {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        ...ANIMATION.spring.bouncy,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, ...ANIMATION.spring.bouncy }),
     ]).start();
   }, []);
 
-  const fetchBalances = useCallback(async () => {
+  const fetchWallet = useCallback(async () => {
     try {
-      const res = await api.get("/ledger/consolidated");
-      setBalances(res.data);
+      const res = await api.get("/wallet");
+      setWallet(res.data);
+      if (res.data?.wallet_id) {
+        const txRes = await api.get("/wallet/transactions?limit=15");
+        setTransactions(txRes.data?.transactions || []);
+      }
     } catch (e) {
-      console.error("Failed to fetch balances:", e);
+      console.error("Failed to fetch wallet:", e);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchBalances();
-  }, [fetchBalances]);
+  useEffect(() => { fetchWallet(); }, [fetchWallet]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchBalances();
+    await fetchWallet();
     setRefreshing(false);
-  }, [fetchBalances]);
+  }, [fetchWallet]);
 
-  const handleOptimizeDebts = async () => {
-    setOptimizing(true);
+  // Create wallet
+  const handleCreateWallet = async () => {
+    setSetupStep("creating");
     try {
-      const res = await api.post("/ledger/optimize");
-      if (res.data?.optimized > 0) {
-        Alert.alert(
-          "Debts Optimized",
-          `Consolidated ${res.data.optimized} entries. Your balances have been simplified.`
-        );
-        await fetchBalances();
-      } else {
-        Alert.alert("Already Optimized", "Your debts are already at their simplest form.");
-      }
+      await api.post("/wallet/setup");
+      await fetchWallet();
+      setSetupStep("pin_setup");
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to optimize debts");
+      Alert.alert("Error", e?.response?.data?.detail || "Failed to create wallet");
+      setSetupStep("intro");
+    }
+  };
+
+  // Set PIN
+  const handleSetPin = async () => {
+    if (pin.length < 4 || pin.length > 6) {
+      Alert.alert("Invalid PIN", "PIN must be 4-6 digits");
+      return;
+    }
+    if (pin !== confirmPin) {
+      Alert.alert("PIN Mismatch", "PINs do not match. Please try again.");
+      setPin("");
+      setConfirmPin("");
+      return;
+    }
+    setSettingUpPin(true);
+    try {
+      await api.post("/wallet/pin/set", { pin });
+      await fetchWallet();
+      setSetupStep("done");
+      setTimeout(() => setSetupStep("intro"), 2000);
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.detail || "Failed to set PIN");
     } finally {
-      setOptimizing(false);
+      setSettingUpPin(false);
     }
   };
 
-  const handleSettle = (item: ConsolidatedBalance) => {
-    setSelectedUser(item);
-    setSendAmount(item.display_amount.toFixed(2));
-    setShowSendModal(true);
-  };
-
-  const handleConfirmSettle = async () => {
-    if (!selectedUser) return;
-    
+  // Search recipients
+  const handleSearch = useCallback(async (q: string) => {
+    setRecipientSearch(q);
+    if (q.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
     try {
-      // Mark as settled - this would call your backend API
-      Alert.alert(
-        "Settlement Recorded",
-        `You've marked $${sendAmount} as settled with ${selectedUser.user.name}. They'll receive a notification to confirm.`
-      );
-      setShowSendModal(false);
-      setSelectedUser(null);
-      setSendAmount("");
-      await fetchBalances();
+      const res = await api.get(`/wallet/search?q=${encodeURIComponent(q)}`);
+      setSearchResults(res.data?.results || []);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  // Execute transfer
+  const handleSend = async () => {
+    const amountCents = Math.round(parseFloat(sendAmount) * 100);
+    if (!selectedRecipient || isNaN(amountCents) || amountCents <= 0) return;
+
+    setSending(true);
+    try {
+      await api.post("/wallet/transfer", {
+        to_wallet_id: selectedRecipient.wallet_id,
+        amount_cents: amountCents,
+        note: sendNote || undefined,
+        pin: sendPin,
+        risk_acknowledged: amountCents > 10000,
+      });
+      setSendStep("done");
+      await fetchWallet();
+      setTimeout(() => {
+        setShowSendModal(false);
+        resetSendModal();
+      }, 2500);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to settle");
+      Alert.alert("Transfer Failed", e?.response?.data?.detail || "Please check your PIN and try again");
+    } finally {
+      setSending(false);
     }
   };
+
+  const resetSendModal = () => {
+    setSendStep("search");
+    setRecipientSearch("");
+    setSearchResults([]);
+    setSelectedRecipient(null);
+    setSendAmount("");
+    setSendPin("");
+    setSendNote("");
+  };
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getTransactionIcon = (type: string) => {
+    switch (type) {
+      case "transfer_out": return "arrow-up-circle";
+      case "transfer_in": return "arrow-down-circle";
+      case "deposit": return "add-circle";
+      case "settlement_credit": return "checkmark-circle";
+      default: return "swap-horizontal";
+    }
+  };
+
+  const getTransactionColor = (type: string) => {
+    switch (type) {
+      case "transfer_out": return COLORS.status.danger;
+      case "transfer_in": return COLORS.status.success;
+      case "deposit": return COLORS.trustBlue;
+      case "settlement_credit": return COLORS.status.success;
+      default: return COLORS.moonstone;
+    }
+  };
+
+  // Render wallet setup flow when no wallet
+  if (!loading && (!wallet?.wallet_id || wallet?.status === "needs_setup")) {
+    return (
+      <BottomSheetScreen>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
+              <Ionicons name="close" size={22} color={COLORS.text.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Kvitt Wallet</Text>
+            <View style={{ width: 48 }} />
+          </View>
+
+          {setupStep === "creating" ? (
+            <View style={styles.centeredContent}>
+              <ActivityIndicator size="large" color={COLORS.orange} />
+              <Text style={styles.setupSubtitle}>Creating your wallet...</Text>
+            </View>
+          ) : setupStep === "pin_setup" ? (
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.setupContainer}>
+              <View style={styles.setupIcon}>
+                <Ionicons name="lock-closed" size={40} color={COLORS.orange} />
+              </View>
+              <Text style={styles.setupTitle}>Set Your PIN</Text>
+              <Text style={styles.setupSubtitle}>Create a 4-6 digit PIN to authorize transfers</Text>
+
+              <TextInput
+                style={styles.pinInput}
+                value={pin}
+                onChangeText={setPin}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={6}
+                placeholder="Enter PIN (4-6 digits)"
+                placeholderTextColor={COLORS.text.muted}
+              />
+              <TextInput
+                style={styles.pinInput}
+                value={confirmPin}
+                onChangeText={setConfirmPin}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={6}
+                placeholder="Confirm PIN"
+                placeholderTextColor={COLORS.text.muted}
+              />
+
+              <TouchableOpacity
+                style={[styles.primaryButton, (!pin || pin !== confirmPin || settingUpPin) && styles.buttonDisabled]}
+                onPress={handleSetPin}
+                disabled={!pin || pin !== confirmPin || settingUpPin}
+              >
+                {settingUpPin ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.primaryButtonText}>Set PIN</Text>}
+              </TouchableOpacity>
+            </KeyboardAvoidingView>
+          ) : setupStep === "done" ? (
+            <View style={styles.centeredContent}>
+              <Ionicons name="checkmark-circle" size={64} color={COLORS.status.success} />
+              <Text style={styles.setupTitle}>Wallet Ready!</Text>
+              <Text style={styles.setupSubtitle}>You can now send and receive money</Text>
+            </View>
+          ) : (
+            // Intro step
+            <View style={styles.setupContainer}>
+              <View style={styles.setupIcon}>
+                <Ionicons name="wallet" size={40} color={COLORS.orange} />
+              </View>
+              <Text style={styles.setupTitle}>Kvitt Wallet</Text>
+              <Text style={styles.setupSubtitle}>
+                Send and receive poker settlements instantly. Your wallet comes with a unique ID for peer-to-peer transfers.
+              </Text>
+
+              <View style={styles.featureList}>
+                {[
+                  { icon: "arrow-forward-circle", color: COLORS.trustBlue, text: "Instant P2P transfers" },
+                  { icon: "lock-closed", color: COLORS.orange, text: "PIN-protected security" },
+                  { icon: "receipt", color: COLORS.status.success, text: "Full transaction history" },
+                ].map((f, i) => (
+                  <View key={i} style={styles.featureItem}>
+                    <View style={[styles.featureIcon, { backgroundColor: f.color + "20" }]}>
+                      <Ionicons name={f.icon as any} size={20} color={f.color} />
+                    </View>
+                    <Text style={styles.featureText}>{f.text}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <TouchableOpacity style={styles.primaryButton} onPress={handleCreateWallet}>
+                <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                <Text style={styles.primaryButtonText}>Create Wallet</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </BottomSheetScreen>
+    );
+  }
 
   return (
     <BottomSheetScreen>
       <View style={styles.container}>
         {/* Header */}
-        <Animated.View
-          style={[
-            styles.header,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          <GlassIconButton
-            icon={<Ionicons name="close" size={22} color={COLORS.text.primary} />}
-            onPress={() => navigation.goBack()}
-            variant="ghost"
-          />
+        <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="close" size={22} color={COLORS.text.primary} />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Kvitt Wallet</Text>
-          <View style={{ width: 48 }} />
+          <TouchableOpacity
+            style={styles.walletIdBtn}
+            onPress={() => {
+              if (wallet?.wallet_id) {
+                Clipboard.setString(wallet.wallet_id);
+                Alert.alert("Copied!", `Wallet ID ${wallet.wallet_id} copied to clipboard`);
+              }
+            }}
+          >
+            <Ionicons name="copy-outline" size={16} color={COLORS.text.muted} />
+          </TouchableOpacity>
         </Animated.View>
 
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.orange} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.orange} />}
         >
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -159,170 +358,272 @@ export function WalletScreen() {
             </View>
           ) : (
             <>
-              {/* Balance Overview Card */}
-              <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-                <GlassSurface glowVariant="orange" style={styles.balanceCard}>
-                  <View style={styles.balanceHeader}>
-                    <Text style={styles.balanceLabel}>NET BALANCE</Text>
-                    <Text style={[
-                      styles.balanceValue,
-                      { color: (balances?.net_balance ?? 0) >= 0 ? COLORS.status.success : COLORS.status.danger }
-                    ]}>
-                      {(balances?.net_balance ?? 0) >= 0 ? "+" : ""}${Math.abs(balances?.net_balance ?? 0).toFixed(2)}
+              {/* Balance Card */}
+              <Animated.View style={[styles.balanceCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+                <View style={styles.balanceCardInner}>
+                  {/* Wallet ID */}
+                  <View style={styles.walletIdRow}>
+                    <Ionicons name="wallet-outline" size={14} color={COLORS.moonstone} />
+                    <Text style={styles.walletIdText}>{wallet?.wallet_id || "—"}</Text>
+                  </View>
+
+                  <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
+                  <Text style={styles.balanceValue}>
+                    ${((wallet?.balance_cents || 0) / 100).toFixed(2)}
+                  </Text>
+
+                  {/* Daily Limit */}
+                  {wallet?.daily_transfer_limit_cents && (
+                    <Text style={styles.limitText}>
+                      Daily limit: ${(wallet.daily_transfer_limit_cents / 100).toFixed(0)} · Used: ${((wallet.daily_transferred_cents || 0) / 100).toFixed(0)}
                     </Text>
-                  </View>
-
-                  {/* Quick Stats */}
-                  <View style={styles.quickStats}>
-                    <View style={styles.quickStatItem}>
-                      <View style={[styles.quickStatIcon, { backgroundColor: COLORS.glass.glowRed }]}>
-                        <Ionicons name="arrow-up" size={16} color={COLORS.status.danger} />
-                      </View>
-                      <View>
-                        <Text style={styles.quickStatLabel}>You Owe</Text>
-                        <Text style={[styles.quickStatValue, { color: COLORS.status.danger }]}>
-                          ${(balances?.total_you_owe ?? 0).toFixed(2)}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.quickStatDivider} />
-
-                    <View style={styles.quickStatItem}>
-                      <View style={[styles.quickStatIcon, { backgroundColor: COLORS.glass.glowGreen }]}>
-                        <Ionicons name="arrow-down" size={16} color={COLORS.status.success} />
-                      </View>
-                      <View>
-                        <Text style={styles.quickStatLabel}>Owed to You</Text>
-                        <Text style={[styles.quickStatValue, { color: COLORS.status.success }]}>
-                          ${(balances?.total_owed_to_you ?? 0).toFixed(2)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </GlassSurface>
-              </Animated.View>
-
-              {/* Settlement Actions */}
-              <Animated.View style={{ opacity: fadeAnim }}>
-                <View style={styles.actionsRow}>
-                  <TouchableOpacity 
-                    style={[styles.actionButton, { backgroundColor: COLORS.trustBlue }]}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="qr-code" size={20} color="#fff" />
-                    <Text style={styles.actionButtonText}>Receive</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.actionButton, { backgroundColor: COLORS.orange }]}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="send" size={20} color="#fff" />
-                    <Text style={styles.actionButtonText}>Send</Text>
-                  </TouchableOpacity>
+                  )}
                 </View>
               </Animated.View>
 
-              {/* Individual Balances */}
-              {balances && balances.consolidated.length > 0 && (
-                <Animated.View style={{ opacity: fadeAnim }}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>PENDING SETTLEMENTS</Text>
-                    {balances.consolidated.length > 1 && (
-                      <TouchableOpacity
-                        style={styles.optimizeButton}
-                        onPress={handleOptimizeDebts}
-                        disabled={optimizing}
-                        activeOpacity={0.7}
-                      >
-                        {optimizing ? (
-                          <ActivityIndicator size="small" color={COLORS.orange} />
-                        ) : (
-                          <>
-                            <Ionicons name="git-merge-outline" size={14} color={COLORS.orange} />
-                            <Text style={styles.optimizeText}>Simplify</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  <GlassSurface style={styles.balancesList} noPadding>
-                    {balances.consolidated.map((item, index) => (
-                      <TouchableOpacity
-                        key={item.user?.user_id || index}
-                        style={[
-                          styles.balanceItem,
-                          index < balances.consolidated.length - 1 && styles.balanceItemBorder,
-                        ]}
-                        onPress={() => handleSettle(item)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[
-                          styles.balanceAvatar,
-                          { backgroundColor: item.direction === "you_owe" ? COLORS.glass.glowRed : COLORS.glass.glowGreen }
-                        ]}>
-                          <Text style={styles.balanceAvatarText}>
-                            {item.user?.name?.[0]?.toUpperCase() || "?"}
-                          </Text>
-                        </View>
-                        <View style={styles.balanceInfo}>
-                          <Text style={styles.balanceName}>{item.user?.name || "Unknown"}</Text>
-                          <Text style={styles.balanceDirection}>
-                            {item.direction === "you_owe" ? "You owe them" : "They owe you"}
-                          </Text>
-                        </View>
-                        <View style={styles.balanceRight}>
-                          <Text style={[
-                            styles.balanceAmount,
-                            { color: item.direction === "you_owe" ? COLORS.status.danger : COLORS.status.success }
-                          ]}>
-                            ${item.display_amount.toFixed(2)}
-                          </Text>
-                          <TouchableOpacity 
-                            style={[
-                              styles.settleButton,
-                              { backgroundColor: item.direction === "you_owe" ? COLORS.orange : COLORS.trustBlue }
-                            ]}
-                            onPress={() => handleSettle(item)}
-                          >
-                            <Text style={styles.settleButtonText}>
-                              {item.direction === "you_owe" ? "Pay" : "Request"}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </GlassSurface>
-                </Animated.View>
-              )}
-
-              {/* All Settled */}
-              {balances && balances.consolidated.length === 0 && (
-                <GlassSurface glowVariant="green" style={styles.allSettledCard}>
-                  <Ionicons name="checkmark-circle" size={48} color={COLORS.status.success} />
-                  <Text style={styles.allSettledTitle}>All Settled!</Text>
-                  <Text style={styles.allSettledText}>
-                    You have no pending balances with anyone.
-                  </Text>
-                </GlassSurface>
-              )}
-
-              {/* Info Card */}
-              <Animated.View style={{ opacity: fadeAnim }}>
-                <View style={styles.infoCard}>
-                  <Ionicons name="information-circle-outline" size={16} color={COLORS.text.muted} />
-                  <Text style={styles.infoText}>
-                    Balances are automatically calculated from your game sessions. Settle up using Venmo, PayPal, or cash.
-                  </Text>
-                </View>
+              {/* Action Buttons */}
+              <Animated.View style={[styles.actionsRow, { opacity: fadeAnim }]}>
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: COLORS.trustBlue }]}
+                  onPress={() => setShowReceiveModal(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="arrow-down-circle-outline" size={22} color="#fff" />
+                  <Text style={styles.actionButtonText}>Receive</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: COLORS.orange }]}
+                  onPress={() => { setShowSendModal(true); setSendStep("search"); }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="arrow-up-circle-outline" size={22} color="#fff" />
+                  <Text style={styles.actionButtonText}>Send</Text>
+                </TouchableOpacity>
               </Animated.View>
+
+              {/* PIN status */}
+              {!wallet?.has_pin && (
+                <View style={styles.pinWarning}>
+                  <Ionicons name="warning-outline" size={16} color={COLORS.status.warning} />
+                  <Text style={styles.pinWarningText}>
+                    Set a PIN to enable transfers
+                  </Text>
+                  <TouchableOpacity onPress={() => setSetupStep("pin_setup")}>
+                    <Text style={[styles.pinWarningText, { color: COLORS.orange, fontWeight: "600" }]}>Set PIN</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Transactions */}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>RECENT TRANSACTIONS</Text>
+              </View>
+
+              {transactions.length === 0 ? (
+                <View style={styles.emptyTx}>
+                  <Ionicons name="receipt-outline" size={40} color={COLORS.text.muted} />
+                  <Text style={styles.emptyTxText}>No transactions yet</Text>
+                  <Text style={styles.emptyTxSub}>Send or receive money to get started</Text>
+                </View>
+              ) : (
+                <View style={styles.txList}>
+                  {transactions.map((tx, idx) => {
+                    const isOut = tx.type === "transfer_out";
+                    const color = getTransactionColor(tx.type);
+                    return (
+                      <View
+                        key={tx.transaction_id || idx}
+                        style={[styles.txItem, idx < transactions.length - 1 && styles.txItemBorder]}
+                      >
+                        <View style={[styles.txIcon, { backgroundColor: color + "20" }]}>
+                          <Ionicons name={getTransactionIcon(tx.type) as any} size={20} color={color} />
+                        </View>
+                        <View style={styles.txInfo}>
+                          <Text style={styles.txDesc} numberOfLines={1}>
+                            {tx.description || (tx.type === "transfer_out" ? `To ${tx.counterparty?.name || tx.counterparty?.wallet_id || "Wallet"}` : `From ${tx.counterparty?.name || "Wallet"}`)}
+                          </Text>
+                          <Text style={styles.txDate}>{formatDate(tx.created_at)}</Text>
+                        </View>
+                        <Text style={[styles.txAmount, { color }]}>
+                          {isOut ? "-" : "+"}${(Math.abs(tx.amount_cents) / 100).toFixed(2)}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              <View style={{ height: 40 }} />
             </>
           )}
-
-          <View style={{ height: 40 }} />
         </ScrollView>
       </View>
+
+      {/* Receive Modal */}
+      <Modal visible={showReceiveModal} animationType="slide" transparent onRequestClose={() => setShowReceiveModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowReceiveModal(false)} />
+          <View style={styles.sheetContainer}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Receive Money</Text>
+            <Text style={styles.sheetSubtitle}>Share your Wallet ID to receive transfers</Text>
+
+            <View style={styles.walletIdDisplay}>
+              <Text style={styles.walletIdDisplayLabel}>YOUR WALLET ID</Text>
+              <Text style={styles.walletIdDisplayValue}>{wallet?.wallet_id}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryButton, { marginTop: SPACING.lg }]}
+              onPress={() => {
+                if (wallet?.wallet_id) {
+                  Clipboard.setString(wallet.wallet_id);
+                  Alert.alert("Copied!", "Wallet ID copied to clipboard");
+                }
+              }}
+            >
+              <Ionicons name="copy-outline" size={18} color="#fff" />
+              <Text style={styles.primaryButtonText}>Copy Wallet ID</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.ghostButton, { marginTop: SPACING.md }]}
+              onPress={() => setShowReceiveModal(false)}
+            >
+              <Text style={styles.ghostButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Send Modal */}
+      <Modal visible={showSendModal} animationType="slide" transparent onRequestClose={() => { setShowSendModal(false); resetSendModal(); }}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => { setShowSendModal(false); resetSendModal(); }} />
+          <View style={styles.sheetContainer}>
+            <View style={styles.sheetHandle} />
+
+            {sendStep === "done" ? (
+              <View style={styles.centeredContent}>
+                <Ionicons name="checkmark-circle" size={64} color={COLORS.status.success} />
+                <Text style={styles.setupTitle}>Sent!</Text>
+                <Text style={styles.setupSubtitle}>
+                  ${parseFloat(sendAmount || "0").toFixed(2)} sent to {selectedRecipient?.display_name}
+                </Text>
+              </View>
+            ) : sendStep === "search" ? (
+              <>
+                <Text style={styles.sheetTitle}>Send Money</Text>
+                <Text style={styles.sheetSubtitle}>Search by name or wallet ID</Text>
+
+                <TextInput
+                  style={styles.searchInput}
+                  value={recipientSearch}
+                  onChangeText={handleSearch}
+                  placeholder="Search by name or wallet ID..."
+                  placeholderTextColor={COLORS.text.muted}
+                  autoFocus
+                />
+
+                {searching && <ActivityIndicator size="small" color={COLORS.orange} style={{ marginVertical: 12 }} />}
+
+                {searchResults.map((r) => (
+                  <TouchableOpacity
+                    key={r.wallet_id}
+                    style={styles.searchResultItem}
+                    onPress={() => { setSelectedRecipient(r); setSendStep("amount"); }}
+                  >
+                    <View style={styles.searchResultAvatar}>
+                      <Text style={styles.searchResultAvatarText}>
+                        {(r.display_name || r.wallet_id || "?")[0].toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.searchResultInfo}>
+                      <Text style={styles.searchResultName}>{r.display_name || "Unknown"}</Text>
+                      <Text style={styles.searchResultId}>{r.wallet_id}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
+                  </TouchableOpacity>
+                ))}
+
+                {recipientSearch.length > 1 && searchResults.length === 0 && !searching && (
+                  <Text style={styles.noResults}>No wallets found</Text>
+                )}
+              </>
+            ) : sendStep === "amount" ? (
+              <>
+                <Text style={styles.sheetTitle}>Amount</Text>
+                <Text style={styles.sheetSubtitle}>Sending to {selectedRecipient?.display_name}</Text>
+
+                <TextInput
+                  style={styles.amountInput}
+                  value={sendAmount}
+                  onChangeText={setSendAmount}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  placeholderTextColor={COLORS.text.muted}
+                  autoFocus
+                />
+
+                <TextInput
+                  style={styles.noteInput}
+                  value={sendNote}
+                  onChangeText={setSendNote}
+                  placeholder="Add a note (optional)"
+                  placeholderTextColor={COLORS.text.muted}
+                  maxLength={100}
+                />
+
+                <View style={styles.sheetActions}>
+                  <TouchableOpacity style={styles.ghostButton} onPress={() => setSendStep("search")}>
+                    <Text style={styles.ghostButtonText}>Back</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.primaryButton, { flex: 2 }, (!sendAmount || parseFloat(sendAmount) <= 0) && styles.buttonDisabled]}
+                    onPress={() => setSendStep("pin")}
+                    disabled={!sendAmount || parseFloat(sendAmount) <= 0}
+                  >
+                    <Text style={styles.primaryButtonText}>Continue</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              // Pin step
+              <>
+                <Text style={styles.sheetTitle}>Enter PIN</Text>
+                <Text style={styles.sheetSubtitle}>
+                  Confirm ${parseFloat(sendAmount || "0").toFixed(2)} to {selectedRecipient?.display_name}
+                </Text>
+
+                <TextInput
+                  style={styles.pinInput}
+                  value={sendPin}
+                  onChangeText={setSendPin}
+                  keyboardType="number-pad"
+                  secureTextEntry
+                  maxLength={6}
+                  placeholder="Your wallet PIN"
+                  placeholderTextColor={COLORS.text.muted}
+                  autoFocus
+                />
+
+                <View style={styles.sheetActions}>
+                  <TouchableOpacity style={styles.ghostButton} onPress={() => setSendStep("amount")}>
+                    <Text style={styles.ghostButtonText}>Back</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.primaryButton, { flex: 2 }, (!sendPin || sending) && styles.buttonDisabled]}
+                    onPress={handleSend}
+                    disabled={!sendPin || sending}
+                  >
+                    {sending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.primaryButtonText}>Confirm Send</Text>}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </BottomSheetScreen>
   );
 }
@@ -345,67 +646,127 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.heading3,
     fontWeight: TYPOGRAPHY.weights.bold,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: SPACING.container,
-  },
-  loadingContainer: {
-    paddingVertical: 60,
+  closeBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.glass.bg,
+    borderWidth: 1,
+    borderColor: COLORS.glass.border,
     alignItems: "center",
+    justifyContent: "center",
   },
-  // Balance Card
+  walletIdBtn: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: SPACING.container },
+  loadingContainer: { paddingVertical: 60, alignItems: "center" },
+
+  // Setup flow
+  setupContainer: {
+    flex: 1,
+    padding: SPACING.container,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING.lg,
+  },
+  setupIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: RADIUS.xxl,
+    backgroundColor: COLORS.glass.glowOrange,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACING.sm,
+  },
+  setupTitle: {
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.heading2,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    textAlign: "center",
+  },
+  setupSubtitle: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+    textAlign: "center",
+    lineHeight: 22,
+    maxWidth: 280,
+  },
+  featureList: { gap: SPACING.md, alignSelf: "stretch", marginVertical: SPACING.md },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.md,
+  },
+  featureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  featureText: {
+    color: COLORS.text.secondary,
+    fontSize: TYPOGRAPHY.sizes.body,
+  },
+  centeredContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING.lg,
+  },
+
+  // Balance card
   balanceCard: {
+    borderRadius: RADIUS.xxl,
+    padding: 3,
+    backgroundColor: COLORS.glass.bg,
+    borderWidth: 1.5,
+    borderColor: COLORS.glass.border,
     marginBottom: SPACING.lg,
   },
-  balanceHeader: {
+  balanceCardInner: {
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xxl,
+    backgroundColor: COLORS.glass.glowOrange,
     alignItems: "center",
-    marginBottom: SPACING.xl,
+  },
+  walletIdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: SPACING.md,
+  },
+  walletIdText: {
+    color: COLORS.moonstone,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    letterSpacing: 1,
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
   },
   balanceLabel: {
     color: COLORS.moonstone,
     fontSize: TYPOGRAPHY.sizes.caption,
     fontWeight: TYPOGRAPHY.weights.semiBold,
     letterSpacing: 1,
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
   balanceValue: {
-    fontSize: 42,
+    color: COLORS.text.primary,
+    fontSize: 48,
     fontWeight: TYPOGRAPHY.weights.bold,
     letterSpacing: -1,
   },
-  quickStats: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  quickStatItem: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
-  },
-  quickStatIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickStatLabel: {
+  limitText: {
     color: COLORS.text.muted,
-    fontSize: TYPOGRAPHY.sizes.caption,
+    fontSize: TYPOGRAPHY.sizes.micro,
+    marginTop: SPACING.sm,
+    textAlign: "center",
   },
-  quickStatValue: {
-    fontSize: TYPOGRAPHY.sizes.body,
-    fontWeight: TYPOGRAPHY.weights.bold,
-  },
-  quickStatDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: COLORS.glass.border,
-    marginHorizontal: SPACING.md,
-  },
+
   // Actions
   actionsRow: {
     flexDirection: "row",
@@ -426,11 +787,27 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: TYPOGRAPHY.weights.semiBold,
   },
-  // Section
-  sectionHeader: {
+
+  // PIN warning
+  pinWarning: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: SPACING.sm,
+    backgroundColor: "rgba(245,158,11,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.3)",
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
+  pinWarningText: {
+    color: COLORS.status.warning,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+    flex: 1,
+  },
+
+  // Transactions
+  sectionHeader: {
     marginBottom: SPACING.md,
   },
   sectionTitle: {
@@ -439,109 +816,245 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.weights.semiBold,
     letterSpacing: 1,
   },
-  optimizeButton: {
-    flexDirection: "row",
+  emptyTx: {
     alignItems: "center",
-    gap: SPACING.xs,
+    paddingVertical: SPACING.xxxl,
+    gap: SPACING.sm,
+  },
+  emptyTxText: {
+    color: COLORS.text.secondary,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.medium,
+  },
+  emptyTxSub: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+  },
+  txList: {
     backgroundColor: COLORS.glass.bg,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: RADIUS.full,
     borderWidth: 1,
     borderColor: COLORS.glass.border,
+    borderRadius: RADIUS.xl,
+    overflow: "hidden",
   },
-  optimizeText: {
-    color: COLORS.orange,
-    fontSize: TYPOGRAPHY.sizes.micro,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
-  },
-  // Balances List
-  balancesList: {
-    marginBottom: SPACING.lg,
-  },
-  balanceItem: {
+  txItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: SPACING.lg,
     gap: SPACING.md,
   },
-  balanceItemBorder: {
+  txItemBorder: {
     borderBottomWidth: 1,
     borderBottomColor: COLORS.glass.border,
   },
-  balanceAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  txIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.full,
     alignItems: "center",
     justifyContent: "center",
   },
-  balanceAvatarText: {
+  txInfo: { flex: 1 },
+  txDesc: {
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+    fontWeight: TYPOGRAPHY.weights.medium,
+  },
+  txDate: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.micro,
+    marginTop: 2,
+  },
+  txAmount: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+
+  // Modal
+  modalOverlay: { flex: 1, justifyContent: "flex-end" },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
+  sheetContainer: {
+    backgroundColor: COLORS.jetSurface,
+    borderTopLeftRadius: RADIUS.xxxl,
+    borderTopRightRadius: RADIUS.xxxl,
+    padding: SPACING.container,
+    paddingBottom: 40,
+    minHeight: 300,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(128,128,128,0.3)",
+    alignSelf: "center",
+    marginBottom: SPACING.xl,
+  },
+  sheetTitle: {
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.heading2,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    textAlign: "center",
+    marginBottom: SPACING.sm,
+  },
+  sheetSubtitle: {
+    color: COLORS.text.muted,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+    textAlign: "center",
+    marginBottom: SPACING.xl,
+  },
+  sheetActions: {
+    flexDirection: "row",
+    gap: SPACING.md,
+    marginTop: SPACING.lg,
+  },
+
+  // Wallet ID display
+  walletIdDisplay: {
+    backgroundColor: COLORS.glass.bg,
+    borderWidth: 1,
+    borderColor: COLORS.glass.border,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    alignItems: "center",
+    gap: SPACING.sm,
+    marginVertical: SPACING.lg,
+  },
+  walletIdDisplayLabel: {
+    color: COLORS.moonstone,
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+    letterSpacing: 1,
+  },
+  walletIdDisplayValue: {
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.heading3,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    letterSpacing: 2,
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+  },
+
+  // Search
+  searchInput: {
+    backgroundColor: COLORS.glass.bg,
+    borderWidth: 1,
+    borderColor: COLORS.glass.border,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
     color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.body,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
+    marginBottom: SPACING.md,
   },
-  balanceInfo: {
-    flex: 1,
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.md,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.glass.inner,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.sm,
   },
-  balanceName: {
+  searchResultAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.glass.glowBlue,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchResultAvatarText: {
+    color: COLORS.trustBlue,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  searchResultInfo: { flex: 1 },
+  searchResultName: {
     color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: TYPOGRAPHY.weights.medium,
   },
-  balanceDirection: {
+  searchResultId: {
     color: COLORS.text.muted,
     fontSize: TYPOGRAPHY.sizes.caption,
-    marginTop: 2,
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
   },
-  balanceRight: {
-    alignItems: "flex-end",
-    gap: SPACING.xs,
-  },
-  balanceAmount: {
+  noResults: {
+    color: COLORS.text.muted,
     fontSize: TYPOGRAPHY.sizes.body,
-    fontWeight: TYPOGRAPHY.weights.bold,
-  },
-  settleButton: {
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.full,
-  },
-  settleButtonText: {
-    color: "#fff",
-    fontSize: TYPOGRAPHY.sizes.micro,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
-  },
-  // All Settled
-  allSettledCard: {
-    alignItems: "center",
-    gap: SPACING.md,
-    marginTop: SPACING.lg,
-  },
-  allSettledTitle: {
-    color: COLORS.text.primary,
-    fontSize: TYPOGRAPHY.sizes.heading3,
-    fontWeight: TYPOGRAPHY.weights.semiBold,
-  },
-  allSettledText: {
-    color: COLORS.text.muted,
-    fontSize: TYPOGRAPHY.sizes.bodySmall,
     textAlign: "center",
+    marginVertical: SPACING.xl,
   },
-  // Info Card
-  infoCard: {
+
+  // Amount
+  amountInput: {
+    backgroundColor: COLORS.glass.bg,
+    borderWidth: 1,
+    borderColor: COLORS.glass.border,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
+    color: COLORS.text.primary,
+    fontSize: 40,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    textAlign: "center",
+    marginBottom: SPACING.md,
+  },
+  noteInput: {
+    backgroundColor: COLORS.glass.bg,
+    borderWidth: 1,
+    borderColor: COLORS.glass.border,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.body,
+    marginBottom: SPACING.md,
+  },
+
+  // PIN input
+  pinInput: {
+    backgroundColor: COLORS.glass.bg,
+    borderWidth: 1,
+    borderColor: COLORS.glass.border,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
+    color: COLORS.text.primary,
+    fontSize: TYPOGRAPHY.sizes.heading2,
+    textAlign: "center",
+    letterSpacing: 8,
+    marginBottom: SPACING.md,
+    alignSelf: "stretch",
+  },
+
+  // Buttons
+  primaryButton: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
+    justifyContent: "center",
     gap: SPACING.sm,
-    marginTop: SPACING.lg,
-    paddingHorizontal: SPACING.sm,
+    backgroundColor: COLORS.orange,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    alignSelf: "stretch",
   },
-  infoText: {
+  primaryButtonText: {
+    color: "#fff",
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+  },
+  ghostButton: {
     flex: 1,
-    color: COLORS.text.muted,
-    fontSize: TYPOGRAPHY.sizes.caption,
-    lineHeight: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.glass.bg,
+    borderWidth: 1,
+    borderColor: COLORS.glass.border,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
   },
+  ghostButtonText: {
+    color: COLORS.text.secondary,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+  },
+  buttonDisabled: { opacity: 0.5 },
 });
 
 export default WalletScreen;

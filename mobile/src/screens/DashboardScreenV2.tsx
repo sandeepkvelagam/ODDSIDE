@@ -264,11 +264,11 @@ export function DashboardScreenV2() {
               </Text>
             </View>
             <TouchableOpacity
-              style={[styles.helpButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+              style={[styles.helpButtonSmall, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
               onPress={() => setShowHelpModal(true)}
               activeOpacity={0.7}
             >
-              <Ionicons name="help-circle-outline" size={18} color={lc.moonstone} />
+              <Ionicons name="help-circle-outline" size={14} color={lc.moonstone} />
             </TouchableOpacity>
           </View>
 

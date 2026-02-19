@@ -161,6 +161,12 @@ EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_API_URL
 - `/app/frontend/src/components/SpotifyPlayer.jsx` - Music player (coming soon)
 - `/app/mobile/src/context/AuthContext.tsx` - Mobile auth
 - `/app/mobile/src/screens/DashboardScreen.tsx` - Mobile dashboard
+- `/app/mobile/src/screens/DashboardScreenV2.tsx` - V2 dashboard with liquid glass
+- `/app/mobile/src/screens/LoginScreen.tsx` - Updated login with glass styling
+- `/app/mobile/src/screens/AIToolkitScreen.tsx` - New AI toolkit page
+- `/app/mobile/src/styles/liquidGlass.ts` - Design system tokens
+- `/app/mobile/src/components/ui/` - Glass UI components
+- `/app/mobile/LIQUID_GLASS_DESIGN_SYSTEM.md` - Design system documentation
 - `/app/mobile/src/i18n/translations.ts` - Multi-language strings (7 languages)
 - `/app/mobile/src/context/LanguageContext.tsx` - Language state management
 - `/app/mobile/src/screens/LanguageScreen.tsx` - Language selection UI

@@ -163,6 +163,15 @@ export default function RootNavigator() {
                 }}
               />
               <Stack.Screen
+                name="Wallet"
+                component={WalletScreen}
+                options={{
+                  headerShown: false,
+                  animation: "slide_from_bottom",
+                  presentation: "transparentModal",
+                }}
+              />
+              <Stack.Screen
                 name="Notifications"
                 component={NotificationsScreen}
                 options={{

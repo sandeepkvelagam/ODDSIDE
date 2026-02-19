@@ -10,16 +10,15 @@ Full-stack poker group settlement app with React frontend, FastAPI backend, Mong
 ├── backend/           # FastAPI + MongoDB
 └── mobile/            # React Native (Expo)
     ├── src/
-    │   ├── components/
-    │   │   ├── ui/             # Reusable Liquid Glass components
-    │   │   └── BottomSheetScreen.tsx
+    │   ├── components/ui/      # Reusable Liquid Glass + QR components
     │   ├── screens/            # All app screens
+    │   ├── services/           # pushNotifications.ts
     │   ├── styles/
     │   │   └── liquidGlass.ts  # Design tokens
     │   ├── navigation/
     │   │   └── RootNavigator.tsx
     │   └── context/
-    │       └── ThemeContext.tsx
+    │       └── ThemeContext.tsx, AuthContext.tsx
     └── LIQUID_GLASS_DESIGN_SYSTEM.md
 ```
 
@@ -30,11 +29,11 @@ Full-stack poker group settlement app with React frontend, FastAPI backend, Mong
 
 ## Core Requirements
 1. Mobile app Liquid Glass design system on all screens
-2. Full Wallet functionality (create, send, receive, PIN protection, transaction history)
+2. Full Wallet functionality (create, send/receive with QR, deposit via Stripe, withdraw request, PIN protection, transaction history)
 3. Group management: create group, invite members, accept/reject invites
 4. Game management: create game, track buy-ins/cash-outs, settle
 5. AI features: poker assistant, hand analysis, AI toolkit
-6. Notifications: group invites, game updates, settlements
+6. Push notifications: game events, settlements, invites, wallet transfers
 
 ## What's Been Implemented
 
@@ -48,44 +47,47 @@ Full-stack poker group settlement app with React frontend, FastAPI backend, Mong
 - Supabase authentication
 
 ### Mobile App — Liquid Glass Design System (Complete)
-- Design tokens in `/app/mobile/src/styles/liquidGlass.ts`
-- Reusable components: `GlassSurface`, `GlassButton`, `BottomSheetScreen`
-- Login screen with charcoal theme and poker suits background
-- Dashboard V2 with 3-column stats layout, help modal
-- AI Toolkit screen (new)
-- Poker AI screen with card visibility toggle
-- All settings/profile/privacy/billing pages as BottomSheetScreens with transparent modal presentation
+- Design tokens, reusable components (GlassSurface, GlassButton, BottomSheetScreen)
+- Login, Dashboard V2, AI Toolkit, Poker AI, all settings/profile pages
+- All modal screens use `presentation: "transparentModal"`
+- TypeScript compiles 0 errors
 
 ### Mobile App — Wallet (Complete - Dec 2025)
-- Full wallet setup flow: intro → create → PIN setup → active
+- Setup flow: intro → create → PIN setup → active
 - View balance, wallet ID display
-- Send money: search recipient → amount → PIN confirm → success
-- Receive: display wallet ID for sharing
+- QR code display for receiving (react-native-qrcode-svg)
+- QR code scanner for sending (expo-camera)
+- Send: search / scan QR → amount → PIN confirm → done
+- Deposit via Stripe: select amount → Stripe checkout → poll for completion
+- Withdraw request: amount + destination + PIN → submitted to backend
 - Transaction history list
-- Backend: All endpoints fully functional (setup, PIN, transfer, transactions, search)
+
+### Mobile App — Push Notifications (Complete - Dec 2025)
+- expo-notifications integration (APNs/FCM via Expo Push Service)
+- Permission request on login, token registered with backend
+- Token unregistered on logout
+- Events: game started, settlement ready, group invite, wallet transfer received
+- Android notification channels: default, wallet, games
 
 ### Mobile App — Notifications & Group Invites (Complete - Dec 2025)
 - Pending group invites with Accept/Reject buttons
-- Activity feed with notification history  
-- Push notification settings toggles
-- Groups screen has "Invites" shortcut to Notifications
+- Activity feed with notification history
+- Groups screen has "Invites" shortcut
 
-### Mobile App — Navigation (Complete - Dec 2025)
-- All bottom sheet screens use `presentation: "transparentModal"` for see-through modal effect
-- TypeScript compiles with 0 errors (glassBg property fixed)
+### Backend — New Endpoints (Dec 2025)
+- POST /api/wallet/withdraw — simple withdrawal request
+- GET /api/wallet/withdrawals — withdrawal history
+- POST /api/users/push-token — register Expo push token
+- DELETE /api/users/push-token — unregister on logout
+- Push sent on: game_started, settlement_generated, wallet_received, group_invite, invite_accepted, withdrawal_requested
 
 ## Tech Stack
 - **Frontend**: React, TypeScript, TailwindCSS
-- **Backend**: FastAPI, MongoDB, Supabase Auth
-- **Mobile**: React Native (Expo), TypeScript, react-native-reanimated, expo-blur, expo-linear-gradient
+- **Backend**: FastAPI, MongoDB, Supabase Auth, httpx
+- **Mobile**: React Native (Expo SDK 54), TypeScript, react-native-reanimated, expo-blur, expo-linear-gradient, expo-notifications, expo-camera, react-native-qrcode-svg
 - **AI**: OpenAI GPT-4o, Whisper
+- **Payments**: Stripe (via emergentintegrations)
 - **Auth**: Supabase
-
-## 3rd Party Integrations
-- Supabase: Authentication
-- MongoDB: Database
-- OpenAI GPT-4o / Whisper: AI features
-- Spotify: Music player (Web only)
 
 ## Credentials for Testing
 - Email: sandeep.kmr8384@gmail.com
@@ -93,34 +95,22 @@ Full-stack poker group settlement app with React frontend, FastAPI backend, Mong
 
 ---
 
-# CHANGELOG
-
-## December 2025 — Mobile Liquid Glass Overhaul & Wallet/Invites
-- Fixed TypeScript build error in DashboardScreenV2.tsx (glassBg property)
-- Implemented full WalletScreen with create/setup flow, send/receive, transaction history
-- Updated NotificationsScreen with pending group invites (accept/reject), activity feed
-- GroupsScreen now has "Invites" button navigating to Notifications
-- All modal screens (Settings, Profile, Wallet, Notifications, AIAssistant, AIToolkit, etc.) now use `presentation: "transparentModal"`
-- TypeScript compiles clean (0 errors)
-
----
-
 # ROADMAP
 
 ## P0 — Next
-- [ ] Phase 6 QA Pass: Visual QA on all mobile screens (layout/spacing/theme consistency)
+- [ ] Phase 6 QA Pass: Visual test all mobile screens on a real device/Expo build
 - [ ] AI Assistant visibility toggle (show/hide chat interface)
 - [ ] Create Game quick flow from Dashboard (Group selection sheet)
 
 ## P1 — Upcoming
 - [ ] Voice command business logic implementation
-- [ ] GroupHubScreen and GameNightScreen refactor to use Liquid Glass components
+- [ ] GroupHubScreen & GameNightScreen refactor to use Liquid Glass components
 - [ ] Blinds Timer feature
-- [ ] Game invite notifications → navigate to correct game
+- [ ] Game invite notifications → navigate to correct game on tap
 
 ## P2 — Future/Backlog
 - [ ] Spotify player on mobile (currently "Coming Soon")
 - [ ] Refactor monolithic server.py backend
-- [ ] QR code scanner for wallet receiving
-- [ ] Deposit/withdraw flows (Stripe integration for real money deposit)
-- [ ] Push notification delivery (APNs/FCM integration)
+- [ ] Push notification deep linking (tap notification → go to correct screen)
+- [ ] Admin panel for processing withdrawal requests
+- [ ] Stripe webhook for deposit status (backup to polling)

@@ -548,7 +548,7 @@ export function DashboardScreenV2() {
           <View style={{ height: 100 }} />
         </ScrollView>
 
-        {/* Help Modal - Premium animated version */}
+        {/* Help Modal - Premium animated version with Demo */}
         <AnimatedModal
           visible={showHelpModal}
           onClose={() => setShowHelpModal(false)}
@@ -564,6 +564,19 @@ export function DashboardScreenV2() {
               >
                 <Ionicons name="close" size={24} color={lc.textMuted} />
               </AnimatedButton>
+            </View>
+
+            {/* Demo Card - Typewriter style */}
+            <View style={[styles.demoCard, { backgroundColor: lc.jetDark }]}>
+              <View style={styles.demoHeader}>
+                <View style={[styles.demoLogo, { backgroundColor: "rgba(238,108,41,0.2)" }]}>
+                  <Text style={[styles.demoLogoText, { color: lc.orange }]}>K</Text>
+                </View>
+                <Text style={[styles.demoLogoTitle, { color: lc.textPrimary }]}>Kvitt</Text>
+              </View>
+              <Text style={[styles.demoTagline, { color: lc.textPrimary }]}>
+                Your side, <Text style={{ color: lc.orange }}>settled.</Text>
+              </Text>
             </View>
 
             <View style={styles.helpTipsList}>

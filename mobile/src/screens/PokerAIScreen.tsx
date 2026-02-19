@@ -29,6 +29,7 @@ export function PokerAIScreen() {
   const [communityCards, setCommunityCards] = useState<Card[]>([null, null, null, null, null]);
   const [selectedSlot, setSelectedSlot] = useState<{ type: "hand" | "community"; index: number } | null>(null);
   const [selectedRank, setSelectedRank] = useState<string | null>(null);
+  const [showHand, setShowHand] = useState(true); // Toggle to hide/show your hand
 
   // Consent & submission
   const [consentChecked, setConsentChecked] = useState(false);

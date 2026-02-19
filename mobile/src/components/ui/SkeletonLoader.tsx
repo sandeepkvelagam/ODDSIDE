@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { View, Animated, StyleSheet, StyleProp, ViewStyle } from "react-native";
+import { View, Animated, StyleSheet, StyleProp, ViewStyle, DimensionValue } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, RADIUS, SPACING } from "../../styles/liquidGlass";
 

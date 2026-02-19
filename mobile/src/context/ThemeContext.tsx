@@ -37,30 +37,40 @@ export const LIGHT_COLORS = {
   profileBg: "#FFFFFF",
 };
 
-// Dark theme colors - aligned with web (frontend/src/index.css)
+// Dark theme colors - aligned with web (frontend/src/index.css) and Liquid Glass design system
 export const DARK_COLORS = {
   background: "#1a1a1a",       // Web: hsl(0, 0%, 10%)
   surface: "#212121",          // Web: hsl(0, 0%, 13%) - card
   inputBg: "#2a2a2a",
-  glassBg: "rgba(255, 255, 255, 0.05)",
-  glassBorder: "rgba(255, 255, 255, 0.08)",
+  glassBg: "rgba(255, 255, 255, 0.06)",
+  glassBorder: "rgba(255, 255, 255, 0.12)",
   // Enhanced liquid glass card styles
-  glassCardBg: "rgba(255, 255, 255, 0.08)",
-  glassCardBorder: "rgba(255, 255, 255, 0.15)",
-  textPrimary: "#F2F2F2",      // Web: hsl(0, 0%, 95%)
-  textSecondary: "#A6A6A6",    // Web: hsl(0, 0%, 65%)
-  textMuted: "#666666",
-  border: "rgba(255, 255, 255, 0.06)",
-  orange: "#EF6E59",           // Web: same primary orange
-  popupBg: "#212121",
-  danger: "#DC2626",           // Web: hsl(0, 62%, 50%)
+  glassCardBg: "rgba(255, 255, 255, 0.06)",
+  glassCardBorder: "rgba(255, 255, 255, 0.12)",
+  liquidGlassBg: "rgba(255, 255, 255, 0.06)",
+  liquidGlassInner: "rgba(255, 255, 255, 0.03)",
+  liquidGlowOrange: "rgba(238, 108, 41, 0.15)",
+  liquidGlowBlue: "rgba(59, 130, 246, 0.15)",
+  textPrimary: "#F5F5F5",      // Brighter for better contrast
+  textSecondary: "#B8B8B8",    // Lighter secondary
+  textMuted: "#7A7A7A",
+  border: "rgba(255, 255, 255, 0.08)",
+  orange: "#EE6C29",           // Kvitt primary orange
+  orangeDark: "#C45A22",       // Darkened orange for buttons
+  trustBlue: "#3B82F6",        // Trust blue accent
+  moonstone: "#7AA6B3",        // Subtle accent for labels
+  popupBg: "#282B2B",
+  danger: "#EF4444",           // Status danger
   buttonBg: "#ffffff",
   buttonDisabled: "#555555",
-  success: "#16A34A",          // Web: success green
+  success: "#22C55E",          // Status success
+  warning: "#F59E0B",          // Status warning
   // Dashboard & Drawer specific
   contentBg: "#1a1a1a",
   navBg: "#141414",            // Slightly darker for nav
   profileBg: "#2a2826",
+  jetDark: "#282B2B",          // Primary background
+  jetSurface: "#323535",       // Card/surface background
 };
 
 // Spacing constants - consistent breathing room across the app

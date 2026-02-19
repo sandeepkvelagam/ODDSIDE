@@ -116,7 +116,7 @@ export function PokerAIScreen() {
   };
 
   // Render card slot
-  const renderCardSlot = (card: Card, type: "hand" | "community", index: number) => {
+  const renderCardSlot = (card: Card, type: "hand" | "community", index: number, hidden: boolean = false) => {
     const isSelected = selectedSlot?.type === type && selectedSlot?.index === index;
     const suitData = card ? SUITS.find((s) => s.name === card.suit) : null;
 
@@ -136,14 +136,20 @@ export function PokerAIScreen() {
         activeOpacity={0.7}
       >
         {card ? (
-          <View style={styles.cardContent}>
-            <Text style={[styles.cardRank, { color: suitData?.color || colors.textPrimary }]}>
-              {card.rank}
-            </Text>
-            <Text style={[styles.cardSuit, { color: suitData?.color || colors.textPrimary }]}>
-              {suitData?.symbol}
-            </Text>
-          </View>
+          hidden ? (
+            <View style={styles.cardContent}>
+              <Ionicons name="eye-off" size={20} color={colors.textMuted} />
+            </View>
+          ) : (
+            <View style={styles.cardContent}>
+              <Text style={[styles.cardRank, { color: suitData?.color || colors.textPrimary }]}>
+                {card.rank}
+              </Text>
+              <Text style={[styles.cardSuit, { color: suitData?.color || colors.textPrimary }]}>
+                {suitData?.symbol}
+              </Text>
+            </View>
+          )
         ) : (
           <Text style={[styles.cardPlaceholder, { color: colors.textMuted }]}>Tap</Text>
         )}

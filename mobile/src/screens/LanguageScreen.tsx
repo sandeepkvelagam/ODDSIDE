@@ -7,12 +7,12 @@ import {
   ScrollView,
   Animated,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../context/LanguageContext";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { GlassIconButton, GlassSurface } from "../components/ui";
+import { BottomSheetScreen } from "../components/BottomSheetScreen";
 
 export function LanguageScreen() {
   const navigation = useNavigation();

@@ -183,15 +183,15 @@ export default function RootNavigator() {
               <Stack.Screen name="GameNight" component={GameNightScreen} options={{ title: "Game Night", headerBackTitle: "" }} />
               <Stack.Screen name="Settlement" component={SettlementScreen} options={{ title: "Settlement", headerBackTitle: "" }} />
               <Stack.Screen name="PokerAI" component={PokerAIScreen} options={{ title: "Poker AI", headerBackTitle: "" }} />
-              <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal" }} />
-              <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal" }} />
-              <Stack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal" }} />
-              <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal" }} />
-              <Stack.Screen name="Privacy" component={PrivacyScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal" }} />
-              <Stack.Screen name="Billing" component={BillingScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal" }} />
-              <Stack.Screen name="Language" component={LanguageScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal" }} />
-              <Stack.Screen name="AIAssistant" component={AIAssistantScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal" }} />
-              <Stack.Screen name="AIToolkit" component={AIToolkitScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal" }} />
+              <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="Privacy" component={PrivacyScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="Billing" component={BillingScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="Language" component={LanguageScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="AIAssistant" component={AIAssistantScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="AIToolkit" component={AIToolkitScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
             </>
           )}
         </Stack.Navigator>

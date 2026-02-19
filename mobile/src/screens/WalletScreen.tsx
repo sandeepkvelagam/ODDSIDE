@@ -623,7 +623,7 @@ export function WalletScreen() {
       <Modal visible={showReceiveModal} animationType="slide" transparent onRequestClose={() => setShowReceiveModal(false)}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowReceiveModal(false)} />
-          <View style={styles.sheetContainer}>
+          <View style={[styles.sheetContainer, { backgroundColor: tc.surface }]}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Receive Money</Text>
             <Text style={styles.sheetSubtitle}>Show this QR code or share your Wallet ID</Text>
@@ -670,7 +670,7 @@ export function WalletScreen() {
         ) : (
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
             <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => { setShowSendModal(false); resetSendModal(); }} />
-            <View style={styles.sheetContainer}>
+            <View style={[styles.sheetContainer, { backgroundColor: tc.surface }]}>
               <View style={styles.sheetHandle} />
 
               {sendStep === "done" ? (
@@ -754,7 +754,7 @@ export function WalletScreen() {
       <Modal visible={showDepositModal} animationType="slide" transparent onRequestClose={() => { if (depositStep !== "processing") { setShowDepositModal(false); setDepositStep("amount"); } }}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => { if (depositStep !== "processing") { setShowDepositModal(false); setDepositStep("amount"); } }} />
-          <View style={styles.sheetContainer}>
+          <View style={[styles.sheetContainer, { backgroundColor: tc.surface }]}>
             <View style={styles.sheetHandle} />
 
             {depositStep === "success" ? (
@@ -868,7 +868,7 @@ export function WalletScreen() {
       <Modal visible={showWithdrawModal} animationType="slide" transparent onRequestClose={() => setShowWithdrawModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowWithdrawModal(false)} />
-          <View style={styles.sheetContainer}>
+          <View style={[styles.sheetContainer, { backgroundColor: tc.surface }]}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Withdraw Funds</Text>
             <Text style={styles.sheetSubtitle}>Processed within 1-2 business days</Text>
@@ -1086,7 +1086,6 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, justifyContent: "flex-end" },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
   sheetContainer: {
-    backgroundColor: COLORS.jetSurface,
     borderTopLeftRadius: RADIUS.xxxl,
     borderTopRightRadius: RADIUS.xxxl,
     padding: SPACING.container,

@@ -18,6 +18,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
+import { useTheme } from "../context/ThemeContext";
 import { api } from "../api/client";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
@@ -43,6 +44,7 @@ type AppNotification = {
 
 export function NotificationsScreen() {
   const navigation = useNavigation<Nav>();
+  const { colors } = useTheme();
 
   // Notifications state
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -174,7 +176,7 @@ export function NotificationsScreen() {
 
   return (
     <BottomSheetScreen>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
         {/* Header */}
         <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
@@ -358,7 +360,6 @@ export function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.jetDark,
   },
   header: {
     flexDirection: "row",

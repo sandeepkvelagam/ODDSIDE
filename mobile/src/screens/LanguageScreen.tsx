@@ -10,6 +10,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../context/LanguageContext";
+import { useTheme } from "../context/ThemeContext";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { GlassIconButton, GlassSurface } from "../components/ui";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
@@ -17,6 +18,7 @@ import { BottomSheetScreen } from "../components/BottomSheetScreen";
 export function LanguageScreen() {
   const navigation = useNavigation();
   const { language, setLanguage, supportedLanguages, t } = useLanguage();
+  const { colors } = useTheme();
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -42,7 +44,7 @@ export function LanguageScreen() {
 
   return (
     <BottomSheetScreen>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
         {/* Header */}
         <Animated.View
           style={[
@@ -140,7 +142,6 @@ export function LanguageScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.jetDark,
   },
   header: {
     flexDirection: "row",

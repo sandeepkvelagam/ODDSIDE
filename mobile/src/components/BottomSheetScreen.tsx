@@ -86,8 +86,8 @@ export function BottomSheetScreen({ children }: BottomSheetScreenProps) {
           activeOpacity={1}
           onPress={handleClose}
         >
-          {/* Semi-transparent dark overlay instead of blur for better visibility */}
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.3)" }]} />
+          {/* Theme-aware semi-transparent overlay */}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.15)" }]} />
         </TouchableOpacity>
       </Animated.View>
 

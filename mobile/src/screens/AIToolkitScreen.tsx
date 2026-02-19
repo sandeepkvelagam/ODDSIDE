@@ -17,6 +17,7 @@ import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION, SHADOWS } from "../styles/liquidGlass";
+import { useTheme } from "../context/ThemeContext";
 import { GlassButton, GlassIconButton, GlassSurface } from "../components/ui";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -31,6 +32,7 @@ const AI_MODELS = [
 
 export function AIToolkitScreen() {
   const navigation = useNavigation();
+  const { colors } = useTheme();
   const [prompt, setPrompt] = useState("");
   const [selectedModel, setSelectedModel] = useState("sora");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -105,7 +107,7 @@ export function AIToolkitScreen() {
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
       {/* Background Gradient */}
       <LinearGradient
         colors={[COLORS.deepBlack, COLORS.jetDark, COLORS.jetSurface]}
@@ -342,7 +344,6 @@ export function AIToolkitScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.deepBlack,
   },
   safeArea: {
     flex: 1,

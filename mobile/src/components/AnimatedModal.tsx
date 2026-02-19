@@ -57,6 +57,31 @@ export function AnimatedModal({
     if (visible) {
       setModalVisible(true);
       animateIn();
+    } else if (modalVisible) {
+      // External close (prop changed to false) - animate out
+      // Don't call onClose since parent already knows it's closing
+      if (enableHaptics) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.85,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setModalVisible(false);
+      });
     }
   }, [visible]);
 

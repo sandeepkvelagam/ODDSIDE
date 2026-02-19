@@ -19,6 +19,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { api } from "../api/client";
 import type { RootStackParamList } from "../navigation/RootNavigator";
+import { useTheme } from "../context/ThemeContext";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { GlassIconButton } from "../components/ui";
 
@@ -45,6 +46,7 @@ const SUGGESTIONS = [
 export function AIAssistantScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -116,7 +118,7 @@ export function AIAssistantScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.contentBg }]}>
       {/* ── Header ── */}
       <Animated.View
         style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
@@ -303,7 +305,6 @@ export function AIAssistantScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.jetDark,
   },
   header: {
     flexDirection: "row",

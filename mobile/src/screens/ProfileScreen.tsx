@@ -13,6 +13,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { api } from "../api/client";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { GlassSurface, GlassButton, GlassIconButton, GlassInput } from "../components/ui";
@@ -28,6 +29,7 @@ type ConsolidatedBalance = {
 export function ProfileScreen() {
   const navigation = useNavigation();
   const { user, refreshUser } = useAuth();
+  const { isDark, colors } = useTheme();
 
   const [fullName, setFullName] = useState(user?.name || "");
   const [nickname, setNickname] = useState(user?.nickname || user?.name?.split(" ")[0] || "");
@@ -154,7 +156,7 @@ export function ProfileScreen() {
 
   return (
     <BottomSheetScreen>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
         {/* Header */}
         <Animated.View
           style={[
@@ -372,7 +374,6 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.jetDark,
   },
   header: {
     flexDirection: "row",

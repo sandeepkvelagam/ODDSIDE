@@ -12,9 +12,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { GlassIconButton, GlassSurface } from "../components/ui";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
+import { useTheme } from "../context/ThemeContext";
 
 export function BillingScreen() {
   const navigation = useNavigation();
+  const { colors } = useTheme();
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -36,7 +38,7 @@ export function BillingScreen() {
 
   return (
     <BottomSheetScreen>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
         {/* Header */}
         <Animated.View
           style={[
@@ -149,7 +151,6 @@ export function BillingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.jetDark,
   },
   header: {
     flexDirection: "row",

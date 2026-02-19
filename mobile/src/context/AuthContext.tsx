@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { api } from "../api/client";
+import { setupPushNotifications, unregisterPushToken, setupNotificationListeners } from "../services/pushNotifications";
 
 type AuthUser = {
   user_id: string;

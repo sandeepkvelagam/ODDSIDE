@@ -25,6 +25,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useHaptics } from "../context/HapticsContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import { api } from "../api/client";
+import { BottomSheetScreen } from "../components/BottomSheetScreen";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 

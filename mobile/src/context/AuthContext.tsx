@@ -79,6 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    try {
+      await unregisterPushToken();
+    } catch {}
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

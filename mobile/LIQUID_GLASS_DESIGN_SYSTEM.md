@@ -361,13 +361,13 @@ Color: #ffffff
 
 ### Phase 4: Screen Updates
 - [x] LoginScreen - Updated with glass styling
-- [x] DashboardScreenV2 - Already well-styled, added demo card to help modal
+- [x] DashboardScreenV2 - Demo card in help modal, already has liquid glass
 - [~] SettingsScreen - Already has good glass styling
 - [x] ProfileScreen (with Wallet) - Updated with Screenshot #1 style wallet
-- [~] GroupsScreen - Already has glass styling from useTheme
-- [~] GroupHubScreen - Uses glass styling from useTheme
-- [~] GameNightScreen - Uses glass styling from useTheme
-- [~] AIAssistantScreen - Has local color definitions
+- [~] GroupsScreen - Uses ThemeContext glass colors
+- [~] GroupHubScreen - Uses ThemeContext glass colors (now includes orangeDark, trustBlue)
+- [~] GameNightScreen - Uses ThemeContext glass colors (now includes orangeDark, trustBlue)
+- [x] AIAssistantScreen - **UPDATED** with liquidGlass tokens
 - [x] BillingScreen - Updated with glass styling
 - [x] NotificationsScreen - Updated with glass styling
 - [x] PrivacyScreen - Updated with glass styling
@@ -378,7 +378,8 @@ Color: #ffffff
 - [x] AIToolkitScreen (based on Screenshot #2)
 
 ### Phase 6: QA
-- [ ] Visual consistency audit
+- [x] ThemeContext updated with orangeDark, trustBlue, moonstone, and liquid glass tokens
+- [ ] Visual consistency audit on device
 - [ ] Animation performance test
 - [ ] Feature parity check
 

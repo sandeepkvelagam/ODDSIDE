@@ -1033,6 +1033,37 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
+  // Demo Card
+  demoCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+  },
+  demoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  demoLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  demoLogoText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  demoLogoTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  demoTagline: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
   helpTipsList: {
     gap: 18,
   },

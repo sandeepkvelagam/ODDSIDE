@@ -15,7 +15,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useHaptics } from "../context/HapticsContext";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const TOP_VISIBLE_HEIGHT = 80; // How much of the previous screen shows at top
+const TOP_VISIBLE_HEIGHT = 24; // How much of the previous screen shows at top
 
 interface BottomSheetScreenProps {
   children: React.ReactNode;
@@ -96,7 +96,7 @@ export function BottomSheetScreen({ children }: BottomSheetScreenProps) {
         style={[
           styles.contentContainer,
           {
-            backgroundColor: isDark ? "rgba(40, 43, 43, 0.95)" : "rgba(245, 243, 239, 0.95)",
+            backgroundColor: isDark ? colors.jetDark : colors.contentBg,
             marginTop: TOP_VISIBLE_HEIGHT + insets.top,
             transform: [{ translateY: slideAnim }],
           },

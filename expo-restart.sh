@@ -8,12 +8,13 @@ echo "========================================="
 echo "  Expo Server Restart & QR Generator"
 echo "========================================="
 
-# 1. Kill existing processes
+# 1. Kill existing processes and free port 8081
 echo ""
 echo "1. Killing existing processes..."
 pkill -f "npx expo" 2>/dev/null || true
 pkill -f "metro" 2>/dev/null || true
 pkill -f "ngrok" 2>/dev/null || true
+lsof -ti:8081 | xargs kill -9 2>/dev/null || true
 sleep 2
 echo "   Done!"
 

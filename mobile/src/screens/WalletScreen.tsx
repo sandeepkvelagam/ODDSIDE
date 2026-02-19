@@ -23,6 +23,7 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
+import { useTheme } from "../context/ThemeContext";
 import { QRCodeDisplay } from "../components/ui/QRCodeDisplay";
 import { QRCodeScanner } from "../components/ui/QRCodeScanner";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -61,6 +62,26 @@ const DEPOSIT_AMOUNTS = [
 export function WalletScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { isDark, colors } = useTheme();
+
+  // Theme-aware colors - use light theme colors when not in dark mode
+  const tc = isDark ? {
+    bg: COLORS.jetDark,
+    surface: COLORS.jetSurface,
+    textPrimary: COLORS.text.primary,
+    textSecondary: COLORS.text.secondary,
+    textMuted: COLORS.text.muted,
+    glassBg: COLORS.glass.bg,
+    glassBorder: COLORS.glass.border,
+  } : {
+    bg: colors.contentBg,
+    surface: colors.surface,
+    textPrimary: colors.textPrimary,
+    textSecondary: colors.textSecondary,
+    textMuted: colors.textMuted,
+    glassBg: "rgba(0, 0, 0, 0.04)",
+    glassBorder: "rgba(0, 0, 0, 0.08)",
+  };
 
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -379,12 +400,12 @@ export function WalletScreen() {
   if (!loading && (!wallet?.wallet_id || wallet?.status === "needs_setup")) {
     return (
       <BottomSheetScreen>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: tc.bg }]}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-              <Ionicons name="close" size={22} color={COLORS.text.primary} />
+            <TouchableOpacity style={[styles.closeBtn, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]} onPress={() => navigation.goBack()}>
+              <Ionicons name="close" size={22} color={tc.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Kvitt Wallet</Text>
+            <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Kvitt Wallet</Text>
             <View style={{ width: 48 }} />
           </View>
 
@@ -471,13 +492,13 @@ export function WalletScreen() {
 
   return (
     <BottomSheetScreen>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: tc.bg }]}>
         {/* Header */}
         <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="close" size={22} color={COLORS.text.primary} />
+          <TouchableOpacity style={[styles.closeBtn, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]} onPress={() => navigation.goBack()}>
+            <Ionicons name="close" size={22} color={tc.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Kvitt Wallet</Text>
+          <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Kvitt Wallet</Text>
           <TouchableOpacity
             style={styles.copyBtn}
             onPress={() => {
@@ -487,7 +508,7 @@ export function WalletScreen() {
               }
             }}
           >
-            <Ionicons name="copy-outline" size={18} color={COLORS.text.muted} />
+            <Ionicons name="copy-outline" size={18} color={tc.textMuted} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -918,7 +939,7 @@ export function WalletScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.jetDark },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",

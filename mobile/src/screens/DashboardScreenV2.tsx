@@ -74,10 +74,17 @@ export function DashboardScreenV2() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showStatModal, setShowStatModal] = useState<'profit' | 'winrate' | null>(null);
 
   // Animated pulse for live indicator
   const pulseAnim = useState(new Animated.Value(1))[0];
   const glowAnim = useState(new Animated.Value(0.5))[0];
+
+  // Entrance animations for staggered fade-in
+  const entranceAnim = useState(new Animated.Value(0))[0];
+  const statsEntrance = useState(new Animated.Value(0))[0];
+  const perfEntrance = useState(new Animated.Value(0))[0];
+  const sectionsEntrance = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
     // Pulse animation for live games
@@ -114,11 +121,19 @@ export function DashboardScreenV2() {
     );
     glow.start();
 
+    // Staggered entrance animations
+    Animated.stagger(100, [
+      Animated.spring(entranceAnim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+      Animated.spring(statsEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+      Animated.spring(perfEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+      Animated.spring(sectionsEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+    ]).start();
+
     return () => {
       pulse.stop();
       glow.stop();
     };
-  }, [pulseAnim, glowAnim]);
+  }, [pulseAnim, glowAnim, entranceAnim, statsEntrance, perfEntrance, sectionsEntrance]);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -284,12 +299,20 @@ export function DashboardScreenV2() {
           )}
 
           {/* Stats Cards - 3 Column Grid like Web */}
-          <View style={styles.statsRowThree}>
+          <Animated.View style={[styles.statsRowThree, {
+            opacity: statsEntrance,
+            transform: [{
+              translateY: statsEntrance.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              })
+            }]
+          }]}>
             {/* Net Profit Card - Orange Glow */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.liquidCardThird, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate("Profile")}
+              onPress={() => setShowStatModal('profit')}
             >
               <View style={[styles.liquidInnerSmall, { backgroundColor: lc.liquidGlowOrange }]}>
                 <View style={styles.statIconRowSmall}>
@@ -310,10 +333,10 @@ export function DashboardScreenV2() {
             </TouchableOpacity>
 
             {/* Win Rate Card - Blue Glow */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.liquidCardThird, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate("Profile")}
+              onPress={() => setShowStatModal('winrate')}
             >
               <View style={[styles.liquidInnerSmall, { backgroundColor: lc.liquidGlowBlue }]}>
                 <View style={styles.statIconRowSmall}>
@@ -348,11 +371,21 @@ export function DashboardScreenV2() {
                 </Text>
               </View>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           {/* Performance Card - Full Width Liquid Glass */}
           {totalGames > 0 && (
-            <View style={[styles.liquidCardFull, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+            <Animated.View style={[styles.liquidCardFull, {
+              backgroundColor: lc.liquidGlassBg,
+              borderColor: lc.liquidGlassBorder,
+              opacity: perfEntrance,
+              transform: [{
+                translateY: perfEntrance.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [20, 0],
+                })
+              }]
+            }]}>
               <View style={[styles.liquidInnerFull, { backgroundColor: lc.liquidInnerBg }]}>
                 <View style={styles.performanceHeader}>
                   <View style={styles.performanceHeaderLeft}>
@@ -389,11 +422,21 @@ export function DashboardScreenV2() {
                   </View>
                 </View>
               </View>
-            </View>
+            </Animated.View>
           )}
 
           {/* Live Games Section - Liquid Glass */}
-          <View style={[styles.liquidCardFull, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+          <Animated.View style={[styles.liquidCardFull, {
+            backgroundColor: lc.liquidGlassBg,
+            borderColor: lc.liquidGlassBorder,
+            opacity: sectionsEntrance,
+            transform: [{
+              translateY: sectionsEntrance.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              })
+            }]
+          }]}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
                 <Animated.View style={{ opacity: pulseAnim }}>
@@ -442,10 +485,20 @@ export function DashboardScreenV2() {
                 ))}
               </View>
             )}
-          </View>
+          </Animated.View>
 
           {/* My Groups Section */}
-          <View style={[styles.liquidCardFull, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+          <Animated.View style={[styles.liquidCardFull, {
+            backgroundColor: lc.liquidGlassBg,
+            borderColor: lc.liquidGlassBorder,
+            opacity: sectionsEntrance,
+            transform: [{
+              translateY: sectionsEntrance.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              })
+            }]
+          }]}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
                 <Ionicons name="people" size={16} color={lc.orange} />
@@ -506,11 +559,21 @@ export function DashboardScreenV2() {
               <Ionicons name="apps" size={18} color="#fff" />
               <Text style={styles.manageButtonText}>Manage Groups</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           {/* Recent Results Section */}
           {recentGames.length > 0 && (
-            <View style={[styles.liquidCardFull, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+            <Animated.View style={[styles.liquidCardFull, {
+              backgroundColor: lc.liquidGlassBg,
+              borderColor: lc.liquidGlassBorder,
+              opacity: sectionsEntrance,
+              transform: [{
+                translateY: sectionsEntrance.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [20, 0],
+                })
+              }]
+            }]}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionHeaderLeft}>
                   <Ionicons name="time" size={16} color={lc.trustBlue} />
@@ -549,12 +612,30 @@ export function DashboardScreenV2() {
                   );
                 })}
               </View>
-            </View>
+            </Animated.View>
           )}
 
           {/* Quick Actions with Trust Blue + Darkened Brand */}
-          <Text style={[styles.quickActionsTitle, { color: lc.moonstone }]}>Quick Actions</Text>
-          <View style={styles.actionsRow}>
+          <Animated.View style={{
+            opacity: sectionsEntrance,
+            transform: [{
+              translateY: sectionsEntrance.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              })
+            }]
+          }}>
+            <Text style={[styles.quickActionsTitle, { color: lc.moonstone }]}>Quick Actions</Text>
+          </Animated.View>
+          <Animated.View style={[styles.actionsRow, {
+            opacity: sectionsEntrance,
+            transform: [{
+              translateY: sectionsEntrance.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              })
+            }]
+          }]}>
             {/* Trust Blue - Start Game */}
             <TouchableOpacity
               style={[styles.actionCard, { backgroundColor: lc.trustBlue }]}
@@ -574,7 +655,7 @@ export function DashboardScreenV2() {
               <Ionicons name="sparkles" size={28} color="#fff" />
               <Text style={styles.actionTextWhite}>AI Chat</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           {/* Bottom spacing */}
           <View style={{ height: 100 }} />
@@ -655,6 +736,98 @@ export function DashboardScreenV2() {
               activeOpacity={0.8}
             >
               <Text style={styles.helpModalButtonText}>Got it!</Text>
+            </TouchableOpacity>
+          </View>
+        </AnimatedModal>
+
+        {/* Stat Details Modal */}
+        <AnimatedModal
+          visible={showStatModal !== null}
+          onClose={() => setShowStatModal(null)}
+          blurIntensity={60}
+        >
+          <View style={[styles.helpModalContent, { backgroundColor: lc.jetSurface }]}>
+            <View style={styles.helpModalHeader}>
+              <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>
+                {showStatModal === 'profit' ? 'Net Profit Details' : 'Win Rate Details'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.closeButton, { backgroundColor: lc.glassBg }]}
+                onPress={() => setShowStatModal(null)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={22} color={lc.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {showStatModal === 'profit' ? (
+              <View style={styles.statDetailsList}>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Total Profit/Loss</Text>
+                  <Text style={[styles.statDetailValue, { color: netProfit >= 0 ? lc.success : lc.danger }]}>
+                    {netProfit >= 0 ? '+' : ''}${Math.abs(netProfit).toFixed(2)}
+                  </Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Total Buy-ins</Text>
+                  <Text style={[styles.statDetailValue, { color: lc.textPrimary }]}>${totalBuyIns.toFixed(2)}</Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>ROI</Text>
+                  <Text style={[styles.statDetailValue, { color: roiPercent >= 0 ? lc.success : lc.danger }]}>
+                    {roiPercent >= 0 ? '+' : ''}{roiPercent.toFixed(1)}%
+                  </Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Avg per Game</Text>
+                  <Text style={[styles.statDetailValue, { color: avgProfit >= 0 ? lc.success : lc.danger }]}>
+                    {avgProfit >= 0 ? '+' : ''}${Math.abs(avgProfit).toFixed(2)}
+                  </Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Best Win</Text>
+                  <Text style={[styles.statDetailValue, { color: lc.success }]}>+${bestWin.toFixed(2)}</Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: 'transparent' }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Worst Loss</Text>
+                  <Text style={[styles.statDetailValue, { color: lc.danger }]}>-${Math.abs(worstLoss).toFixed(2)}</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.statDetailsList}>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Win Rate</Text>
+                  <Text style={[styles.statDetailValue, { color: lc.trustBlue }]}>{winRate.toFixed(1)}%</Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Total Games</Text>
+                  <Text style={[styles.statDetailValue, { color: lc.textPrimary }]}>{totalGames}</Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Wins</Text>
+                  <Text style={[styles.statDetailValue, { color: lc.success }]}>{wins}</Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Losses</Text>
+                  <Text style={[styles.statDetailValue, { color: lc.danger }]}>{losses}</Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Best Win</Text>
+                  <Text style={[styles.statDetailValue, { color: lc.success }]}>+${bestWin.toFixed(2)}</Text>
+                </View>
+                <View style={[styles.statDetailRow, { borderBottomColor: 'transparent' }]}>
+                  <Text style={[styles.statDetailLabel, { color: lc.textSecondary }]}>Worst Loss</Text>
+                  <Text style={[styles.statDetailValue, { color: lc.danger }]}>-${Math.abs(worstLoss).toFixed(2)}</Text>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.helpModalButton, { backgroundColor: lc.trustBlue }]}
+              onPress={() => setShowStatModal(null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.helpModalButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
         </AnimatedModal>
@@ -1184,5 +1357,24 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  // Stat Details Modal
+  statDetailsList: {
+    gap: 4,
+  },
+  statDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  statDetailLabel: {
+    fontSize: 15,
+  },
+  statDetailValue: {
+    fontSize: 17,
+    fontWeight: "700",
+    fontFamily: "monospace",
   },
 });

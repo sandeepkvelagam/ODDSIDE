@@ -41,6 +41,7 @@ export function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showStatModal, setShowStatModal] = useState<'profit' | 'winrate' | null>(null);
 
   // Animated pulse for live indicator
   const pulseAnim = useState(new Animated.Value(1))[0];
@@ -226,7 +227,11 @@ export function DashboardScreen() {
           {/* Stats Cards with Icons */}
           <View style={styles.statsRow}>
             {/* Net Profit Card */}
-            <View style={[styles.statCard, styles.statCardAccent, { backgroundColor: colors.glassBg }]}>
+            <TouchableOpacity
+              style={[styles.statCard, styles.statCardAccent, { backgroundColor: colors.glassBg }]}
+              onPress={() => setShowStatModal('profit')}
+              activeOpacity={0.7}
+            >
               <View style={styles.statIconRow}>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Net Profit</Text>
                 <Ionicons
@@ -241,10 +246,14 @@ export function DashboardScreen() {
               <Text style={[styles.statSubtext, { color: colors.textMuted }]}>
                 {totalGames} games
               </Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Win Rate Card */}
-            <View style={[styles.statCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+            <TouchableOpacity
+              style={[styles.statCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
+              onPress={() => setShowStatModal('winrate')}
+              activeOpacity={0.7}
+            >
               <View style={styles.statIconRow}>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Win Rate</Text>
                 <Ionicons name="analytics-outline" size={16} color={colors.textMuted} />
@@ -255,7 +264,7 @@ export function DashboardScreen() {
               <Text style={[styles.statSubtext, { color: colors.textMuted }]}>
                 Best: +${bestWin.toFixed(0)}
               </Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Total Games Card */}
             <View style={[styles.statCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
@@ -523,7 +532,7 @@ export function DashboardScreen() {
             style={styles.helpModalOverlay}
             onPress={() => setShowHelpModal(false)}
           >
-            <Pressable style={[styles.helpModalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.helpModalContent, { backgroundColor: colors.surface }]}>
               <View style={styles.helpModalHeader}>
                 <Text style={[styles.helpModalTitle, { color: colors.textPrimary }]}>Getting Started</Text>
                 <TouchableOpacity onPress={() => setShowHelpModal(false)} activeOpacity={0.7}>
@@ -579,7 +588,100 @@ export function DashboardScreen() {
               >
                 <Text style={styles.helpModalButtonText}>Got it!</Text>
               </TouchableOpacity>
-            </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+
+        {/* Stat Details Modal */}
+        <Modal
+          visible={showStatModal !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowStatModal(null)}
+        >
+          <Pressable
+            style={styles.helpModalOverlay}
+            onPress={() => setShowStatModal(null)}
+          >
+            <View style={[styles.helpModalContent, { backgroundColor: colors.surface }]}>
+              <View style={styles.helpModalHeader}>
+                <Text style={[styles.helpModalTitle, { color: colors.textPrimary }]}>
+                  {showStatModal === 'profit' ? 'Net Profit' : 'Win Rate'}
+                </Text>
+                <TouchableOpacity onPress={() => setShowStatModal(null)} activeOpacity={0.7}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              {showStatModal === 'profit' ? (
+                <View style={styles.statDetailsList}>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Total Profit/Loss</Text>
+                    <Text style={[styles.statDetailValue, { color: netProfit >= 0 ? colors.success : colors.danger }]}>
+                      {netProfit >= 0 ? '+' : ''}${Math.abs(netProfit).toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Total Buy-ins</Text>
+                    <Text style={[styles.statDetailValue, { color: colors.textPrimary }]}>${totalBuyIns.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>ROI</Text>
+                    <Text style={[styles.statDetailValue, { color: roiPercent >= 0 ? colors.success : colors.danger }]}>
+                      {roiPercent >= 0 ? '+' : ''}{roiPercent.toFixed(1)}%
+                    </Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Avg per Game</Text>
+                    <Text style={[styles.statDetailValue, { color: avgProfit >= 0 ? colors.success : colors.danger }]}>
+                      {avgProfit >= 0 ? '+' : ''}${Math.abs(avgProfit).toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Best Win</Text>
+                    <Text style={[styles.statDetailValue, { color: colors.success }]}>+${bestWin.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Worst Loss</Text>
+                    <Text style={[styles.statDetailValue, { color: colors.danger }]}>-${Math.abs(worstLoss).toFixed(2)}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.statDetailsList}>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Win Rate</Text>
+                    <Text style={[styles.statDetailValue, { color: colors.textPrimary }]}>{winRate.toFixed(1)}%</Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Total Games</Text>
+                    <Text style={[styles.statDetailValue, { color: colors.textPrimary }]}>{totalGames}</Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Wins</Text>
+                    <Text style={[styles.statDetailValue, { color: colors.success }]}>{wins}</Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Losses</Text>
+                    <Text style={[styles.statDetailValue, { color: colors.danger }]}>{losses}</Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Best Win</Text>
+                    <Text style={[styles.statDetailValue, { color: colors.success }]}>+${bestWin.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.statDetailRow}>
+                    <Text style={[styles.statDetailLabel, { color: colors.textSecondary }]}>Worst Loss</Text>
+                    <Text style={[styles.statDetailValue, { color: colors.danger }]}>-${Math.abs(worstLoss).toFixed(2)}</Text>
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.helpModalButton, { backgroundColor: colors.orange }]}
+                onPress={() => setShowStatModal(null)}
+              >
+                <Text style={styles.helpModalButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </Pressable>
         </Modal>
       </View>
@@ -1050,5 +1152,25 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 15,
     fontWeight: "600",
+  },
+  // Stat Details Modal
+  statDetailsList: {
+    gap: 12,
+  },
+  statDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.06)",
+  },
+  statDetailLabel: {
+    fontSize: 14,
+  },
+  statDetailValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "monospace",
   },
 });

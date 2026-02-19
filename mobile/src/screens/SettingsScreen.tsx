@@ -217,7 +217,7 @@ export function SettingsScreen() {
     <BottomSheetScreen>
       <View
         testID="settings-screen"
-        style={[styles.container, { backgroundColor: colors.surface }]}
+        style={[styles.container, { backgroundColor: colors.contentBg }]}
       >
         {/* Header */}
         <View style={[styles.header, { paddingTop: 16 }]}>
@@ -257,7 +257,7 @@ export function SettingsScreen() {
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           {/* Profile Box */}
-          <View style={[styles.profileBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+          <View style={[styles.profileBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.nameText, { color: colors.textPrimary }]}>{userName}</Text>
             <Text style={[styles.emailText, { color: colors.textSecondary }]}>{user?.email || ""}</Text>
           </View>
@@ -285,6 +285,17 @@ export function SettingsScreen() {
             <View style={styles.comingSoonBadge}>
               <Text style={styles.comingSoonText}>Coming Soon</Text>
             </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            testID="settings-wallet-button"
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate("Wallet")}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="wallet-outline" size={22} color={colors.textPrimary} />
+            <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Wallet</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
 

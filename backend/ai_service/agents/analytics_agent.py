@@ -41,36 +41,6 @@ class AnalyticsAgent(BaseAgent):
             "poker_evaluator"
         ]
 
-    @property
-    def input_schema(self) -> Dict:
-        return {
-            "type": "object",
-            "properties": {
-                "user_input": {
-                    "type": "string",
-                    "description": "The analytics request, e.g. 'Show me the leaderboard' or 'How am I doing?'"
-                },
-                "game_id": {
-                    "type": "string",
-                    "description": "Game ID for game-specific reports"
-                },
-                "group_id": {
-                    "type": "string",
-                    "description": "Group ID for group-level analytics"
-                },
-                "user_id": {
-                    "type": "string",
-                    "description": "User ID for player-specific statistics"
-                },
-                "time_period": {
-                    "type": "string",
-                    "enum": ["week", "month", "quarter", "year", "all_time"],
-                    "description": "Time period for the report (default: month)"
-                }
-            },
-            "required": ["user_input"]
-        }
-
     async def execute(self, user_input: str, context: Dict = None) -> AgentResult:
         """Execute analytics tasks"""
         context = context or {}

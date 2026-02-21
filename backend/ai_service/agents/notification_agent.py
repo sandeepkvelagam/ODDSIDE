@@ -42,40 +42,6 @@ class NotificationAgent(BaseAgent):
             "scheduler"
         ]
 
-    @property
-    def input_schema(self) -> Dict:
-        return {
-            "type": "object",
-            "properties": {
-                "user_input": {
-                    "type": "string",
-                    "description": "The notification request, e.g. 'Send a reminder about the game tonight'"
-                },
-                "user_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of user IDs to notify"
-                },
-                "game_id": {
-                    "type": "string",
-                    "description": "Game ID if the notification is about a specific game"
-                },
-                "title": {
-                    "type": "string",
-                    "description": "Notification title"
-                },
-                "message": {
-                    "type": "string",
-                    "description": "Notification message body"
-                },
-                "event_type": {
-                    "type": "string",
-                    "description": "Type of game event: game_starting, settlement, reminder, general"
-                }
-            },
-            "required": ["user_input"]
-        }
-
     async def execute(self, user_input: str, context: Dict = None) -> AgentResult:
         """Execute notification tasks"""
         context = context or {}

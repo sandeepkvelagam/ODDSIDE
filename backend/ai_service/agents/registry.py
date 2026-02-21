@@ -44,10 +44,6 @@ class AgentRegistry:
         """Get all registered agents"""
         return list(self._agents.values())
 
-    def to_anthropic_tools(self) -> List[Dict]:
-        """Get all agents in Anthropic tool use format"""
-        return [agent.to_anthropic_tool() for agent in self._agents.values()]
-
     def get_agent_for_task(self, task_description: str) -> Optional[BaseAgent]:
         """
         Get the best agent for a given task.
@@ -62,10 +58,6 @@ class AgentRegistry:
             return self.get("notification")
         elif any(kw in task_lower for kw in ["report", "stats", "analytics", "summary", "leaderboard"]):
             return self.get("analytics")
-        elif any(kw in task_lower for kw in ["chat", "group chat", "conversation", "respond"]):
-            return self.get("group_chat")
-        elif any(kw in task_lower for kw in ["plan game", "suggest game", "next game", "weekend", "holiday"]):
-            return self.get("game_planner")
 
         # Default to None, let orchestrator handle
         return None

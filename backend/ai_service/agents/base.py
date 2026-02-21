@@ -82,46 +82,6 @@ class BaseAgent(ABC):
         """Clear conversation history"""
         self.conversation_history = []
 
-    @property
-    def input_schema(self) -> Dict:
-        """
-        JSON schema for the agent's input when exposed as a tool to Claude.
-        Override in subclasses for agent-specific parameters.
-        """
-        return {
-            "type": "object",
-            "properties": {
-                "user_input": {
-                    "type": "string",
-                    "description": "The user's natural language request to pass to this agent"
-                },
-                "game_id": {
-                    "type": "string",
-                    "description": "Game ID if the request is about a specific game"
-                },
-                "group_id": {
-                    "type": "string",
-                    "description": "Group ID if the request is about a specific group"
-                },
-                "user_id": {
-                    "type": "string",
-                    "description": "User ID of the person making the request"
-                }
-            },
-            "required": ["user_input"]
-        }
-
-    def to_anthropic_tool(self) -> Dict:
-        """Convert agent to Anthropic tool-use format for orchestrator routing"""
-        return {
-            "name": f"agent_{self.name}",
-            "description": (
-                f"{self.description}\n\n"
-                f"Capabilities: {', '.join(self.capabilities)}"
-            ),
-            "input_schema": self.input_schema
-        }
-
     def get_system_prompt(self) -> str:
         """Get the system prompt for this agent"""
         return f"""You are {self.name}, an AI agent specialized in {self.description}.

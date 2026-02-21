@@ -16,8 +16,6 @@ from .base import BaseAgent
 from .game_setup_agent import GameSetupAgent
 from .notification_agent import NotificationAgent
 from .analytics_agent import AnalyticsAgent
-from .group_chat_agent import GroupChatAgent
-from .game_planner_agent import GamePlannerAgent
 
 __all__ = [
     'AgentRegistry',
@@ -25,6 +23,4 @@ __all__ = [
     'GameSetupAgent',
     'NotificationAgent',
     'AnalyticsAgent',
-    'GroupChatAgent',
-    'GamePlannerAgent',
 ]

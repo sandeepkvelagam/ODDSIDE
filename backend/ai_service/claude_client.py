@@ -2,12 +2,11 @@
 Claude Client
 
 Integration with Anthropic's Claude API for natural language understanding
-and tool-use orchestration in the ODDSIDE AI service.
+in the Host Persona agent.
 """
 
 import os
-import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,17 +20,11 @@ except ImportError:
     logger.warning("anthropic package not installed. Claude features will be disabled.")
 
 
-# Model tiers for cost optimization
-ROUTING_MODEL = "claude-haiku-4-5-20251001"  # Fast, cheap for routing decisions
-REASONING_MODEL = "claude-sonnet-4-20250514"  # For complex reasoning
-
-
 class ClaudeClient:
     """
     Client for interacting with Claude API.
 
     Used for:
-    - Tool-use orchestration (routing requests to the right tool/agent)
     - Intent classification from natural language
     - Generating recommendations for host decisions
     - Creating natural language game summaries
@@ -40,106 +33,16 @@ class ClaudeClient:
 
     def __init__(self, api_key: str = None, model: str = None):
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        self.model = model or os.getenv("CLAUDE_MODEL", REASONING_MODEL)
+        self.model = model or os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
         self.client = None
-        self.async_client = None
 
         if ANTHROPIC_AVAILABLE and self.api_key:
             self.client = anthropic.Anthropic(api_key=self.api_key)
-            self.async_client = anthropic.AsyncAnthropic(api_key=self.api_key)
 
     @property
     def is_available(self) -> bool:
         """Check if Claude client is available"""
-        return self.client is not None and self.async_client is not None
-
-    async def route_with_tools(
-        self,
-        user_input: str,
-        context: Dict,
-        tools: List[Dict],
-        model: str = None
-    ) -> Dict:
-        """
-        Use Claude's tool-use API to intelligently route a request.
-
-        Claude sees all available tools/agents and decides which one(s) to call
-        based on the user's natural language input and context.
-
-        Args:
-            user_input: The user's natural language request
-            context: Additional context (game_id, group_id, user_id, etc.)
-            tools: List of Anthropic tool schemas (from tools + agents)
-            model: Override model (defaults to ROUTING_MODEL for speed)
-
-        Returns:
-            Dict with:
-                - tool_calls: List of {name, input} dicts Claude wants to execute
-                - text_response: Any text Claude returned (for general responses)
-                - stop_reason: Why Claude stopped ("tool_use" or "end_turn")
-        """
-        if not self.is_available:
-            return {"tool_calls": [], "text_response": None, "stop_reason": "unavailable"}
-
-        model = model or ROUTING_MODEL
-
-        system_prompt = """You are the ODDSIDE poker game assistant orchestrator.
-
-Your job is to understand the user's request and call the right tool or agent to handle it.
-
-RULES:
-- Always call a tool if the request matches one. Do NOT respond with text if a tool fits.
-- If the request is about game creation, scheduling, or invites, use agent_game_setup.
-- If the request is about notifications, reminders, or alerts, use agent_notification.
-- If the request is about reports, stats, leaderboards, or analytics, use agent_analytics.
-- If the request is about host decisions (approve/reject), game monitoring, settlements, or payment reminders, use agent_host_persona.
-- If the request is about group chat responses or conversation, use agent_group_chat.
-- If the request is about planning next games, suggesting times, holidays, weather, or long weekends, use agent_game_planner.
-- If the request is about evaluating a poker hand, use poker_evaluator.
-- If the request is about tracking/managing payments, use payment_tracker.
-- For general questions or help, respond with helpful text (don't call a tool).
-- Pass through all context parameters (game_id, group_id, user_id, etc.) from the context to the tool.
-- Set user_input to a clean version of what the user asked."""
-
-        # Build the user message with context
-        user_message = f"User request: {user_input}"
-        if context:
-            # Filter out None values for cleaner context
-            ctx_display = {k: v for k, v in context.items() if v is not None}
-            if ctx_display:
-                user_message += f"\n\nContext: {json.dumps(ctx_display, default=str)}"
-
-        try:
-            response = await self.async_client.messages.create(
-                model=model,
-                max_tokens=1024,
-                system=system_prompt,
-                tools=tools,
-                messages=[{"role": "user", "content": user_message}]
-            )
-
-            tool_calls = []
-            text_response = None
-
-            for block in response.content:
-                if block.type == "tool_use":
-                    tool_calls.append({
-                        "id": block.id,
-                        "name": block.name,
-                        "input": block.input
-                    })
-                elif block.type == "text":
-                    text_response = block.text
-
-            return {
-                "tool_calls": tool_calls,
-                "text_response": text_response,
-                "stop_reason": response.stop_reason
-            }
-
-        except Exception as e:
-            logger.error(f"Claude tool-use routing error: {e}")
-            return {"tool_calls": [], "text_response": None, "stop_reason": "error", "error": str(e)}
+        return self.client is not None
 
     async def classify_intent(self, user_input: str, context: Dict = None) -> Dict:
         """

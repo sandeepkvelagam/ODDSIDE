@@ -1,19 +1,20 @@
 """
 AI Orchestrator
 
-The central coordinator for all AI operations in Kvitt.
+The central coordinator for all AI operations in ODDSIDE.
 
 The orchestrator:
 1. Receives user requests
-2. Determines intent and selects appropriate agent/tool
-3. Executes the request
-4. Handles errors and fallbacks
+2. Uses Claude's tool-use API to intelligently route to the right agent/tool
+3. Executes the request (with multi-step chaining support)
+4. Falls back to keyword matching when Claude is unavailable
 5. Logs all operations for analytics
 """
 
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import uuid
+import json
 import logging
 
 from .tools.registry import ToolRegistry
@@ -21,13 +22,20 @@ from .agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
 
+# Maximum tool-call iterations per request (prevents infinite loops)
+MAX_TOOL_ITERATIONS = 5
+
 
 class AIOrchestrator:
     """
     Central orchestrator for all AI operations.
 
+    Uses Claude's tool-use API to let the LLM decide which tool/agent to call
+    based on the user's natural language input. Falls back to keyword matching
+    when Claude is unavailable.
+
     Usage:
-        orchestrator = AIOrchestrator(db=db)
+        orchestrator = AIOrchestrator(db=db, llm_client=claude_client)
         result = await orchestrator.process("Create a game for Friday night", context={...})
     """
 
@@ -99,6 +107,25 @@ class AIOrchestrator:
             )
         )
 
+    def _build_tool_schemas(self) -> List[Dict]:
+        """
+        Build combined tool schemas from both tools and agents.
+
+        Tools are exposed directly. Agents are exposed as "agent_<name>" tools
+        so Claude can pick the right one.
+        """
+        schemas = []
+
+        # Add tool schemas (direct tools like poker_evaluator, payment_tracker)
+        for tool in self.tool_registry.get_all_tools():
+            schemas.append(tool.to_anthropic_tool())
+
+        # Add agent schemas (agents exposed as meta-tools)
+        for agent in self.agent_registry.get_all_agents():
+            schemas.append(agent.to_anthropic_tool())
+
+        return schemas
+
     async def process(
         self,
         user_input: str,
@@ -107,6 +134,9 @@ class AIOrchestrator:
     ) -> Dict:
         """
         Process a user request.
+
+        Routes the request using Claude's tool-use API when available,
+        falling back to keyword matching otherwise.
 
         Args:
             user_input: The user's natural language request
@@ -129,31 +159,23 @@ class AIOrchestrator:
         }
 
         try:
-            # Step 1: Classify the request type
-            request_type = self._classify_request(user_input, context)
-
-            # Step 2: Route to appropriate handler
-            if request_type["type"] == "tool":
-                result = await self._handle_tool_request(
-                    request_type["tool"],
-                    context
-                )
-            elif request_type["type"] == "agent":
-                result = await self._handle_agent_request(
-                    request_type["agent"],
-                    user_input,
-                    context
-                )
+            # Try Claude tool-use routing first
+            if self.llm_client and self.llm_client.is_available:
+                result = await self._process_with_llm(user_input, context, user_id)
+                routing_method = "llm_tool_use"
             else:
-                # Fallback to general AI response
-                result = await self._handle_general_request(user_input, context)
+                # Fallback to keyword matching
+                result = await self._process_with_keywords(user_input, context, user_id)
+                routing_method = "keyword_fallback"
 
             # Log success
             log_entry["result"] = {
                 "success": result.get("success", False),
-                "type": request_type["type"],
-                "handler": request_type.get("tool") or request_type.get("agent")
+                "routing_method": routing_method,
+                "handler": result.get("_handler"),
             }
+            # Remove internal metadata before returning
+            result.pop("_handler", None)
 
         except Exception as e:
             logger.error(f"Orchestrator error: {e}")
@@ -170,9 +192,105 @@ class AIOrchestrator:
 
         return result
 
+    # ==================== LLM Tool-Use Routing ====================
+
+    async def _process_with_llm(
+        self,
+        user_input: str,
+        context: Dict,
+        user_id: str = None
+    ) -> Dict:
+        """
+        Route the request using Claude's tool-use API.
+
+        Claude sees all available tools and agents as tool schemas, then
+        decides which one to call based on the user's input.
+        """
+        tools = self._build_tool_schemas()
+
+        # Inject user_id into context for Claude
+        enriched_context = {**context}
+        if user_id:
+            enriched_context["user_id"] = user_id
+
+        routing_result = await self.llm_client.route_with_tools(
+            user_input=user_input,
+            context=enriched_context,
+            tools=tools
+        )
+
+        # If Claude couldn't route (error/unavailable), fall back
+        if routing_result.get("stop_reason") in ("error", "unavailable"):
+            logger.warning("LLM routing failed, falling back to keywords")
+            return await self._process_with_keywords(user_input, context, user_id)
+
+        # If Claude responded with text only (no tool call) — general response
+        if not routing_result.get("tool_calls"):
+            text = routing_result.get("text_response", "")
+            if text:
+                return {
+                    "success": True,
+                    "message": text,
+                    "type": "general",
+                    "_handler": "llm_general"
+                }
+            # No tool calls and no text — fall back
+            return await self._process_with_keywords(user_input, context, user_id)
+
+        # Execute the first tool call Claude chose
+        # (Multi-step chaining: if the tool returns a result that needs further
+        #  processing, we could loop — but for now we execute the first call)
+        tool_call = routing_result["tool_calls"][0]
+        tool_name = tool_call["name"]
+        tool_input = tool_call["input"]
+
+        logger.info(f"LLM routed to: {tool_name} with input keys: {list(tool_input.keys())}")
+
+        # Check if it's an agent call (prefixed with "agent_")
+        if tool_name.startswith("agent_"):
+            agent_name = tool_name[len("agent_"):]
+            return await self._execute_agent(
+                agent_name,
+                tool_input.get("user_input", user_input),
+                tool_input
+            )
+        else:
+            # Direct tool call
+            return await self._execute_tool(tool_name, tool_input)
+
+    # ==================== Keyword Fallback Routing ====================
+
+    async def _process_with_keywords(
+        self,
+        user_input: str,
+        context: Dict,
+        user_id: str = None
+    ) -> Dict:
+        """
+        Route the request using keyword matching (fallback).
+
+        This is the original routing logic, kept as a fallback when
+        Claude is unavailable.
+        """
+        request_type = self._classify_request(user_input, context)
+
+        if request_type["type"] == "tool":
+            return await self._execute_tool(
+                request_type["tool"],
+                context
+            )
+        elif request_type["type"] == "agent":
+            return await self._execute_agent(
+                request_type["agent"],
+                user_input,
+                context
+            )
+        else:
+            return await self._handle_general_request(user_input, context)
+
     def _classify_request(self, user_input: str, context: Dict) -> Dict:
         """
-        Classify the request to determine which handler to use.
+        Classify the request using keyword matching (fallback).
 
         Returns:
             Dict with type ("tool", "agent", "general") and handler name
@@ -212,40 +330,44 @@ class AIOrchestrator:
         # Default to general
         return {"type": "general"}
 
-    async def _handle_tool_request(self, tool_name: str, context: Dict) -> Dict:
-        """Handle a direct tool request"""
+    # ==================== Execution Helpers ====================
+
+    async def _execute_tool(self, tool_name: str, params: Dict) -> Dict:
+        """Execute a tool by name with given parameters"""
         tool = self.tool_registry.get(tool_name)
         if not tool:
             return {
                 "success": False,
-                "error": f"Tool '{tool_name}' not found"
+                "error": f"Tool '{tool_name}' not found",
+                "_handler": tool_name
             }
 
-        # Execute the tool
-        result = await tool.execute(**context)
-        return result.model_dump()
+        # Filter out non-tool params (like user_input which is for agents)
+        result = await tool.execute(**params)
+        response = result.model_dump()
+        response["_handler"] = tool_name
+        return response
 
-    async def _handle_agent_request(
-        self,
-        agent_name: str,
-        user_input: str,
-        context: Dict
-    ) -> Dict:
-        """Handle an agent request"""
+    async def _execute_agent(self, agent_name: str, user_input: str, context: Dict) -> Dict:
+        """Execute an agent by name"""
         agent = self.agent_registry.get(agent_name)
         if not agent:
             return {
                 "success": False,
-                "error": f"Agent '{agent_name}' not found"
+                "error": f"Agent '{agent_name}' not found",
+                "_handler": agent_name
             }
 
-        # Execute the agent
-        result = await agent.execute(user_input, context)
-        return result.model_dump()
+        # Remove user_input from context to avoid passing it twice
+        agent_context = {k: v for k, v in context.items() if k != "user_input"}
+
+        result = await agent.execute(user_input, agent_context)
+        response = result.model_dump()
+        response["_handler"] = f"agent_{agent_name}"
+        return response
 
     async def _handle_general_request(self, user_input: str, context: Dict) -> Dict:
         """Handle a general request that doesn't fit specific tools/agents"""
-        # This could use an LLM for general conversation
         return {
             "success": True,
             "message": "I understand you want help, but I'm not sure what specific action to take. "
@@ -253,11 +375,14 @@ class AIOrchestrator:
                       "- Create or setup a game\n"
                       "- Analyze your poker hand\n"
                       "- Generate a report or stats\n"
-                      "- Send notifications",
-            "type": "help"
+                      "- Send notifications\n"
+                      "- Check pending decisions\n"
+                      "- Send payment reminders",
+            "type": "help",
+            "_handler": "general"
         }
 
-    # Convenience methods for common operations
+    # ==================== Convenience Methods ====================
 
     async def analyze_poker_hand(
         self,

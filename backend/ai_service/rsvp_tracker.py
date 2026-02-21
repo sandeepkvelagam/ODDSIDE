@@ -82,6 +82,7 @@ class RSVPTrackerService:
                     confirmed=stats["confirmed"],
                     declined=stats["declined"],
                     pending=stats["pending"],
+                    maybe=stats["maybe"],
                     game_title=game.get("title", "Game Night")
                 )
 

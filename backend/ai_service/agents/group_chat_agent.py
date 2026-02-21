@@ -218,6 +218,13 @@ RULES:
                     "content": f"{sender}: {content}"
                 })
 
+        # Ensure the first message is from user role (required by Claude API)
+        if messages and messages[0]["role"] == "assistant":
+            messages.insert(0, {
+                "role": "user",
+                "content": "[conversation history]"
+            })
+
         # Ensure the last message is from user role (required by Claude)
         if not messages or messages[-1]["role"] == "assistant":
             messages.append({
@@ -246,7 +253,7 @@ RULES:
             action_params = {}
 
             text_lower = text.lower()
-            if "create a poll" in text_lower or "poll" in text_lower and "?" in text:
+            if "create a poll" in text_lower or ("poll" in text_lower and "?" in text):
                 action = "create_poll"
             elif "set up a game" in text_lower or "create the game" in text_lower:
                 action = "suggest_game"

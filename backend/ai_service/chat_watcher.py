@@ -260,7 +260,8 @@ class ChatWatcherService:
         # Get last game date
         last_game = await self.db.game_nights.find_one(
             {"group_id": group_id},
-            {"_id": 0, "created_at": 1}
+            {"_id": 0, "created_at": 1},
+            sort=[("created_at", -1)]
         )
         last_game_date = last_game.get("created_at") if last_game else None
         days_since = None

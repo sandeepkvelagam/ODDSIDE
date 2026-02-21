@@ -460,6 +460,7 @@ class GamePlannerAgent(BaseAgent):
         last_game = await self.db.game_nights.find_one(
             {"group_id": group_id},
             {"_id": 0, "created_at": 1},
+            sort=[("created_at", -1)],
         )
         if not last_game:
             return None

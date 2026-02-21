@@ -400,6 +400,7 @@ class EventListenerService:
             "deleted": False,
         }
         await self.db.group_messages.insert_one(msg_doc)
+        msg_doc.pop("_id", None)
 
         # Broadcast via WebSocket
         try:

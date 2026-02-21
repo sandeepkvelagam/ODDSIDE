@@ -56,7 +56,7 @@ class ContextProvider:
         self.db = db
         self.country = country
         self._weather_cache: Dict[str, Dict] = {}  # key: "lat,lon" → forecast
-        self._cache_time: Optional[datetime] = None
+        self._cache_times: Dict[str, datetime] = {}  # key: "lat,lon" → cache time
         self._cache_ttl = timedelta(hours=6)
 
     async def get_context(self, group_id: str = None, lat: float = None, lon: float = None) -> Dict:
@@ -162,10 +162,11 @@ class ContextProvider:
         """
         cache_key = f"{lat},{lon}"
 
-        # Check cache
-        if (self._cache_time and
+        # Check cache (per-key timestamps)
+        cache_time = self._cache_times.get(cache_key)
+        if (cache_time and
             cache_key in self._weather_cache and
-            datetime.now(timezone.utc) - self._cache_time < self._cache_ttl):
+            datetime.now(timezone.utc) - cache_time < self._cache_ttl):
             return self._weather_cache[cache_key]
 
         try:
@@ -173,7 +174,7 @@ class ContextProvider:
                 response = await client.get(self.OPEN_METEO_URL, params={
                     "latitude": lat,
                     "longitude": lon,
-                    "daily": "weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max",
+                    "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max",
                     "timezone": "auto",
                     "forecast_days": days
                 })
@@ -182,7 +183,7 @@ class ContextProvider:
 
             daily = data.get("daily", {})
             dates = daily.get("time", [])
-            codes = daily.get("weathercode", [])
+            codes = daily.get("weather_code", [])
             temp_max = daily.get("temperature_2m_max", [])
             temp_min = daily.get("temperature_2m_min", [])
             precip = daily.get("precipitation_sum", [])
@@ -215,7 +216,7 @@ class ContextProvider:
 
             # Cache it
             self._weather_cache[cache_key] = result
-            self._cache_time = datetime.now(timezone.utc)
+            self._cache_times[cache_key] = datetime.now(timezone.utc)
 
             return result
 

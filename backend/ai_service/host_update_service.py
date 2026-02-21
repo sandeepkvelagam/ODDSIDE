@@ -119,21 +119,22 @@ class HostUpdateService:
     async def notify_rsvp_update(
         self, group_id: str, host_id: str,
         confirmed: int, declined: int, pending: int,
-        game_title: str = "the game"
+        maybe: int = 0, game_title: str = "the game"
     ):
         """Notify host about RSVP status changes."""
-        total = confirmed + declined + pending
-        message = (
-            f"{confirmed} confirmed, {declined} declined, {pending} pending "
-            f"out of {total} invited"
-        )
+        total = confirmed + declined + pending + maybe
+        parts = [f"{confirmed} confirmed", f"{declined} declined"]
+        if maybe > 0:
+            parts.append(f"{maybe} maybe")
+        parts.append(f"{pending} pending")
+        message = f"{', '.join(parts)} out of {total} invited"
         await self.send_update(
             group_id=group_id,
             host_id=host_id,
             update_type="rsvp_update",
             title=f"RSVP Update: {game_title}",
             message=message,
-            data={"confirmed": confirmed, "declined": declined, "pending": pending},
+            data={"confirmed": confirmed, "declined": declined, "maybe": maybe, "pending": pending},
             priority="normal" if pending > 0 else "low",
         )
 

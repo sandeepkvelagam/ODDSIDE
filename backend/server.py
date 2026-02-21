@@ -3790,6 +3790,7 @@ async def post_group_message(
     if msg_dict.get("edited_at"):
         msg_dict["edited_at"] = msg_dict["edited_at"].isoformat()
     await db.group_messages.insert_one(msg_dict)
+    msg_dict.pop("_id", None)
 
     # Get sender info for WebSocket broadcast
     user_info = await db.users.find_one(

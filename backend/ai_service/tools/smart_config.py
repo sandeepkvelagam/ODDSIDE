@@ -36,33 +36,33 @@ class SmartConfigTool(BaseTool):
     @property
     def parameters(self) -> Dict:
         return {
-            "action": {
-                "type": "string",
-                "description": "Action to perform",
-                "enum": [
-                    "suggest_game_config",
-                    "suggest_players",
-                    "suggest_time",
-                    "analyze_player",
-                    "get_group_patterns"
-                ],
-                "required": True
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Action to perform",
+                    "enum": [
+                        "suggest_game_config",
+                        "suggest_players",
+                        "suggest_time",
+                        "analyze_player",
+                        "get_group_patterns"
+                    ],
+                },
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID",
+                },
+                "user_id": {
+                    "type": "string",
+                    "description": "User ID (for player analysis)",
+                },
+                "game_type": {
+                    "type": "string",
+                    "description": "Type of game (poker, etc.)",
+                }
             },
-            "group_id": {
-                "type": "string",
-                "description": "Group ID",
-                "required": True
-            },
-            "user_id": {
-                "type": "string",
-                "description": "User ID (for player analysis)",
-                "required": False
-            },
-            "game_type": {
-                "type": "string",
-                "description": "Type of game (poker, etc.)",
-                "required": False
-            }
+            "required": ["action", "group_id"]
         }
 
     async def execute(self, **kwargs) -> ToolResult:

@@ -153,7 +153,7 @@ class SmartSchedulerService:
             )
 
         # Factor 3: No work next day
-        if weekday in (4, 5, 6):  # Fri, Sat, Sun
+        if weekday in (4, 5):  # Fri, Sat (Sunday's next day is Monday)
             suggestion.add_factor(
                 "no_work_next", self.WEIGHT_NO_WORK_NEXT,
                 "No work the next morning."

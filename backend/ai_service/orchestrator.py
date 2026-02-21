@@ -22,9 +22,6 @@ from .agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
 
-# Maximum tool-call iterations per request (prevents infinite loops)
-MAX_TOOL_ITERATIONS = 5
-
 
 class AIOrchestrator:
     """
@@ -178,7 +175,8 @@ class AIOrchestrator:
             # Try Claude tool-use routing first
             if self.llm_client and self.llm_client.is_available:
                 result = await self._process_with_llm(user_input, context, user_id)
-                routing_method = "llm_tool_use"
+                # _process_with_llm may internally fall back to keywords
+                routing_method = result.pop("_routing_method", "llm_tool_use")
             else:
                 # Fallback to keyword matching
                 result = await self._process_with_keywords(user_input, context, user_id)
@@ -238,7 +236,9 @@ class AIOrchestrator:
         # If Claude couldn't route (error/unavailable), fall back
         if routing_result.get("stop_reason") in ("error", "unavailable"):
             logger.warning("LLM routing failed, falling back to keywords")
-            return await self._process_with_keywords(user_input, context, user_id)
+            result = await self._process_with_keywords(user_input, context, user_id)
+            result["_routing_method"] = "llm_fallback_to_keywords"
+            return result
 
         # If Claude responded with text only (no tool call) — general response
         if not routing_result.get("tool_calls"):
@@ -251,7 +251,9 @@ class AIOrchestrator:
                     "_handler": "llm_general"
                 }
             # No tool calls and no text — fall back
-            return await self._process_with_keywords(user_input, context, user_id)
+            result = await self._process_with_keywords(user_input, context, user_id)
+            result["_routing_method"] = "llm_fallback_to_keywords"
+            return result
 
         # Execute the first tool call Claude chose
         # (Multi-step chaining: if the tool returns a result that needs further
@@ -358,8 +360,11 @@ class AIOrchestrator:
                 "_handler": tool_name
             }
 
-        # Filter out non-tool params (like user_input which is for agents)
-        result = await tool.execute(**params)
+        # Filter params to only those accepted by the tool's schema
+        tool_params = tool.parameters
+        allowed_keys = set(tool_params.get("properties", {}).keys()) if "properties" in tool_params else set(params.keys())
+        filtered = {k: v for k, v in params.items() if k in allowed_keys}
+        result = await tool.execute(**filtered)
         response = result.model_dump()
         response["_handler"] = tool_name
         return response

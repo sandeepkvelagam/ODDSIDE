@@ -288,6 +288,27 @@ class GroupAISettings(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None  # user_id of admin who changed settings
 
+class PollOption(BaseModel):
+    option_id: str = Field(default_factory=lambda: f"opt_{uuid.uuid4().hex[:8]}")
+    label: str
+    votes: List[str] = []  # list of user_ids
+
+class Poll(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    poll_id: str = Field(default_factory=lambda: f"poll_{uuid.uuid4().hex[:12]}")
+    group_id: str
+    created_by: str  # "ai_assistant" or user_id
+    type: str = "availability"  # availability, general
+    question: str
+    options: List[Dict[str, Any]] = []
+    status: str = "active"  # active, closed, resolved
+    expires_at: Optional[datetime] = None  # Auto-close time
+    winning_option: Optional[str] = None  # option_id that won
+    message_id: Optional[str] = None  # Group message containing this poll
+    game_id: Optional[str] = None  # Game created from this poll
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    closed_at: Optional[datetime] = None
+
 
 # ============== WALLET MODELS (Payment Engineering: cents-based) ==============
 
@@ -430,6 +451,15 @@ class GroupAISettingsUpdate(BaseModel):
     weather_alerts: Optional[bool] = None
     holiday_alerts: Optional[bool] = None
     max_messages_per_hour: Optional[int] = None
+
+class PollCreate(BaseModel):
+    question: str
+    options: List[str]  # list of label strings
+    type: str = "availability"
+    expires_in_hours: int = 48  # defaults to 48h
+
+class PollVote(BaseModel):
+    option_id: str
 
 class MarkPaidRequest(BaseModel):
     paid: bool
@@ -3923,6 +3953,392 @@ async def update_group_ai_settings(
     return {"status": "updated", "settings": updates}
 
 
+@api_router.get("/groups/{group_id}/suggest-times")
+async def suggest_game_times(
+    group_id: str,
+    num: int = Query(default=3, ge=1, le=10),
+    user: User = Depends(get_current_user)
+):
+    """Get AI-powered game time suggestions for a group."""
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    try:
+        from ai_service.smart_scheduler import SmartSchedulerService
+        from ai_service.context_provider import ContextProvider
+
+        ctx_provider = ContextProvider(db=db)
+        external_context = await ctx_provider.get_context(group_id=group_id)
+
+        scheduler = SmartSchedulerService(db=db, context_provider=ctx_provider)
+        suggestions = await scheduler.suggest_times(
+            group_id=group_id,
+            num_suggestions=num,
+            external_context=external_context
+        )
+        return {"suggestions": suggestions, "external_context_summary": {
+            "holidays": len(external_context.get("upcoming_holidays", [])),
+            "bad_weather_days": len(external_context.get("weather_forecast", {}).get("bad_weather_days", [])),
+            "long_weekends": len(external_context.get("long_weekends", [])),
+        }}
+    except Exception as e:
+        logger.error(f"Suggest times error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate suggestions")
+
+
+# ============== HOST UPDATE ENDPOINTS ==============
+
+@api_router.get("/groups/{group_id}/host-updates")
+async def get_host_updates(
+    group_id: str,
+    limit: int = Query(default=20, ge=1, le=50),
+    unread_only: bool = Query(default=False),
+    user: User = Depends(get_current_user)
+):
+    """Get host update feed for a group (admin only)."""
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0, "role": 1}
+    )
+    if not membership or membership.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can view host updates")
+
+    from ai_service.host_update_service import HostUpdateService
+    service = HostUpdateService(db=db)
+    updates = await service.get_host_updates(
+        group_id=group_id, host_id=user.user_id,
+        limit=limit, unread_only=unread_only
+    )
+    return updates
+
+
+@api_router.post("/groups/{group_id}/host-updates/mark-read")
+async def mark_host_updates_read(
+    group_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Mark all host updates as read for a group."""
+    from ai_service.host_update_service import HostUpdateService
+    service = HostUpdateService(db=db)
+    await service.mark_all_read(group_id=group_id, host_id=user.user_id)
+    return {"status": "all_read"}
+
+
+@api_router.post("/groups/{group_id}/host-updates/{update_id}/mark-read")
+async def mark_single_host_update_read(
+    group_id: str,
+    update_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Mark a single host update as read."""
+    from ai_service.host_update_service import HostUpdateService
+    service = HostUpdateService(db=db)
+    await service.mark_read(update_id=update_id, host_id=user.user_id)
+    return {"status": "read"}
+
+
+# ============== POLL ENDPOINTS ==============
+
+@api_router.post("/groups/{group_id}/polls")
+async def create_poll(group_id: str, data: PollCreate, user: User = Depends(get_current_user)):
+    """Create an availability poll in a group."""
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    if len(data.options) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 options required")
+
+    # Build poll options
+    options = []
+    for label in data.options:
+        options.append({
+            "option_id": f"opt_{uuid.uuid4().hex[:8]}",
+            "label": label,
+            "votes": []
+        })
+
+    poll = Poll(
+        group_id=group_id,
+        created_by=user.user_id,
+        type=data.type,
+        question=data.question,
+        options=options,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=data.expires_in_hours)
+    )
+    poll_dict = poll.model_dump()
+    poll_dict["created_at"] = poll_dict["created_at"].isoformat()
+    if poll_dict.get("expires_at"):
+        poll_dict["expires_at"] = poll_dict["expires_at"].isoformat()
+    await db.polls.insert_one(poll_dict)
+
+    # Post the poll as a group message
+    poll_msg = GroupMessage(
+        group_id=group_id,
+        user_id=user.user_id,
+        content=f"📊 **Poll:** {data.question}\n" + "\n".join(
+            f"  {i+1}. {opt}" for i, opt in enumerate(data.options)
+        ),
+        type="system",
+        metadata={"poll_id": poll.poll_id}
+    )
+    msg_dict = poll_msg.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    if msg_dict.get("edited_at"):
+        msg_dict["edited_at"] = msg_dict["edited_at"].isoformat()
+    await db.group_messages.insert_one(msg_dict)
+
+    # Update poll with message_id
+    await db.polls.update_one(
+        {"poll_id": poll.poll_id},
+        {"$set": {"message_id": poll_msg.message_id}}
+    )
+
+    # Broadcast poll via WebSocket
+    user_info = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
+    )
+    await emit_group_message(group_id, {
+        **msg_dict,
+        "user": user_info,
+        "poll": poll_dict
+    })
+
+    return {"poll_id": poll.poll_id, "message_id": poll_msg.message_id}
+
+
+@api_router.get("/groups/{group_id}/polls")
+async def get_group_polls(
+    group_id: str,
+    status: Optional[str] = Query(default=None, description="Filter by status: active, closed, resolved"),
+    user: User = Depends(get_current_user)
+):
+    """Get polls for a group."""
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    query = {"group_id": group_id}
+    if status:
+        query["status"] = status
+
+    polls = await db.polls.find(query, {"_id": 0}).sort("created_at", -1).to_list(20)
+    return polls
+
+
+@api_router.get("/groups/{group_id}/polls/{poll_id}")
+async def get_poll(group_id: str, poll_id: str, user: User = Depends(get_current_user)):
+    """Get a specific poll with vote details."""
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    poll = await db.polls.find_one(
+        {"poll_id": poll_id, "group_id": group_id},
+        {"_id": 0}
+    )
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+
+    # Enrich with voter names
+    all_voter_ids = set()
+    for opt in poll.get("options", []):
+        all_voter_ids.update(opt.get("votes", []))
+    if all_voter_ids:
+        voters = await db.users.find(
+            {"user_id": {"$in": list(all_voter_ids)}},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
+        ).to_list(len(all_voter_ids))
+        voter_map = {v["user_id"]: v for v in voters}
+        for opt in poll["options"]:
+            opt["voter_details"] = [voter_map.get(uid, {"user_id": uid}) for uid in opt.get("votes", [])]
+
+    # Get group member count for completion tracking
+    member_count = await db.group_members.count_documents({"group_id": group_id})
+    total_votes = sum(len(opt.get("votes", [])) for opt in poll.get("options", []))
+    poll["member_count"] = member_count
+    poll["total_votes"] = total_votes
+    poll["completion_pct"] = round((total_votes / member_count) * 100) if member_count > 0 else 0
+
+    return poll
+
+
+@api_router.post("/groups/{group_id}/polls/{poll_id}/vote")
+async def vote_on_poll(
+    group_id: str,
+    poll_id: str,
+    data: PollVote,
+    user: User = Depends(get_current_user)
+):
+    """Vote on a poll option (or change vote)."""
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    poll = await db.polls.find_one(
+        {"poll_id": poll_id, "group_id": group_id},
+        {"_id": 0}
+    )
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    if poll["status"] != "active":
+        raise HTTPException(status_code=400, detail="Poll is no longer active")
+
+    # Check expiry
+    if poll.get("expires_at"):
+        expires = poll["expires_at"]
+        if isinstance(expires, str):
+            expires = datetime.fromisoformat(expires.replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) > expires:
+            await db.polls.update_one(
+                {"poll_id": poll_id},
+                {"$set": {"status": "closed", "closed_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            raise HTTPException(status_code=400, detail="Poll has expired")
+
+    # Validate option exists
+    option_ids = [opt["option_id"] for opt in poll.get("options", [])]
+    if data.option_id not in option_ids:
+        raise HTTPException(status_code=400, detail="Invalid option")
+
+    # Remove user's previous votes (single-choice)
+    await db.polls.update_one(
+        {"poll_id": poll_id},
+        {"$pull": {"options.$[].votes": user.user_id}}
+    )
+
+    # Add new vote
+    await db.polls.update_one(
+        {"poll_id": poll_id, "options.option_id": data.option_id},
+        {"$addToSet": {"options.$.votes": user.user_id}}
+    )
+
+    # Fetch updated poll
+    updated_poll = await db.polls.find_one({"poll_id": poll_id}, {"_id": 0})
+
+    # Broadcast vote update via WebSocket
+    user_info = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "user_id": 1, "name": 1}
+    )
+    await emit_group_message(group_id, {
+        "type": "poll_vote",
+        "poll_id": poll_id,
+        "voter": user_info,
+        "option_id": data.option_id,
+        "poll": updated_poll
+    })
+
+    # Check if majority voted → auto-resolve
+    member_count = await db.group_members.count_documents({"group_id": group_id})
+    total_votes = sum(len(opt.get("votes", [])) for opt in updated_poll.get("options", []))
+    if total_votes >= member_count:
+        await _auto_resolve_poll(group_id, poll_id)
+
+    return {"status": "voted", "option_id": data.option_id}
+
+
+@api_router.post("/groups/{group_id}/polls/{poll_id}/close")
+async def close_poll(group_id: str, poll_id: str, user: User = Depends(get_current_user)):
+    """Close a poll and determine the winner (creator or admin only)."""
+    poll = await db.polls.find_one(
+        {"poll_id": poll_id, "group_id": group_id},
+        {"_id": 0}
+    )
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    if poll["status"] != "active":
+        raise HTTPException(status_code=400, detail="Poll is already closed")
+
+    # Only creator or admin can close
+    if poll["created_by"] != user.user_id:
+        membership = await db.group_members.find_one(
+            {"group_id": group_id, "user_id": user.user_id},
+            {"_id": 0, "role": 1}
+        )
+        if not membership or membership.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Only poll creator or admin can close")
+
+    result = await _resolve_poll(group_id, poll_id)
+    return result
+
+
+async def _auto_resolve_poll(group_id: str, poll_id: str):
+    """Auto-resolve a poll when all members have voted."""
+    await _resolve_poll(group_id, poll_id)
+
+
+async def _resolve_poll(group_id: str, poll_id: str) -> Dict:
+    """Resolve a poll: find winner, close it, and announce."""
+    poll = await db.polls.find_one({"poll_id": poll_id}, {"_id": 0})
+    if not poll:
+        return {"error": "Poll not found"}
+
+    # Find winning option (most votes)
+    options = poll.get("options", [])
+    if not options:
+        return {"error": "No options"}
+
+    winner = max(options, key=lambda o: len(o.get("votes", [])))
+    winning_id = winner["option_id"]
+    winning_label = winner["label"]
+    vote_count = len(winner.get("votes", []))
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.polls.update_one(
+        {"poll_id": poll_id},
+        {"$set": {
+            "status": "resolved",
+            "winning_option": winning_id,
+            "closed_at": now
+        }}
+    )
+
+    # Post resolution message in group chat
+    resolution_msg = GroupMessage(
+        group_id=group_id,
+        user_id="ai_assistant",
+        content=f"Poll closed! **{winning_label}** wins with {vote_count} vote(s). Let's make it happen!",
+        type="ai",
+        metadata={"poll_id": poll_id, "winning_option": winning_id}
+    )
+    msg_dict = resolution_msg.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    if msg_dict.get("edited_at"):
+        msg_dict["edited_at"] = msg_dict["edited_at"].isoformat()
+    await db.group_messages.insert_one(msg_dict)
+
+    await emit_group_message(group_id, {
+        **msg_dict,
+        "user": {"user_id": "ai_assistant", "name": "ODDSIDE", "picture": None},
+        "poll_result": {"winning_option": winning_id, "winning_label": winning_label, "votes": vote_count}
+    })
+
+    return {
+        "status": "resolved",
+        "winning_option": winning_id,
+        "winning_label": winning_label,
+        "votes": vote_count
+    }
+
+
 # ============== NOTIFICATION ENDPOINTS ==============
 
 @api_router.get("/notifications")
@@ -6709,11 +7125,27 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def create_indexes():
-    """Create database indexes for group messages."""
+    """Create database indexes and start background services."""
     await db.group_messages.create_index([("group_id", 1), ("created_at", -1)])
     await db.group_messages.create_index("message_id", unique=True)
-    logger.info("Database indexes ensured for group_messages")
+    await db.polls.create_index([("group_id", 1), ("status", 1)])
+    await db.polls.create_index("poll_id", unique=True)
+    await db.host_updates.create_index([("group_id", 1), ("created_at", -1)])
+    logger.info("Database indexes ensured for group_messages, polls, host_updates")
+
+    # Start proactive scheduler for AI game suggestions
+    try:
+        from ai_service.proactive_scheduler import start_proactive_scheduler
+        await start_proactive_scheduler(db=db)
+        logger.info("ProactiveScheduler started")
+    except Exception as e:
+        logger.warning(f"ProactiveScheduler failed to start (non-critical): {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    try:
+        from ai_service.proactive_scheduler import stop_proactive_scheduler
+        await stop_proactive_scheduler()
+    except Exception:
+        pass
     client.close()

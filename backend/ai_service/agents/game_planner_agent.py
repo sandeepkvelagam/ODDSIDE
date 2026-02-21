@@ -108,9 +108,13 @@ class GamePlannerAgent(BaseAgent):
             patterns = await self._get_group_patterns(group_id)
             steps_taken.append({"step": "gather_patterns", "patterns": patterns})
 
+            # Get scored time suggestions from SmartScheduler
+            smart_suggestions = await self._get_smart_suggestions(group_id, external_context)
+            steps_taken.append({"step": "smart_suggestions", "count": len(smart_suggestions)})
+
             # Generate suggestions based on trigger
             if trigger_type == "no_recent_game":
-                return await self._suggest_overdue_game(group_id, patterns, external_context, steps_taken)
+                return await self._suggest_overdue_game(group_id, patterns, external_context, steps_taken, smart_suggestions)
             elif trigger_type == "long_weekend":
                 return await self._suggest_long_weekend_game(group_id, patterns, external_context, steps_taken)
             elif trigger_type == "bad_weather":
@@ -118,9 +122,9 @@ class GamePlannerAgent(BaseAgent):
             elif trigger_type == "holiday_eve":
                 return await self._suggest_holiday_game(group_id, patterns, external_context, steps_taken)
             elif trigger_type == "regular_day":
-                return await self._suggest_regular_game(group_id, patterns, external_context, steps_taken)
+                return await self._suggest_regular_game(group_id, patterns, external_context, steps_taken, smart_suggestions)
             else:
-                return await self._suggest_next_game(group_id, patterns, external_context, steps_taken)
+                return await self._suggest_next_game(group_id, patterns, external_context, steps_taken, smart_suggestions)
 
         except Exception as e:
             return AgentResult(
@@ -128,6 +132,19 @@ class GamePlannerAgent(BaseAgent):
                 error=str(e),
                 steps_taken=steps_taken
             )
+
+    async def _get_smart_suggestions(self, group_id: str, external_context: Dict) -> List[Dict]:
+        """Get scored time suggestions from the SmartScheduler."""
+        try:
+            from ..smart_scheduler import SmartSchedulerService
+            scheduler = SmartSchedulerService(db=self.db)
+            return await scheduler.suggest_times(
+                group_id=group_id,
+                num_suggestions=3,
+                external_context=external_context
+            )
+        except Exception as e:
+            return []
 
     async def check_proactive_triggers(self, group_id: str, external_context: Dict) -> List[Dict]:
         """
@@ -177,16 +194,26 @@ class GamePlannerAgent(BaseAgent):
 
     # ==================== Suggestion Generators ====================
 
-    async def _suggest_overdue_game(self, group_id: str, patterns: Dict, ext_ctx: Dict, steps: List) -> AgentResult:
+    async def _suggest_overdue_game(self, group_id: str, patterns: Dict, ext_ctx: Dict, steps: List, smart_suggestions: List[Dict] = None) -> AgentResult:
         """Suggest a game when it's been too long since the last one."""
         days_since = patterns.get("days_since_last_game", 0)
-        suggested_day = patterns.get("regular_day_name", "Saturday")
-        suggested_time = patterns.get("regular_time", "7:00 PM")
+
+        if smart_suggestions:
+            top = smart_suggestions[0]
+            suggested_day = top.get("day_label", "Saturday")
+            suggested_time = top.get("time_label", "7:00 PM")
+            reason = top.get("reason", "")
+        else:
+            suggested_day = patterns.get("regular_day_name", "Saturday")
+            suggested_time = patterns.get("regular_time", "7:00 PM")
+            reason = ""
 
         message = (
             f"Hey! It's been {days_since} days since the last game. "
             f"How about {suggested_day} at {suggested_time}? Who's in?"
         )
+        if reason:
+            message = f"Hey! It's been {days_since} days since the last game. {reason} How about {suggested_day} at {suggested_time}?"
 
         return AgentResult(
             success=True,
@@ -296,34 +323,47 @@ class GamePlannerAgent(BaseAgent):
             steps_taken=steps
         )
 
-    async def _suggest_regular_game(self, group_id: str, patterns: Dict, ext_ctx: Dict, steps: List) -> AgentResult:
+    async def _suggest_regular_game(self, group_id: str, patterns: Dict, ext_ctx: Dict, steps: List, smart_suggestions: List[Dict] = None) -> AgentResult:
         """Remind about regular game day approaching."""
-        regular_day = patterns.get("regular_day_name", "Friday")
-        regular_time = patterns.get("regular_time", "7:00 PM")
+        if smart_suggestions:
+            top = smart_suggestions[0]
+            suggested_day = top.get("day_label", "Friday")
+            suggested_time = top.get("time_label", "7:00 PM")
+        else:
+            suggested_day = patterns.get("regular_day_name", "Friday")
+            suggested_time = patterns.get("regular_time", "7:00 PM")
 
         message = (
-            f"{regular_day}'s coming up and no game scheduled yet. "
-            f"Same time ({regular_time})? Who's in?"
+            f"{suggested_day}'s coming up and no game scheduled yet. "
+            f"Same time ({suggested_time})? Who's in?"
         )
 
         return AgentResult(
             success=True,
             data={
                 "suggestion_type": "regular_day",
-                "suggested_day": regular_day,
-                "suggested_time": regular_time,
+                "suggested_day": suggested_day,
+                "suggested_time": suggested_time,
                 "group_id": group_id,
                 "chat_message": message,
                 "create_poll": True,
+                "smart_suggestions": smart_suggestions or [],
             },
             message=message,
             steps_taken=steps
         )
 
-    async def _suggest_next_game(self, group_id: str, patterns: Dict, ext_ctx: Dict, steps: List) -> AgentResult:
+    async def _suggest_next_game(self, group_id: str, patterns: Dict, ext_ctx: Dict, steps: List, smart_suggestions: List[Dict] = None) -> AgentResult:
         """General next game suggestion based on all available context."""
-        suggested_day = patterns.get("regular_day_name", "Saturday")
-        suggested_time = patterns.get("regular_time", "7:00 PM")
+        if smart_suggestions:
+            top = smart_suggestions[0]
+            suggested_day = top.get("day_label", "Saturday")
+            suggested_time = top.get("time_label", "7:00 PM")
+            reason = top.get("reason", "")
+        else:
+            suggested_day = patterns.get("regular_day_name", "Saturday")
+            suggested_time = patterns.get("regular_time", "7:00 PM")
+            reason = ""
 
         # Check if there are opportunities to highlight
         opportunities = ext_ctx.get("game_opportunities", [])
@@ -332,6 +372,8 @@ class GamePlannerAgent(BaseAgent):
         if high_priority:
             opp = high_priority[0]
             message = opp.get("message", f"How about a game {suggested_day} at {suggested_time}?")
+        elif reason:
+            message = f"{reason} How about {suggested_day} at {suggested_time}?"
         else:
             message = f"How about a game {suggested_day} at {suggested_time}? Who's in?"
 
@@ -345,6 +387,7 @@ class GamePlannerAgent(BaseAgent):
                 "chat_message": message,
                 "opportunities": opportunities,
                 "create_poll": True,
+                "smart_suggestions": smart_suggestions or [],
             },
             message=message,
             steps_taken=steps

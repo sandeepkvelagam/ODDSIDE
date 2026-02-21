@@ -78,6 +78,7 @@ export function DashboardScreenV2() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showStatModal, setShowStatModal] = useState<'profit' | 'winrate' | null>(null);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
+  const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
 
   // Animated pulse for live indicator
   const pulseAnim = useState(new Animated.Value(1))[0];
@@ -207,6 +208,54 @@ export function DashboardScreenV2() {
     return date.toLocaleDateString();
   };
 
+  const formatNotifTime = (d: string) => {
+    const diff = Date.now() - new Date(d).getTime();
+    const h = diff / 3600000;
+    if (h < 1) return "Just now";
+    if (h < 24) return `${Math.floor(h)}h ago`;
+    if (h < 48) return "Yesterday";
+    return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const getNotifIcon = (type: string): { icon: string; color: string } => {
+    const map: Record<string, { icon: string; color: string }> = {
+      game_started: { icon: "play-circle", color: LIQUID_COLORS.success },
+      game_ended: { icon: "stop-circle", color: LIQUID_COLORS.textMuted },
+      settlement_generated: { icon: "calculator", color: "#F59E0B" },
+      invite_accepted: { icon: "person-add", color: LIQUID_COLORS.success },
+      wallet_received: { icon: "wallet", color: LIQUID_COLORS.success },
+      group_invite: { icon: "people", color: LIQUID_COLORS.orange },
+    };
+    return map[type] || { icon: "notifications", color: LIQUID_COLORS.moonstone };
+  };
+
+  const handleNotificationPress = async (notif: any) => {
+    // Mark as read and remove from unread list
+    try {
+      await api.put(`/notifications/${notif.notification_id}/read`);
+      setNotifications(prev => prev.filter(n => n.notification_id !== notif.notification_id));
+    } catch {}
+
+    setShowNotificationsPanel(false);
+
+    // Navigate based on notification type
+    if (notif.type === "game_started" || notif.type === "game_ended") {
+      if (notif.data?.game_id) {
+        navigation.navigate("GameNight", { gameId: notif.data.game_id });
+      }
+    } else if (notif.type === "settlement_generated") {
+      if (notif.data?.game_id) {
+        navigation.navigate("GameNight", { gameId: notif.data.game_id });
+      }
+    } else if (notif.type === "group_invite" || notif.type === "invite_accepted") {
+      if (notif.data?.group_id) {
+        navigation.navigate("GroupHub", { groupId: notif.data.group_id });
+      }
+    } else if (notif.type === "wallet_received") {
+      navigation.navigate("Wallet");
+    }
+  };
+
   // Use liquid glass colors for dark mode, fall back to theme colors for light
   const lc = isDark ? LIQUID_COLORS : {
     ...LIQUID_COLORS,
@@ -261,7 +310,7 @@ export function DashboardScreenV2() {
               { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder },
               pressed && styles.glassButtonPressed
             ]}
-            onPress={() => navigation.navigate("Notifications")}
+            onPress={() => setShowNotificationsPanel(true)}
           >
             <Ionicons name="notifications-outline" size={22} color={lc.textSecondary} />
             {notifications.length > 0 && <View style={[styles.notifDot, { backgroundColor: lc.orange }]} />}
@@ -956,6 +1005,81 @@ export function DashboardScreenV2() {
           </View>
         </AnimatedModal>
 
+        {/* Notifications Panel */}
+        <AnimatedModal
+          visible={showNotificationsPanel}
+          onClose={() => setShowNotificationsPanel(false)}
+          blurIntensity={60}
+        >
+          <View style={[styles.helpModalContent, { backgroundColor: lc.jetSurface, maxHeight: '80%' }]}>
+            <View style={styles.helpModalHeader}>
+              <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>Notifications</Text>
+              <TouchableOpacity
+                style={[styles.closeButton, { backgroundColor: lc.glassBg }]}
+                onPress={() => setShowNotificationsPanel(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={22} color={lc.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+              {notifications.length === 0 ? (
+                <View style={styles.emptyNotifications}>
+                  <Ionicons name="notifications-outline" size={48} color={lc.textMuted} />
+                  <Text style={[styles.emptyNotifTitle, { color: lc.textSecondary }]}>All Caught Up</Text>
+                  <Text style={[styles.emptyNotifSub, { color: lc.textMuted }]}>No new notifications</Text>
+                </View>
+              ) : (
+                <View style={styles.notificationsList}>
+                  {notifications.slice(0, 10).map((notif: any, idx: number) => {
+                    const { icon, color } = getNotifIcon(notif.type);
+                    return (
+                      <TouchableOpacity
+                        key={notif.notification_id || idx}
+                        style={[
+                          styles.notificationItem,
+                          { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder },
+                        ]}
+                        onPress={() => handleNotificationPress(notif)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.notifIconWrap, { backgroundColor: color + "20" }]}>
+                          <Ionicons name={icon as any} size={20} color={color} />
+                        </View>
+                        <View style={styles.notifContent}>
+                          <Text style={[styles.notifTitle, { color: lc.textPrimary }]} numberOfLines={1}>
+                            {notif.title}
+                          </Text>
+                          <Text style={[styles.notifMessage, { color: lc.textSecondary }]} numberOfLines={2}>
+                            {notif.message}
+                          </Text>
+                          <Text style={[styles.notifTime, { color: lc.textMuted }]}>
+                            {formatNotifTime(notif.created_at)}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={lc.textMuted} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.notifSettingsButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+              onPress={() => {
+                setShowNotificationsPanel(false);
+                navigation.navigate("Notifications");
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="settings-outline" size={18} color={lc.textSecondary} />
+              <Text style={[styles.notifSettingsText, { color: lc.textSecondary }]}>Notification Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </AnimatedModal>
+
         {/* AI Chat FAB */}
         <AIChatFab />
       </View>
@@ -1591,5 +1715,67 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: "500",
     letterSpacing: 0.3,
+  },
+  // Notifications Panel
+  emptyNotifications: {
+    alignItems: "center",
+    paddingVertical: 40,
+    gap: 8,
+  },
+  emptyNotifTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  emptyNotifSub: {
+    fontSize: 14,
+  },
+  notificationsList: {
+    gap: 10,
+  },
+  notificationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  notifIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notifContent: {
+    flex: 1,
+  },
+  notifTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  notifMessage: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 4,
+  },
+  notifTime: {
+    fontSize: 11,
+  },
+  notifSettingsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 16,
+  },
+  notifSettingsText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
 });

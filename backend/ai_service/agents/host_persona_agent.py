@@ -61,6 +61,56 @@ class HostPersonaAgent(BaseAgent):
             "payment_tracker"
         ]
 
+    @property
+    def input_schema(self) -> Dict:
+        return {
+            "type": "object",
+            "properties": {
+                "user_input": {
+                    "type": "string",
+                    "description": "The host's request, e.g. 'Show pending decisions', 'End the game', 'Send payment reminders'"
+                },
+                "game_id": {
+                    "type": "string",
+                    "description": "Game ID for game-specific operations"
+                },
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID for group-level operations"
+                },
+                "host_id": {
+                    "type": "string",
+                    "description": "Host's user ID"
+                },
+                "player_id": {
+                    "type": "string",
+                    "description": "Player user ID for player-specific actions"
+                },
+                "player_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of player user IDs"
+                },
+                "decision_id": {
+                    "type": "string",
+                    "description": "Decision ID to approve or reject"
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Dollar amount for buy-ins or payments"
+                },
+                "chips": {
+                    "type": "integer",
+                    "description": "Chip count for cash-out requests"
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Reason for rejection"
+                }
+            },
+            "required": ["user_input"]
+        }
+
     async def execute(self, user_input: str, context: Dict = None) -> AgentResult:
         """Execute host persona task based on input"""
         context = context or {}

@@ -48,6 +48,48 @@ class GameSetupAgent(BaseAgent):
             "email_sender"
         ]
 
+    @property
+    def input_schema(self) -> Dict:
+        return {
+            "type": "object",
+            "properties": {
+                "user_input": {
+                    "type": "string",
+                    "description": "The user's request, e.g. 'Create a $20 buy-in game for Friday night'"
+                },
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID to create the game in"
+                },
+                "host_id": {
+                    "type": "string",
+                    "description": "User ID of the game host"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Game title (default: 'Poker Night')"
+                },
+                "buy_in_amount": {
+                    "type": "number",
+                    "description": "Buy-in amount in dollars"
+                },
+                "chips_per_buy_in": {
+                    "type": "integer",
+                    "description": "Number of chips per buy-in"
+                },
+                "player_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of player user IDs to invite"
+                },
+                "scheduled_time": {
+                    "type": "string",
+                    "description": "ISO datetime for when the game is scheduled"
+                }
+            },
+            "required": ["user_input"]
+        }
+
     async def execute(self, user_input: str, context: Dict = None) -> AgentResult:
         """Execute game setup based on user input"""
         context = context or {}

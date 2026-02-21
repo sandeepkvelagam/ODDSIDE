@@ -37,41 +37,40 @@ class PaymentTrackerTool(BaseTool):
     @property
     def parameters(self) -> Dict:
         return {
-            "action": {
-                "type": "string",
-                "description": "Action to perform",
-                "enum": [
-                    "get_outstanding",
-                    "get_user_balances",
-                    "send_reminder",
-                    "send_bulk_reminders",
-                    "escalate_to_host",
-                    "mark_paid",
-                    "get_payment_stats",
-                    "schedule_reminders"
-                ],
-                "required": True
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Action to perform",
+                    "enum": [
+                        "get_outstanding",
+                        "get_user_balances",
+                        "send_reminder",
+                        "send_bulk_reminders",
+                        "escalate_to_host",
+                        "mark_paid",
+                        "get_payment_stats",
+                        "schedule_reminders"
+                    ]
+                },
+                "user_id": {
+                    "type": "string",
+                    "description": "User ID"
+                },
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID"
+                },
+                "ledger_id": {
+                    "type": "string",
+                    "description": "Ledger entry ID"
+                },
+                "game_id": {
+                    "type": "string",
+                    "description": "Game ID"
+                }
             },
-            "user_id": {
-                "type": "string",
-                "description": "User ID",
-                "required": False
-            },
-            "group_id": {
-                "type": "string",
-                "description": "Group ID",
-                "required": False
-            },
-            "ledger_id": {
-                "type": "string",
-                "description": "Ledger entry ID",
-                "required": False
-            },
-            "game_id": {
-                "type": "string",
-                "description": "Game ID",
-                "required": False
-            }
+            "required": ["action"]
         }
 
     async def execute(self, **kwargs) -> ToolResult:

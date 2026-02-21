@@ -77,6 +77,8 @@ class AIOrchestrator:
         from .agents.notification_agent import NotificationAgent
         from .agents.analytics_agent import AnalyticsAgent
         from .agents.host_persona_agent import HostPersonaAgent
+        from .agents.group_chat_agent import GroupChatAgent
+        from .agents.game_planner_agent import GamePlannerAgent
 
         self.agent_registry.register(
             GameSetupAgent(
@@ -101,6 +103,20 @@ class AIOrchestrator:
         )
         self.agent_registry.register(
             HostPersonaAgent(
+                tool_registry=self.tool_registry,
+                db=self.db,
+                llm_client=self.llm_client
+            )
+        )
+        self.agent_registry.register(
+            GroupChatAgent(
+                tool_registry=self.tool_registry,
+                db=self.db,
+                llm_client=self.llm_client
+            )
+        )
+        self.agent_registry.register(
+            GamePlannerAgent(
                 tool_registry=self.tool_registry,
                 db=self.db,
                 llm_client=self.llm_client

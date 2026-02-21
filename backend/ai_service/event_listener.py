@@ -1,12 +1,17 @@
 """
 Event Listener Service
 
-Listens to game events (WebSocket, API) and routes them to the Host Persona Agent
-for intelligent processing and automation.
+Listens to game events and group chat messages, routing them to the appropriate
+AI agents for intelligent processing and automation.
+
+Handles:
+- Game events → Host Persona Agent
+- Group chat messages → ChatWatcher → GroupChatAgent
+- Proactive triggers → GamePlannerAgent
 """
 
 from typing import Dict, Optional, Callable, List
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import asyncio
 
@@ -33,6 +38,9 @@ class EventListenerService:
         self.orchestrator = orchestrator
         self.db = db
         self.host_persona = None
+        self.group_chat_agent = None
+        self.game_planner = None
+        self.chat_watcher = None
         self._event_handlers: Dict[str, List[Callable]] = {}
         self._is_running = False
 
@@ -51,12 +59,19 @@ class EventListenerService:
         self.register_handler("game_stale", self._handle_game_stale)
         self.register_handler("rsvp_response", self._handle_rsvp_response)
         self.register_handler("payment_received", self._handle_payment_received)
+        self.register_handler("group_message", self._handle_group_message)
 
     def set_orchestrator(self, orchestrator):
-        """Set the AI orchestrator and get host persona agent"""
+        """Set the AI orchestrator and get agents"""
         self.orchestrator = orchestrator
         if orchestrator and orchestrator.agent_registry:
             self.host_persona = orchestrator.agent_registry.get("host_persona")
+            self.group_chat_agent = orchestrator.agent_registry.get("group_chat")
+            self.game_planner = orchestrator.agent_registry.get("game_planner")
+
+        # Initialize ChatWatcher
+        from .chat_watcher import ChatWatcherService
+        self.chat_watcher = ChatWatcherService(db=self.db)
 
     def register_handler(self, event_type: str, handler: Callable):
         """Register a handler for an event type"""
@@ -270,6 +285,111 @@ class EventListenerService:
                 notification_type="settlement",
                 data={"ledger_id": ledger_id, "amount": amount}
             )
+
+    # ==================== Group Chat Handlers ====================
+
+    async def _handle_group_message(self, data: Dict):
+        """
+        Handle a new group chat message.
+        Pipeline: ChatWatcher decides → GroupChatAgent responds → post to chat.
+        """
+        if not self.chat_watcher or not self.group_chat_agent:
+            logger.debug("Group chat AI not configured, skipping")
+            return
+
+        group_id = data.get("group_id")
+        message = data.get("message", {})
+
+        # Skip AI messages to avoid loops
+        if message.get("user_id") == "ai_assistant" or message.get("type") == "ai":
+            return
+
+        try:
+            # Step 1: Ask ChatWatcher if we should respond
+            decision = await self.chat_watcher.should_respond(message, group_id)
+
+            if not decision.get("respond"):
+                logger.debug(f"ChatWatcher: skip ({decision.get('reason')}) for group {group_id}")
+                return
+
+            logger.info(f"ChatWatcher: respond ({decision.get('reason')}, priority={decision.get('priority')})")
+
+            # Step 2: Gather context for the response
+            context = await self.chat_watcher.get_message_context(group_id)
+
+            # Step 3: Add external context if available
+            try:
+                from .context_provider import ContextProvider
+                ctx_provider = ContextProvider(db=self.db)
+                external = await ctx_provider.get_context(group_id=group_id)
+                context["external_context"] = external
+            except Exception as e:
+                logger.warning(f"Context provider error: {e}")
+                context["external_context"] = {}
+
+            # Step 4: Generate AI response
+            result = await self.group_chat_agent.execute(
+                user_input=message.get("content", ""),
+                context={
+                    "group_id": group_id,
+                    **context
+                }
+            )
+
+            if not result.success or not result.data:
+                logger.debug("GroupChatAgent: no response generated")
+                return
+
+            response_text = result.data.get("response_text", "")
+            should_respond = result.data.get("should_respond", False)
+
+            if not should_respond or not response_text:
+                logger.debug("GroupChatAgent: decided not to respond")
+                return
+
+            # Step 5: Post the AI message to the group
+            await self._post_ai_message(group_id, response_text, result.data)
+
+        except Exception as e:
+            logger.error(f"Group message handler error: {e}")
+
+    async def _post_ai_message(self, group_id: str, content: str, agent_data: Dict):
+        """Post an AI-generated message to the group chat."""
+        if not self.db:
+            return
+
+        import uuid
+        message_id = f"gmsg_{uuid.uuid4().hex[:12]}"
+        now = datetime.now(timezone.utc).isoformat()
+
+        msg_doc = {
+            "message_id": message_id,
+            "group_id": group_id,
+            "user_id": "ai_assistant",
+            "content": content,
+            "type": "ai",
+            "reply_to": None,
+            "metadata": {
+                "action": agent_data.get("action"),
+                "action_params": agent_data.get("action_params"),
+            },
+            "created_at": now,
+            "edited_at": None,
+            "deleted": False,
+        }
+        await self.db.group_messages.insert_one(msg_doc)
+
+        # Broadcast via WebSocket
+        try:
+            from websocket_manager import emit_group_message
+            await emit_group_message(group_id, {
+                **msg_doc,
+                "user": {"user_id": "ai_assistant", "name": "ODDSIDE", "picture": None}
+            })
+        except Exception as e:
+            logger.error(f"Failed to broadcast AI message: {e}")
+
+        logger.info(f"AI posted message in group {group_id}: {content[:50]}...")
 
 
 # Global singleton instance

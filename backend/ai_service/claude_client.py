@@ -93,6 +93,8 @@ RULES:
 - If the request is about notifications, reminders, or alerts, use agent_notification.
 - If the request is about reports, stats, leaderboards, or analytics, use agent_analytics.
 - If the request is about host decisions (approve/reject), game monitoring, settlements, or payment reminders, use agent_host_persona.
+- If the request is about group chat responses or conversation, use agent_group_chat.
+- If the request is about planning next games, suggesting times, holidays, weather, or long weekends, use agent_game_planner.
 - If the request is about evaluating a poker hand, use poker_evaluator.
 - If the request is about tracking/managing payments, use payment_tracker.
 - For general questions or help, respond with helpful text (don't call a tool).

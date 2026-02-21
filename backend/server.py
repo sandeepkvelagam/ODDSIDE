@@ -65,7 +65,7 @@ if SUPABASE_URL:
         logger.warning(f"Failed to initialize JWKS client: {e}")
 
 # Import WebSocket manager
-from websocket_manager import sio, emit_game_event, notify_player_joined, notify_buy_in, notify_cash_out, notify_chips_edited, notify_game_message, notify_game_state_change, emit_notification
+from websocket_manager import sio, emit_game_event, notify_player_joined, notify_buy_in, notify_cash_out, notify_chips_edited, notify_game_message, notify_game_state_change, emit_notification, emit_group_message, emit_group_typing
 
 # Create the main app
 app = FastAPI(title="ODDSIDE API")
@@ -263,6 +263,31 @@ class GameThread(BaseModel):
     type: str = "user"  # user, system
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class GroupMessage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    message_id: str = Field(default_factory=lambda: f"gmsg_{uuid.uuid4().hex[:12]}")
+    group_id: str
+    user_id: str  # sender (or "ai_assistant" for AI messages)
+    content: str
+    type: str = "user"  # user, system, ai
+    reply_to: Optional[str] = None  # message_id for threading
+    metadata: Optional[Dict[str, Any]] = None  # poll_id, game_id, etc.
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    edited_at: Optional[datetime] = None
+    deleted: bool = False
+
+class GroupAISettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    group_id: str
+    ai_enabled: bool = True  # Master switch for AI in this group
+    auto_suggest_games: bool = True  # Proactively suggest games
+    respond_to_chat: bool = True  # Respond in group chat
+    weather_alerts: bool = True  # Mention weather-based game opportunities
+    holiday_alerts: bool = True  # Mention holiday-based game opportunities
+    max_messages_per_hour: int = 5  # Rate limit for AI messages
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: Optional[str] = None  # user_id of admin who changed settings
+
 
 # ============== WALLET MODELS (Payment Engineering: cents-based) ==============
 
@@ -390,6 +415,21 @@ class RSVPRequest(BaseModel):
 
 class ThreadMessageCreate(BaseModel):
     content: str
+
+class GroupMessageCreate(BaseModel):
+    content: str
+    reply_to: Optional[str] = None  # message_id to reply to
+
+class GroupMessageUpdate(BaseModel):
+    content: str
+
+class GroupAISettingsUpdate(BaseModel):
+    ai_enabled: Optional[bool] = None
+    auto_suggest_games: Optional[bool] = None
+    respond_to_chat: Optional[bool] = None
+    weather_alerts: Optional[bool] = None
+    holiday_alerts: Optional[bool] = None
+    max_messages_per_hour: Optional[int] = None
 
 class MarkPaidRequest(BaseModel):
     paid: bool
@@ -3627,6 +3667,262 @@ async def post_message(game_id: str, data: ThreadMessageCreate, user: User = Dep
     
     return {"message_id": message.message_id}
 
+# ============== GROUP CHAT ENDPOINTS ==============
+
+@api_router.get("/groups/{group_id}/messages")
+async def get_group_messages(
+    group_id: str,
+    limit: int = Query(default=50, ge=1, le=100),
+    before: Optional[str] = Query(default=None, description="Cursor: message_id to fetch messages before"),
+    user: User = Depends(get_current_user)
+):
+    """Get group chat messages (paginated, cursor-based)."""
+    # Verify membership
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    # Build query
+    query = {"group_id": group_id, "deleted": {"$ne": True}}
+
+    # Cursor-based pagination: fetch messages before a given message
+    if before:
+        cursor_msg = await db.group_messages.find_one(
+            {"message_id": before},
+            {"_id": 0, "created_at": 1}
+        )
+        if cursor_msg:
+            query["created_at"] = {"$lt": cursor_msg["created_at"]}
+
+    messages = await db.group_messages.find(
+        query, {"_id": 0}
+    ).sort("created_at", -1).to_list(limit)
+
+    # Reverse to chronological order
+    messages.reverse()
+
+    # Batch-fetch user info for all unique user_ids
+    user_ids = list(set(m["user_id"] for m in messages if m["user_id"] != "ai_assistant"))
+    users_info = {}
+    if user_ids:
+        users_list = await db.users.find(
+            {"user_id": {"$in": user_ids}},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
+        ).to_list(len(user_ids))
+        users_info = {u["user_id"]: u for u in users_list}
+
+    # Attach user info
+    for msg in messages:
+        if msg["user_id"] == "ai_assistant":
+            msg["user"] = {"user_id": "ai_assistant", "name": "ODDSIDE", "picture": None}
+        else:
+            msg["user"] = users_info.get(msg["user_id"])
+
+    return messages
+
+
+@api_router.post("/groups/{group_id}/messages")
+async def post_group_message(
+    group_id: str,
+    data: GroupMessageCreate,
+    user: User = Depends(get_current_user)
+):
+    """Post a message to group chat."""
+    # Verify membership
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    # Validate reply_to if provided
+    if data.reply_to:
+        reply_msg = await db.group_messages.find_one(
+            {"message_id": data.reply_to, "group_id": group_id},
+            {"_id": 0, "message_id": 1}
+        )
+        if not reply_msg:
+            raise HTTPException(status_code=400, detail="Reply target message not found")
+
+    message = GroupMessage(
+        group_id=group_id,
+        user_id=user.user_id,
+        content=data.content,
+        type="user",
+        reply_to=data.reply_to
+    )
+    msg_dict = message.model_dump()
+    msg_dict["created_at"] = msg_dict["created_at"].isoformat()
+    if msg_dict.get("edited_at"):
+        msg_dict["edited_at"] = msg_dict["edited_at"].isoformat()
+    await db.group_messages.insert_one(msg_dict)
+
+    # Get sender info for WebSocket broadcast
+    user_info = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
+    )
+
+    # Broadcast via WebSocket to group room
+    await emit_group_message(group_id, {
+        **msg_dict,
+        "user": user_info
+    })
+
+    # Fire-and-forget: trigger AI processing for group chat
+    asyncio.create_task(_trigger_group_chat_ai(group_id, msg_dict))
+
+    return {"message_id": message.message_id}
+
+
+async def _trigger_group_chat_ai(group_id: str, message: dict):
+    """Fire-and-forget task to process group message through AI pipeline."""
+    try:
+        from ai_service.event_listener import get_event_listener
+        listener = get_event_listener()
+        await listener.emit("group_message", {
+            "group_id": group_id,
+            "message": message
+        })
+    except Exception as e:
+        logger.debug(f"Group chat AI trigger error (non-critical): {e}")
+
+
+@api_router.put("/groups/{group_id}/messages/{message_id}")
+async def edit_group_message(
+    group_id: str,
+    message_id: str,
+    data: GroupMessageUpdate,
+    user: User = Depends(get_current_user)
+):
+    """Edit a group chat message (only your own)."""
+    msg = await db.group_messages.find_one(
+        {"message_id": message_id, "group_id": group_id},
+        {"_id": 0}
+    )
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg["user_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Can only edit your own messages")
+    if msg.get("deleted"):
+        raise HTTPException(status_code=400, detail="Message is deleted")
+
+    edited_at = datetime.now(timezone.utc).isoformat()
+    await db.group_messages.update_one(
+        {"message_id": message_id},
+        {"$set": {"content": data.content, "edited_at": edited_at}}
+    )
+
+    # Broadcast edit via WebSocket
+    await emit_group_message(group_id, {
+        "type": "message_edited",
+        "message_id": message_id,
+        "content": data.content,
+        "edited_at": edited_at
+    })
+
+    return {"status": "updated"}
+
+
+@api_router.delete("/groups/{group_id}/messages/{message_id}")
+async def delete_group_message(
+    group_id: str,
+    message_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Soft-delete a group chat message (own messages or admin)."""
+    msg = await db.group_messages.find_one(
+        {"message_id": message_id, "group_id": group_id},
+        {"_id": 0}
+    )
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Allow delete if: own message OR group admin
+    if msg["user_id"] != user.user_id:
+        membership = await db.group_members.find_one(
+            {"group_id": group_id, "user_id": user.user_id},
+            {"_id": 0, "role": 1}
+        )
+        if not membership or membership.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Can only delete your own messages")
+
+    await db.group_messages.update_one(
+        {"message_id": message_id},
+        {"$set": {"deleted": True}}
+    )
+
+    # Broadcast delete via WebSocket
+    await emit_group_message(group_id, {
+        "type": "message_deleted",
+        "message_id": message_id
+    })
+
+    return {"status": "deleted"}
+
+
+# ============== GROUP AI SETTINGS ENDPOINTS ==============
+
+@api_router.get("/groups/{group_id}/ai-settings")
+async def get_group_ai_settings(group_id: str, user: User = Depends(get_current_user)):
+    """Get AI settings for a group."""
+    # Verify membership
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    settings = await db.group_ai_settings.find_one(
+        {"group_id": group_id},
+        {"_id": 0}
+    )
+
+    if not settings:
+        # Return defaults
+        defaults = GroupAISettings(group_id=group_id)
+        return defaults.model_dump()
+
+    return settings
+
+
+@api_router.put("/groups/{group_id}/ai-settings")
+async def update_group_ai_settings(
+    group_id: str,
+    data: GroupAISettingsUpdate,
+    user: User = Depends(get_current_user)
+):
+    """Update AI settings for a group (admin only)."""
+    # Verify admin role
+    membership = await db.group_members.find_one(
+        {"group_id": group_id, "user_id": user.user_id},
+        {"_id": 0, "role": 1}
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+    if membership.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can update AI settings")
+
+    # Build update dict from non-None fields
+    updates = {k: v for k, v in data.model_dump().items() if v is not None}
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    updates["updated_by"] = user.user_id
+
+    # Upsert the settings
+    await db.group_ai_settings.update_one(
+        {"group_id": group_id},
+        {"$set": updates, "$setOnInsert": {"group_id": group_id}},
+        upsert=True
+    )
+
+    return {"status": "updated", "settings": updates}
+
+
 # ============== NOTIFICATION ENDPOINTS ==============
 
 @api_router.get("/notifications")
@@ -6410,6 +6706,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def create_indexes():
+    """Create database indexes for group messages."""
+    await db.group_messages.create_index([("group_id", 1), ("created_at", -1)])
+    await db.group_messages.create_index("message_id", unique=True)
+    logger.info("Database indexes ensured for group_messages")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

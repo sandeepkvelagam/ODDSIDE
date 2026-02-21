@@ -62,6 +62,10 @@ class AgentRegistry:
             return self.get("notification")
         elif any(kw in task_lower for kw in ["report", "stats", "analytics", "summary", "leaderboard"]):
             return self.get("analytics")
+        elif any(kw in task_lower for kw in ["chat", "group chat", "conversation", "respond"]):
+            return self.get("group_chat")
+        elif any(kw in task_lower for kw in ["plan game", "suggest game", "next game", "weekend", "holiday"]):
+            return self.get("game_planner")
 
         # Default to None, let orchestrator handle
         return None

@@ -46,6 +46,9 @@ connected_users: dict[str, set[str]] = {}
 # Track game rooms: {game_id: set(user_id)}
 game_rooms: dict[str, set[str]] = {}
 
+# Track group rooms: {group_id: set(user_id)}
+group_rooms: dict[str, set[str]] = {}
+
 # Track sid to user_id mapping
 sid_to_user: dict[str, str] = {}
 
@@ -180,6 +183,14 @@ async def disconnect(sid):
                 if not users:
                     del game_rooms[game_id]
 
+        # Leave all group rooms
+        for group_id, users in list(group_rooms.items()):
+            if user_id in users:
+                users.discard(user_id)
+                await sio.leave_room(sid, f"group_{group_id}")
+                if not users:
+                    del group_rooms[group_id]
+
         # Clean up sid mapping
         del sid_to_user[sid]
 
@@ -272,6 +283,88 @@ async def leave_game(sid, data):
                 del game_rooms[game_id]
     
     return {'status': 'left'}
+
+
+@sio.event
+async def join_group(sid, data):
+    """User joins a group's chat room for real-time messages"""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+
+    session = await sio.get_session(sid)
+    user_id = session.get('user_id') if session else None
+    group_id = data.get('group_id')
+
+    if not user_id or not group_id:
+        logger.warning(f"join_group rejected - missing user_id or group_id (sid: {sid})")
+        return {'error': 'Missing user_id or group_id'}
+
+    # Verify user is a member of the group
+    try:
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+        db_name = os.environ.get('DB_NAME', 'oddside')
+        client = AsyncIOMotorClient(mongo_url)
+        db = client[db_name]
+
+        membership = await db.group_members.find_one({
+            'group_id': group_id,
+            'user_id': user_id,
+            'status': 'active'
+        })
+
+        if not membership:
+            logger.warning(f"join_group rejected - user {user_id} not member of group {group_id}")
+            return {'error': 'Not a member of this group'}
+
+        # Join the group room
+        room = f"group_{group_id}"
+        await sio.enter_room(sid, room)
+
+        if group_id not in group_rooms:
+            group_rooms[group_id] = set()
+        group_rooms[group_id].add(user_id)
+
+        logger.info(f"User {user_id[:8]}... joined group room {group_id}")
+        return {'status': 'joined', 'room': room}
+
+    except Exception as e:
+        logger.error(f"join_group error for user {user_id}, group {group_id}: {e}")
+        return {'error': 'Authorization check failed'}
+
+
+@sio.event
+async def leave_group(sid, data):
+    """User leaves a group's chat room"""
+    session = await sio.get_session(sid)
+    user_id = session.get('user_id') if session else None
+    group_id = data.get('group_id')
+
+    if group_id:
+        room = f"group_{group_id}"
+        await sio.leave_room(sid, room)
+
+        if group_id in group_rooms and user_id:
+            group_rooms[group_id].discard(user_id)
+            if not group_rooms[group_id]:
+                del group_rooms[group_id]
+
+    return {'status': 'left'}
+
+
+@sio.event
+async def group_typing(sid, data):
+    """Broadcast typing indicator to group room"""
+    session = await sio.get_session(sid)
+    user_id = session.get('user_id') if session else None
+    group_id = data.get('group_id')
+    user_name = data.get('user_name', 'Someone')
+
+    if user_id and group_id:
+        await sio.emit('group_typing', {
+            'group_id': group_id,
+            'user_id': user_id,
+            'user_name': user_name
+        }, room=f"group_{group_id}", skip_sid=sid)
 
 
 # ============== EVENT EMITTERS ==============
@@ -384,3 +477,25 @@ async def notify_game_state_change(game_id: str, new_status: str, message: str =
         'status': new_status,
         'message': message
     })
+
+
+# ============== GROUP CHAT EMITTERS ==============
+
+async def emit_group_message(group_id: str, message_data: dict):
+    """Broadcast a message to all group members in the room"""
+    event_data = {
+        'group_id': group_id,
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        **message_data
+    }
+    await sio.emit('group_message', event_data, room=f"group_{group_id}")
+    logger.info(f"Emitted group_message to group {group_id}")
+
+
+async def emit_group_typing(group_id: str, user_id: str, user_name: str):
+    """Broadcast typing indicator to group room"""
+    await sio.emit('group_typing', {
+        'group_id': group_id,
+        'user_id': user_id,
+        'user_name': user_name
+    }, room=f"group_{group_id}")

@@ -4,6 +4,7 @@ Kvitt Poker Game Ledger Backend API Testing Suite
 Tests all major API endpoints according to the review request
 """
 
+import os
 import requests
 import sys
 import json
@@ -12,7 +13,7 @@ from typing import Dict, Any, Optional
 import uuid
 
 class KvittAPITester:
-    def __init__(self, base_url: str = "https://mobile-redesign-14.preview.emergentagent.com"):
+    def __init__(self, base_url: str = os.environ.get("BASE_URL", "http://localhost:8000")):
         self.base_url = base_url
         self.session_token = None
         self.user_id = None

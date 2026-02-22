@@ -1,10 +1,10 @@
 """
 AI Assistant for Kvitt - Explain-only assistant
-Uses OpenAI GPT-5.2 via Emergent integrations
+Uses OpenAI GPT directly via OpenAI SDK
 """
 
 import os
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from openai import AsyncOpenAI
 import logging
 
 logger = logging.getLogger(__name__)
@@ -52,20 +52,20 @@ APP FLOW SUMMARY:
 async def get_ai_response(user_message: str, session_id: str, context: dict = None) -> str:
     """
     Get AI response for user message
-    
+
     Args:
         user_message: The user's question
         session_id: Unique session ID for conversation continuity
         context: Optional context about current state (game_id, etc.)
-    
+
     Returns:
         AI response string
     """
     try:
-        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        api_key = os.environ.get('OPENAI_API_KEY')
         if not api_key:
             return "AI assistant is not configured. Please contact support."
-        
+
         # Build context-aware system message
         system_msg = SYSTEM_PROMPT
         if context:
@@ -73,18 +73,18 @@ async def get_ai_response(user_message: str, session_id: str, context: dict = No
                 system_msg += f"\n\nUser is currently on: {context['current_page']}"
             if context.get('user_role'):
                 system_msg += f"\nUser role: {context['user_role']}"
-        
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=session_id,
-            system_message=system_msg
-        ).with_model("openai", "gpt-5.2")
-        
-        message = UserMessage(text=user_message)
-        response = await chat.send_message(message)
-        
-        return response
-        
+
+        client = AsyncOpenAI(api_key=api_key)
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_message}
+            ]
+        )
+
+        return response.choices[0].message.content
+
     except Exception as e:
         logger.error(f"AI assistant error: {e}")
         return "I'm having trouble connecting. Please try again or check the help guide."

@@ -1,8 +1,10 @@
 """
 Stripe Payments Integration for Kvitt Premium
+Uses native Stripe SDK
 """
 
 import os
+import stripe
 import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
@@ -26,7 +28,7 @@ PREMIUM_PLANS = {
         ]
     },
     "yearly": {
-        "id": "yearly", 
+        "id": "yearly",
         "name": "Kvitt Pro Yearly",
         "price": 39.99,
         "interval": "year",
@@ -72,51 +74,52 @@ async def create_stripe_checkout(
     db
 ) -> Dict[str, Any]:
     """Create Stripe checkout session for premium subscription"""
-    from emergentintegrations.payments.stripe.checkout import (
-        StripeCheckout, 
-        CheckoutSessionRequest,
-        CheckoutSessionResponse
-    )
-    
     # Validate plan
     if plan_id not in PREMIUM_PLANS:
         raise HTTPException(status_code=400, detail="Invalid plan selected")
-    
+
     plan = PREMIUM_PLANS[plan_id]
     api_key = os.environ.get('STRIPE_API_KEY')
-    
+
     if not api_key:
         raise HTTPException(status_code=500, detail="Payment service not configured")
-    
-    # Create Stripe checkout
-    webhook_url = f"{origin_url}/api/webhook/stripe"
-    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
-    
+
+    stripe.api_key = api_key
+
     # Build URLs
     success_url = f"{origin_url}/premium/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{origin_url}/premium"
-    
-    # Create checkout request
-    checkout_request = CheckoutSessionRequest(
-        amount=float(plan["price"]),
-        currency="usd",
+
+    # Create Stripe checkout session using native SDK
+    session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[{
+            'price_data': {
+                'currency': 'usd',
+                'product_data': {
+                    'name': plan["name"],
+                },
+                'unit_amount': int(plan["price"] * 100),  # Stripe uses cents
+            },
+            'quantity': 1,
+        }],
+        mode='payment',
         success_url=success_url,
         cancel_url=cancel_url,
+        customer_email=user_email,
         metadata={
+            "type": "premium_subscription",
             "plan_id": plan_id,
             "user_id": user_id,
             "user_email": user_email,
             "plan_name": plan["name"]
         }
     )
-    
-    # Create session
-    session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_request)
-    
+
     # Create payment transaction record
     transaction = {
         "transaction_id": f"txn_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{user_id[:8]}",
-        "session_id": session.session_id,
+        "session_id": session.id,
         "user_id": user_id,
         "user_email": user_email,
         "plan_id": plan_id,
@@ -128,14 +131,14 @@ async def create_stripe_checkout(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
-    
+
     await db.payment_transactions.insert_one(transaction)
-    
+
     logger.info(f"Created checkout session for user {user_id}, plan {plan_id}")
-    
+
     return {
         "checkout_url": session.url,
-        "session_id": session.session_id,
+        "session_id": session.id,
         "plan": plan
     }
 
@@ -145,42 +148,43 @@ async def check_payment_status(
     db
 ) -> PaymentStatusResponse:
     """Check payment status and update if completed"""
-    from emergentintegrations.payments.stripe.checkout import StripeCheckout
-    
     api_key = os.environ.get('STRIPE_API_KEY')
     if not api_key:
         raise HTTPException(status_code=500, detail="Payment service not configured")
-    
-    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
-    
-    # Get status from Stripe
-    status_response = await stripe_checkout.get_checkout_status(session_id)
-    
+
+    stripe.api_key = api_key
+
+    # Get status from Stripe using native SDK
+    session = stripe.checkout.Session.retrieve(session_id)
+
     # Get transaction from DB
     transaction = await db.payment_transactions.find_one(
         {"session_id": session_id},
         {"_id": 0}
     )
-    
+
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    
+
+    # Map Stripe session status to payment status
+    payment_status = session.payment_status or "unpaid"  # "paid", "unpaid", "no_payment_required"
+
     # Update transaction if status changed
-    if transaction["payment_status"] != status_response.payment_status:
+    if transaction["payment_status"] != payment_status:
         update_data = {
-            "status": status_response.status,
-            "payment_status": status_response.payment_status,
+            "status": session.status,  # "open", "complete", "expired"
+            "payment_status": payment_status,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
-        
+
         # If payment successful, upgrade user to premium
-        if status_response.payment_status == "paid" and transaction["payment_status"] != "paid":
+        if payment_status == "paid" and transaction["payment_status"] != "paid":
             update_data["completed_at"] = datetime.now(timezone.utc).isoformat()
-            
+
             # Update user's premium status
             user_id = transaction["user_id"]
             plan_id = transaction["plan_id"]
-            
+
             premium_until = None
             if plan_id == "monthly":
                 from datetime import timedelta
@@ -190,7 +194,7 @@ async def check_payment_status(
                 premium_until = (datetime.now(timezone.utc) + timedelta(days=365)).isoformat()
             elif plan_id == "lifetime":
                 premium_until = "lifetime"
-            
+
             await db.users.update_one(
                 {"user_id": user_id},
                 {"$set": {
@@ -200,17 +204,17 @@ async def check_payment_status(
                     "premium_started_at": datetime.now(timezone.utc).isoformat()
                 }}
             )
-            
+
             logger.info(f"User {user_id} upgraded to {plan_id} premium")
-        
+
         await db.payment_transactions.update_one(
             {"session_id": session_id},
             {"$set": update_data}
         )
-    
+
     return PaymentStatusResponse(
-        status=status_response.status,
-        payment_status=status_response.payment_status,
+        status=session.status,
+        payment_status=payment_status,
         plan_id=transaction.get("plan_id"),
         user_id=transaction.get("user_id")
     )
@@ -287,31 +291,55 @@ async def handle_stripe_webhook(
     db
 ) -> Dict[str, Any]:
     """Handle Stripe webhook events for subscription lifecycle"""
-    from emergentintegrations.payments.stripe.checkout import StripeCheckout
-
     api_key = os.environ.get('STRIPE_API_KEY')
+    webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET')
     if not api_key:
         return {"status": "error", "message": "Not configured"}
 
-    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
+    stripe.api_key = api_key
 
     try:
-        webhook_response = await stripe_checkout.handle_webhook(request_body, signature)
-        event_type = webhook_response.event_type
+        # Verify webhook signature using native Stripe SDK
+        if webhook_secret:
+            event = stripe.Webhook.construct_event(
+                request_body, signature, webhook_secret
+            )
+        else:
+            # Fallback: parse without signature verification (dev only)
+            import json
+            event = stripe.Event.construct_from(
+                json.loads(request_body), stripe.api_key
+            )
+
+        event_type = event.type
+        session_data = event.data.object
+
+        # Extract session_id from the event data
+        session_id = getattr(session_data, 'id', None)
+        if event_type in ("invoice.payment_succeeded", "invoice.payment_failed"):
+            # For invoice events, get the checkout session from subscription metadata
+            session_id = session_data.get('metadata', {}).get('session_id') if hasattr(session_data, 'get') else None
+
+        # For checkout.session.completed, use the session id directly
+        if event_type == "checkout.session.completed":
+            session_id = session_data.id
+            payment_status = session_data.payment_status  # "paid" or "unpaid"
+        else:
+            payment_status = "paid" if event_type == "invoice.payment_succeeded" else "unpaid"
 
         # Update transaction based on webhook
-        if webhook_response.session_id:
+        if session_id:
             transaction = await db.payment_transactions.find_one(
-                {"session_id": webhook_response.session_id},
+                {"session_id": session_id},
                 {"_id": 0}
             )
 
             if transaction:
                 await db.payment_transactions.update_one(
-                    {"session_id": webhook_response.session_id},
+                    {"session_id": session_id},
                     {"$set": {
-                        "status": webhook_response.event_type,
-                        "payment_status": webhook_response.payment_status,
+                        "status": event_type,
+                        "payment_status": payment_status,
                         "updated_at": datetime.now(timezone.utc).isoformat()
                     }}
                 )
@@ -320,7 +348,7 @@ async def handle_stripe_webhook(
                 plan_id = transaction.get("plan_id")
 
                 # Handle specific subscription events
-                if event_type == "checkout.session.completed" and webhook_response.payment_status == "paid":
+                if event_type == "checkout.session.completed" and payment_status == "paid":
                     # Initial subscription payment successful
                     logger.info(f"Initial subscription completed for user {user_id}")
 
@@ -389,8 +417,11 @@ async def handle_stripe_webhook(
                     except Exception as e:
                         logger.warning(f"Could not send expiry email: {e}")
 
-        return {"status": "success", "event_id": webhook_response.event_id, "event_type": event_type}
+        return {"status": "success", "event_id": event.id, "event_type": event_type}
 
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"Webhook signature verification failed: {e}")
+        return {"status": "error", "message": "Invalid signature"}
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return {"status": "error", "message": str(e)}
@@ -418,8 +449,6 @@ async def create_debt_payment_link(
     db
 ) -> Dict[str, Any]:
     """Create a Stripe payment link for settling a debt between players"""
-    import stripe
-
     api_key = os.environ.get('STRIPE_API_KEY')
 
     if not api_key:
@@ -471,11 +500,11 @@ async def create_debt_payment_link(
             "amount": str(amount)
         }
     )
-    
+
     # Create debt payment record
     debt_payment = {
         "payment_id": f"debt_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{ledger_id[:8]}",
-        "session_id": session.id,  # Stripe SDK uses .id
+        "session_id": session.id,
         "ledger_id": ledger_id,
         "from_user_id": from_user_id,
         "from_user_email": from_user_email,
@@ -496,7 +525,7 @@ async def create_debt_payment_link(
 
     return {
         "checkout_url": session.url,
-        "session_id": session.id,  # Stripe SDK uses .id
+        "session_id": session.id,
         "amount": amount,
         "to_user_name": to_user_name
     }
@@ -508,39 +537,51 @@ async def handle_debt_payment_webhook(
     db
 ) -> Dict[str, Any]:
     """Handle Stripe webhook events for debt payments"""
-    from emergentintegrations.payments.stripe.checkout import StripeCheckout
-
     api_key = os.environ.get('STRIPE_API_KEY')
+    webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET')
     if not api_key:
         return {"status": "error", "message": "Not configured"}
 
-    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
+    stripe.api_key = api_key
 
     try:
-        webhook_response = await stripe_checkout.handle_webhook(request_body, signature)
-        event_type = webhook_response.event_type
+        # Verify webhook signature using native Stripe SDK
+        if webhook_secret:
+            event = stripe.Webhook.construct_event(
+                request_body, signature, webhook_secret
+            )
+        else:
+            import json
+            event = stripe.Event.construct_from(
+                json.loads(request_body), stripe.api_key
+            )
+
+        event_type = event.type
+        session_data = event.data.object
+        session_id = session_data.id if hasattr(session_data, 'id') else None
 
         # Update debt payment based on webhook
-        if webhook_response.session_id:
+        if session_id:
             debt_payment = await db.debt_payments.find_one(
-                {"session_id": webhook_response.session_id},
+                {"session_id": session_id},
                 {"_id": 0}
             )
 
             if debt_payment:
+                payment_status = getattr(session_data, 'payment_status', 'unpaid')
                 await db.debt_payments.update_one(
-                    {"session_id": webhook_response.session_id},
+                    {"session_id": session_id},
                     {"$set": {
-                        "status": webhook_response.event_type,
-                        "payment_status": webhook_response.payment_status,
+                        "status": event_type,
+                        "payment_status": payment_status,
                         "updated_at": datetime.now(timezone.utc).isoformat()
                     }}
                 )
 
                 # If payment successful, mark ledger entry as paid
-                if event_type == "checkout.session.completed" and webhook_response.payment_status == "paid":
+                if event_type == "checkout.session.completed" and payment_status == "paid":
                     ledger_id = debt_payment.get("ledger_id")
-                    
+
                     # Update ledger entry
                     await db.ledger.update_one(
                         {"ledger_id": ledger_id},
@@ -548,19 +589,19 @@ async def handle_debt_payment_webhook(
                             "status": "paid",
                             "paid_at": datetime.now(timezone.utc).isoformat(),
                             "paid_via": "stripe",
-                            "stripe_session_id": webhook_response.session_id,
+                            "stripe_session_id": session_id,
                             "is_locked": True
                         }}
                     )
-                    
+
                     # Update debt payment record
                     await db.debt_payments.update_one(
-                        {"session_id": webhook_response.session_id},
+                        {"session_id": session_id},
                         {"$set": {
                             "completed_at": datetime.now(timezone.utc).isoformat()
                         }}
                     )
-                    
+
                     logger.info(f"Debt payment completed for ledger {ledger_id}")
 
                     # Credit creditor's Kvitt wallet
@@ -623,8 +664,11 @@ async def handle_debt_payment_webhook(
                     }
                     await db.notifications.insert_one(notification)
 
-        return {"status": "success", "event_id": webhook_response.event_id, "event_type": event_type}
+        return {"status": "success", "event_id": event.id, "event_type": event_type}
 
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"Debt webhook signature verification failed: {e}")
+        return {"status": "error", "message": "Invalid signature"}
     except Exception as e:
         logger.error(f"Debt webhook error: {e}")
         return {"status": "error", "message": str(e)}

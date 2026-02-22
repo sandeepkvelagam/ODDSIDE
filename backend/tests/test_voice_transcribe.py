@@ -1,6 +1,6 @@
 """
 Test suite for Voice Transcription API endpoint
-Tests the /api/voice/transcribe endpoint which uses OpenAI Whisper via emergentintegrations
+Tests the /api/voice/transcribe endpoint which uses OpenAI Whisper via OpenAI SDK
 
 Features tested:
 - Voice transcription endpoint authentication
@@ -19,9 +19,7 @@ import tempfile
 import uuid
 
 # Get BASE_URL from environment - DO NOT add default
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL')
-if not BASE_URL:
-    BASE_URL = "https://mobile-redesign-14.preview.emergentagent.com"
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8000')
 
 BASE_URL = BASE_URL.rstrip('/')
 

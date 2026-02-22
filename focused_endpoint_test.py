@@ -3,12 +3,13 @@
 Focused test for the specific NEW endpoints mentioned in the review request
 """
 
+import os
 import requests
 import json
 import uuid
 
 def test_specific_endpoints():
-    base_url = "https://mobile-redesign-14.preview.emergentagent.com"
+    base_url = os.environ.get("BASE_URL", "http://localhost:8000")
     test_id = str(uuid.uuid4())[:8]
     
     print("🚀 Testing Specific NEW Endpoints for Kvitt")

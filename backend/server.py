@@ -765,7 +765,9 @@ async def sync_user(data: SyncUserRequest, response: Response):
 async def create_session(request: SessionRequest, response: Response):
     """Exchange session_id for session_token after OAuth."""
     try:
-        auth_service_url = os.environ.get('AUTH_SERVICE_URL', 'https://demobackend.emergentagent.com')
+        auth_service_url = os.environ.get('AUTH_SERVICE_URL')
+        if not auth_service_url:
+            raise HTTPException(status_code=500, detail="AUTH_SERVICE_URL not configured")
         async with httpx.AsyncClient() as client_http:
             resp = await client_http.get(
                 f"{auth_service_url}/auth/v1/env/oauth/session-data",
@@ -4558,53 +4560,51 @@ async def transcribe_voice(
     user: User = Depends(get_current_user)
 ):
     """Transcribe voice audio to text using Whisper."""
-    from emergentintegrations.llm.openai import OpenAISpeechToText
-    
-    api_key = os.environ.get('EMERGENT_LLM_KEY')
+    from openai import AsyncOpenAI
+
+    api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
         raise HTTPException(status_code=503, detail="Voice service not configured")
-    
+
     # Check file type
     allowed_types = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/webm", "audio/m4a", "audio/mp4"]
     content_type = file.content_type or ""
     if not any(t in content_type for t in ["audio", "video"]):
         raise HTTPException(status_code=400, detail="Invalid file type. Must be audio file.")
-    
+
     try:
         # Read file content
         audio_content = await file.read()
-        
+
         # Save to temp file
         import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
             temp_file.write(audio_content)
             temp_path = temp_file.name
-        
-        # Initialize STT
-        stt = OpenAISpeechToText(api_key=api_key)
-        
-        # Transcribe
+
+        # Transcribe using OpenAI SDK directly
+        client = AsyncOpenAI(api_key=api_key)
         with open(temp_path, "rb") as audio_file:
-            response = await stt.transcribe(
-                file=audio_file,
+            response = await client.audio.transcriptions.create(
                 model="whisper-1",
+                file=audio_file,
                 response_format="json",
                 language=language  # ISO-639-1 format: en, es, fr, etc.
             )
-        
+
         # Cleanup temp file
         os.unlink(temp_path)
-        
+
         # Parse voice command
         text = response.text.strip().lower()
         command = parse_voice_command(text)
-        
+
         return {
             "text": response.text,
             "command": command,
             "language": language
         }
-        
+
     except Exception as e:
         logger.error(f"Voice transcription error: {e}")
         raise HTTPException(status_code=500, detail="Failed to transcribe audio")
@@ -5593,15 +5593,25 @@ async def create_wallet_deposit(
         raise HTTPException(status_code=400, detail="Maximum deposit is $1000.00")
 
     try:
-        from emergentintegrations.payments.stripe.checkout import (
-            StripeCheckout,
-            CheckoutSessionRequest,
-        )
+        import stripe as stripe_sdk
+        api_key = os.environ.get('STRIPE_API_KEY')
+        if not api_key:
+            raise HTTPException(status_code=500, detail="Payment service not configured")
+        stripe_sdk.api_key = api_key
 
-        checkout = StripeCheckout()
-        checkout_request = CheckoutSessionRequest(
-            amount=data.amount_cents / 100,  # Stripe expects dollars
-            currency="usd",
+        session = stripe_sdk.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': 'Kvitt Wallet Deposit',
+                    },
+                    'unit_amount': data.amount_cents,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
             success_url=f"{data.origin_url}/wallet?deposit=success&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{data.origin_url}/wallet?deposit=cancelled",
             metadata={
@@ -5612,8 +5622,6 @@ async def create_wallet_deposit(
             }
         )
 
-        session = checkout.create_session(checkout_request)
-
         # Store pending deposit for webhook processing (30 min expiration)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
         await db.wallet_deposits.insert_one({
@@ -5621,7 +5629,7 @@ async def create_wallet_deposit(
             "wallet_id": wallet["wallet_id"],
             "user_id": user.user_id,
             "amount_cents": data.amount_cents,
-            "stripe_session_id": session.session_id,
+            "stripe_session_id": session.id,
             "status": "pending",
             "expires_at": expires_at.isoformat(),
             "created_at": datetime.now(timezone.utc).isoformat()
@@ -5629,7 +5637,7 @@ async def create_wallet_deposit(
 
         return {
             "checkout_url": session.url,
-            "session_id": session.session_id
+            "session_id": session.id
         }
 
     except Exception as e:
@@ -5682,38 +5690,42 @@ async def check_deposit_status(session_id: str, user: User = Depends(get_current
 
     # Check with Stripe (backup for webhook failure)
     try:
-        from emergentintegrations.payments.stripe.checkout import StripeCheckout
-        checkout = StripeCheckout()
-        stripe_session = checkout.retrieve_session(session_id)
+        import stripe as stripe_sdk
+        api_key = os.environ.get('STRIPE_API_KEY')
+        if api_key:
+            stripe_sdk.api_key = api_key
+            stripe_session = stripe_sdk.checkout.Session.retrieve(session_id)
 
-        if stripe_session.payment_status == "paid" and deposit["status"] == "pending":
-            # Credit wallet (idempotent via unique index on payment_intent_id)
-            payment_intent_id = stripe_session.payment_intent
-            if payment_intent_id:
-                result = await wallet_service.credit_wallet_deposit(
-                    deposit["wallet_id"],
-                    deposit["amount_cents"],
-                    payment_intent_id,
-                    db
-                )
-
-                if result:
-                    await db.wallet_deposits.update_one(
-                        {"stripe_session_id": session_id},
-                        {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}}
+            if stripe_session.payment_status == "paid" and deposit["status"] == "pending":
+                # Credit wallet (idempotent via unique index on payment_intent_id)
+                payment_intent_id = stripe_session.payment_intent
+                if payment_intent_id:
+                    result = await wallet_service.credit_wallet_deposit(
+                        deposit["wallet_id"],
+                        deposit["amount_cents"],
+                        payment_intent_id,
+                        db
                     )
 
-                    return {
-                        "status": "completed",
-                        "amount_cents": deposit["amount_cents"],
-                        "new_balance_cents": result.get("new_balance_cents"),
-                        "message": "Deposit completed successfully"
-                    }
+                    if result:
+                        await db.wallet_deposits.update_one(
+                            {"stripe_session_id": session_id},
+                            {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}}
+                        )
 
-        return {
-            "status": deposit["status"],
-            "stripe_status": stripe_session.payment_status if stripe_session else "unknown"
-        }
+                        return {
+                            "status": "completed",
+                            "amount_cents": deposit["amount_cents"],
+                            "new_balance_cents": result.get("new_balance_cents"),
+                            "message": "Deposit completed successfully"
+                        }
+
+            return {
+                "status": deposit["status"],
+                "stripe_status": stripe_session.payment_status if stripe_session else "unknown"
+            }
+
+        return {"status": deposit["status"]}
 
     except Exception as e:
         logger.error(f"Failed to check deposit status: {e}")

@@ -4,6 +4,7 @@ Kvitt Notification and Game Flow Testing Suite
 Tests the NEW endpoints for join game flow, add player, buy-in flow, and notifications
 """
 
+import os
 import requests
 import sys
 import json
@@ -12,7 +13,7 @@ from typing import Dict, Any, Optional
 import uuid
 
 class NotificationGameFlowTester:
-    def __init__(self, base_url: str = "https://mobile-redesign-14.preview.emergentagent.com"):
+    def __init__(self, base_url: str = os.environ.get("BASE_URL", "http://localhost:8000")):
         self.base_url = base_url
         self.user1_id = None  # Host
         self.user2_id = None  # Player

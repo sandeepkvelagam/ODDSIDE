@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { AnimatedModal } from "../components/AnimatedModal";
 import { AnimatedButton } from "../components/AnimatedButton";
+import { OnboardingAgent, hasCompletedOnboarding } from "../components/OnboardingAgent";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -75,7 +77,7 @@ export function DashboardScreenV2() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showOnboardingAgent, setShowOnboardingAgent] = useState(false);
   const [showStatModal, setShowStatModal] = useState<'profit' | 'winrate' | null>(null);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
 
@@ -166,6 +168,17 @@ export function DashboardScreenV2() {
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  // Auto-show onboarding agent for first-time users
+  useEffect(() => {
+    hasCompletedOnboarding().then((done) => {
+      if (!done) {
+        // Small delay to let dashboard load first
+        const t = setTimeout(() => setShowOnboardingAgent(true), 800);
+        return () => clearTimeout(t);
+      }
+    });
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -287,7 +300,7 @@ export function DashboardScreenV2() {
             </View>
             <TouchableOpacity
               style={[styles.helpButtonSmall, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
-              onPress={() => setShowHelpModal(true)}
+              onPress={() => setShowOnboardingAgent(true)}
               activeOpacity={0.7}
             >
               <Ionicons name="help-circle-outline" size={14} color={lc.moonstone} />
@@ -683,87 +696,13 @@ export function DashboardScreenV2() {
           <View style={{ height: 100 }} />
         </ScrollView>
 
-        {/* Help Modal - Premium animated version with Demo */}
-        <AnimatedModal
-          visible={showHelpModal}
-          onClose={() => setShowHelpModal(false)}
-          blurIntensity={60}
-        >
-          <View style={[styles.helpModalContent, { backgroundColor: lc.jetSurface }]}>
-            <View style={styles.helpModalHeader}>
-              <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>Getting Started</Text>
-              <TouchableOpacity
-                style={[styles.closeButton, { backgroundColor: lc.glassBg }]}
-                onPress={() => setShowHelpModal(false)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={22} color={lc.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Demo Card - Typewriter style */}
-            <View style={[styles.demoCard, { backgroundColor: lc.jetDark }]}>
-              <View style={styles.demoHeader}>
-                <View style={[styles.demoLogo, { backgroundColor: "rgba(238,108,41,0.2)" }]}>
-                  <Text style={[styles.demoLogoText, { color: lc.orange }]}>K</Text>
-                </View>
-                <Text style={[styles.demoLogoTitle, { color: lc.textPrimary }]}>Kvitt</Text>
-              </View>
-              <Text style={[styles.demoTagline, { color: lc.textPrimary }]}>
-                Your side, <Text style={{ color: lc.orange }}>settled.</Text>
-              </Text>
-            </View>
-
-            <View style={styles.helpTipsList}>
-              <View style={[styles.helpTipCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.glassBorder }]}>
-                <View style={[styles.helpTipIconLarge, { backgroundColor: lc.liquidGlowOrange }]}>
-                  <Ionicons name="people" size={28} color={lc.orange} />
-                </View>
-                <View style={styles.helpTipContent}>
-                  <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Create a Group</Text>
-                  <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
-                    Start by creating a poker group and inviting friends
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={lc.textMuted} />
-              </View>
-
-              <View style={[styles.helpTipCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.glassBorder }]}>
-                <View style={[styles.helpTipIconLarge, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
-                  <Ionicons name="game-controller" size={28} color={lc.success} />
-                </View>
-                <View style={styles.helpTipContent}>
-                  <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Start a Game Night</Text>
-                  <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
-                    Track buy-ins, rebuys, and cash-outs in real-time
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={lc.textMuted} />
-              </View>
-
-              <View style={[styles.helpTipCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.glassBorder }]}>
-                <View style={[styles.helpTipIconLarge, { backgroundColor: lc.liquidGlowBlue }]}>
-                  <Ionicons name="wallet" size={28} color={lc.trustBlue} />
-                </View>
-                <View style={styles.helpTipContent}>
-                  <Text style={[styles.helpTipTitle, { color: lc.textPrimary }]}>Auto Settlement</Text>
-                  <Text style={[styles.helpTipDesc, { color: lc.textSecondary }]}>
-                    We calculate who owes whom automatically
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={lc.textMuted} />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.helpModalButton, { backgroundColor: lc.trustBlue }]}
-              onPress={() => setShowHelpModal(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.helpModalButtonText}>Got it!</Text>
-            </TouchableOpacity>
-          </View>
-        </AnimatedModal>
+        {/* Onboarding Agent - Conversational guide */}
+        <OnboardingAgent
+          visible={showOnboardingAgent}
+          userName={userName}
+          onComplete={() => setShowOnboardingAgent(false)}
+          onNavigate={(screen: string) => navigation.navigate(screen as any)}
+        />
 
         {/* Stat Details Modal - Enhanced with Gradient Hero */}
         <AnimatedModal

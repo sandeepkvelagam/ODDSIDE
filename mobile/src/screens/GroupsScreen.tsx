@@ -195,6 +195,19 @@ export function GroupsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: lc.jetDark, paddingTop: insets.top }]} testID="groups-screen">
+      {/* Page Header with Back Button */}
+      <View style={[styles.pageHeader, { borderBottomColor: lc.liquidGlassBorder }]}>
+        <TouchableOpacity
+          style={[styles.backButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={22} color={lc.textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.pageTitle, { color: lc.textPrimary }]}>Groups</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       {/* Header Section - Liquid Glass Card */}
       <Animated.View style={[styles.headerCard, {
         backgroundColor: lc.liquidGlassBg,

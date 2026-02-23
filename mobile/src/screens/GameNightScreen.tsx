@@ -612,11 +612,11 @@ export function GameNightScreen() {
 
         {/* Host Controls */}
         {isHost && (
-          <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: "rgba(234,179,8,0.3)" }]}>
+          <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: hostBorderColor }]}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
-                <Ionicons name="shield" size={16} color="#fbbf24" />
-                <Text style={[styles.sectionTitle, { color: "#fbbf24" }]}>HOST CONTROLS</Text>
+                <Ionicons name="shield" size={16} color={hostColor} />
+                <Text style={[styles.sectionTitle, { color: hostColor }]}>HOST CONTROLS</Text>
               </View>
             </View>
             <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>

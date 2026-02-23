@@ -8,7 +8,7 @@ import json
 import uuid
 
 def test_specific_endpoints():
-    base_url = "https://mobile-redesign-14.preview.emergentagent.com"
+    base_url = "https://mobile-ui-revamp-7.preview.emergentagent.com"
     test_id = str(uuid.uuid4())[:8]
     
     print("🚀 Testing Specific NEW Endpoints for Kvitt")

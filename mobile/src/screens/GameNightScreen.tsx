@@ -553,9 +553,9 @@ export function GameNightScreen() {
           <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
             {/* Host Info */}
             <View style={styles.hostRow}>
-              <View style={[styles.hostBadge, { backgroundColor: "rgba(234,179,8,0.15)" }]}>
-                <Ionicons name="shield" size={12} color="#fbbf24" />
-                <Text style={[styles.hostText, { color: "#fbbf24" }]}>
+              <View style={[styles.hostBadge, { backgroundColor: hostBgColor }]}>
+                <Ionicons name="shield" size={12} color={hostColor} />
+                <Text style={[styles.hostText, { color: hostColor }]}>
                   {snapshot?.host?.name || "Host"} Admin
                 </Text>
               </View>

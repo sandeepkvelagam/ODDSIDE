@@ -950,7 +950,7 @@ export function DashboardScreenV2() {
           onClose={() => setShowNotificationsPanel(false)}
           blurIntensity={60}
         >
-          <View style={[styles.helpModalContent, { backgroundColor: lc.jetSurface, maxHeight: '80%' }]}>
+          <View style={[styles.notificationsPanel, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.helpModalHeader}>
               <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>Notifications</Text>
               <TouchableOpacity
@@ -962,7 +962,7 @@ export function DashboardScreenV2() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.notificationsScroll} showsVerticalScrollIndicator={false}>
               {notifications.length === 0 ? (
                 <View style={styles.emptyNotifications}>
                   <Ionicons name="notifications-outline" size={48} color={lc.textMuted} />

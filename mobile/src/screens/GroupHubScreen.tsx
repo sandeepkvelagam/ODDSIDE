@@ -395,23 +395,23 @@ export function GroupHubScreen() {
                     </View>
                     <View style={styles.memberInfo}>
                       <View style={styles.memberNameRow}>
-                        <Text style={[styles.memberName, { color: colors.textPrimary }]}>
+                        <Text style={[styles.memberName, { color: lc.textPrimary }]}>
                           {memberName}
                         </Text>
                         {isCurrentUser && (
-                          <Text style={[styles.youLabel, { color: colors.textMuted }]}> (you)</Text>
+                          <Text style={[styles.youLabel, { color: lc.textMuted }]}> (you)</Text>
                         )}
                       </View>
                       <View style={styles.memberBadgeRow}>
                         {isMemberAdmin ? (
-                          <View style={[styles.roleBadge, { backgroundColor: "rgba(234,179,8,0.15)" }]}>
-                            <Ionicons name="shield" size={10} color="#EAB308" />
-                            <Text style={[styles.roleText, { color: "#EAB308" }]}>Admin</Text>
+                          <View style={[styles.roleBadge, { backgroundColor: adminBgColor }]}>
+                            <Ionicons name="shield" size={10} color={adminColor} />
+                            <Text style={[styles.roleText, { color: adminColor }]}>Admin</Text>
                           </View>
                         ) : (
-                          <View style={[styles.roleBadge, { backgroundColor: colors.glassBg }]}>
-                            <Ionicons name="person" size={10} color={colors.textMuted} />
-                            <Text style={[styles.roleText, { color: colors.textMuted }]}>Member</Text>
+                          <View style={[styles.roleBadge, { backgroundColor: lc.liquidGlassBg }]}>
+                            <Ionicons name="person" size={10} color={lc.textMuted} />
+                            <Text style={[styles.roleText, { color: lc.textMuted }]}>Member</Text>
                           </View>
                         )}
                       </View>
@@ -423,7 +423,7 @@ export function GroupHubScreen() {
                         onPress={() => setShowMemberActions(m?.user_id)}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMuted} />
+                        <Ionicons name="ellipsis-horizontal" size={18} color={lc.textMuted} />
                       </TouchableOpacity>
                     )}
                   </View>

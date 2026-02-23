@@ -473,7 +473,7 @@ export function GameNightScreen() {
   return (
     <View style={[styles.container, { backgroundColor: lc.jetDark, paddingTop: insets.top }]}>
       {/* Header - Clean with just back chevron */}
-      <View style={[styles.header, { backgroundColor: lc.jetSurface, borderBottomColor: lc.liquidGlassBorder }]}>
+      <View style={[styles.header, { borderBottomColor: lc.liquidGlassBorder }]}>
         <TouchableOpacity
           style={[styles.backButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
           onPress={() => navigation.goBack()}

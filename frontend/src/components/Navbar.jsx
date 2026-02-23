@@ -22,7 +22,7 @@ import Logo from "@/components/Logo";
 import { Alert, AlertTitle, AlertDescription, AlertAction } from "@/components/reui/alert";
 import { Frame, FramePanel } from "@/components/reui/frame";
 import { toast } from "sonner";
-import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight, Wallet, MessageSquare, Zap, Trophy, Flame, Calendar, BarChart3 } from "lucide-react";
+import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight, Wallet, MessageSquare, Zap, Trophy, Flame, Calendar, BarChart3, CreditCard, AlertTriangle, Clock, Star } from "lucide-react";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -385,6 +385,201 @@ export default function Navbar() {
                       {ctaLabel} <ChevronRight className="w-3 h-3 ml-1" />
                     </Button>
                   )}
+                </AlertAction>
+                <AlertDescription className="line-clamp-2">
+                  {notif.message}
+                </AlertDescription>
+              </Alert>
+            </FramePanel>
+          </Frame>
+        </div>
+      );
+    }
+
+    // Settlement notification — navigate to settlement page
+    if (notif.type === "settlement" && notif.data?.game_id) {
+      return (
+        <div key={notif.notification_id} className="p-2">
+          <Frame>
+            <FramePanel className="overflow-hidden p-0">
+              <Alert className="grid-cols-[32px_1fr] gap-x-3 border-0 shadow-none bg-green-500/5">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-green-500/20">
+                  <CreditCard className="w-4 h-4 text-green-500" />
+                </div>
+                <AlertTitle className="flex items-center gap-2">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-green-500/10 text-green-500">
+                    Settlement
+                  </span>
+                  <span className="truncate font-medium text-sm">{notif.title}</span>
+                </AlertTitle>
+                <AlertAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => handleMarkRead(notif.notification_id)}
+                  >
+                    Dismiss
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      handleMarkRead(notif.notification_id);
+                      navigate(`/games/${notif.data.game_id}/settlement`);
+                      setNotifSheetOpen(false);
+                    }}
+                  >
+                    View Settlement <ChevronRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </AlertAction>
+                <AlertDescription className="line-clamp-2">
+                  {notif.message}
+                </AlertDescription>
+              </Alert>
+            </FramePanel>
+          </Frame>
+        </div>
+      );
+    }
+
+    // Reminder notification — contextual navigation
+    if (notif.type === "reminder") {
+      return (
+        <div key={notif.notification_id} className="p-2">
+          <Frame>
+            <FramePanel className="overflow-hidden p-0">
+              <Alert className="grid-cols-[32px_1fr] gap-x-3 border-0 shadow-none bg-amber-500/5">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-amber-500/20">
+                  <Clock className="w-4 h-4 text-amber-500" />
+                </div>
+                <AlertTitle className="flex items-center gap-2">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-500">
+                    Reminder
+                  </span>
+                  <span className="truncate font-medium text-sm">{notif.title}</span>
+                </AlertTitle>
+                <AlertAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => handleMarkRead(notif.notification_id)}
+                  >
+                    Dismiss
+                  </Button>
+                  {notif.data?.game_id && (
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        handleMarkRead(notif.notification_id);
+                        // If it has a ledger_id, go to settlement; otherwise game page
+                        if (notif.data.ledger_id) {
+                          navigate(`/games/${notif.data.game_id}/settlement`);
+                        } else {
+                          navigate(`/games/${notif.data.game_id}`);
+                        }
+                        setNotifSheetOpen(false);
+                      }}
+                    >
+                      {notif.data.ledger_id ? "View Settlement" : "View Game"} <ChevronRight className="w-3 h-3 ml-1" />
+                    </Button>
+                  )}
+                </AlertAction>
+                <AlertDescription className="line-clamp-2">
+                  {notif.message}
+                </AlertDescription>
+              </Alert>
+            </FramePanel>
+          </Frame>
+        </div>
+      );
+    }
+
+    // Post-game survey notification — navigate to settlement (which triggers survey)
+    if (notif.type === "general" && notif.data?.type === "post_game_survey" && notif.data?.game_id) {
+      return (
+        <div key={notif.notification_id} className="p-2">
+          <Frame>
+            <FramePanel className="overflow-hidden p-0">
+              <Alert className="grid-cols-[32px_1fr] gap-x-3 border-0 shadow-none bg-primary/5">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-primary/20">
+                  <Star className="w-4 h-4 text-primary" />
+                </div>
+                <AlertTitle className="flex items-center gap-2">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-primary/10 text-primary">
+                    Survey
+                  </span>
+                  <span className="truncate font-medium text-sm">{notif.title || "Rate your game"}</span>
+                </AlertTitle>
+                <AlertAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => handleMarkRead(notif.notification_id)}
+                  >
+                    Later
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      handleMarkRead(notif.notification_id);
+                      navigate(`/games/${notif.data.game_id}/settlement`);
+                      setNotifSheetOpen(false);
+                    }}
+                  >
+                    Rate Now <Star className="w-3 h-3 ml-1" />
+                  </Button>
+                </AlertAction>
+                <AlertDescription className="line-clamp-2">
+                  {notif.message || "How was your game night? Your feedback helps improve future games."}
+                </AlertDescription>
+              </Alert>
+            </FramePanel>
+          </Frame>
+        </div>
+      );
+    }
+
+    // Chip discrepancy alert — navigate to game with warning context
+    if (notif.type === "general" && notif.data?.discrepancy != null && notif.data?.game_id) {
+      return (
+        <div key={notif.notification_id} className="p-2">
+          <Frame>
+            <FramePanel className="overflow-hidden p-0">
+              <Alert className="grid-cols-[32px_1fr] gap-x-3 border-0 shadow-none bg-amber-500/5">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-amber-500/20">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                </div>
+                <AlertTitle className="flex items-center gap-2">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-500">
+                    Alert
+                  </span>
+                  <span className="truncate font-medium text-sm">{notif.title || "Chip Discrepancy"}</span>
+                </AlertTitle>
+                <AlertAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => handleMarkRead(notif.notification_id)}
+                  >
+                    Dismiss
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      handleMarkRead(notif.notification_id);
+                      navigate(`/games/${notif.data.game_id}`);
+                      setNotifSheetOpen(false);
+                    }}
+                  >
+                    Review Game <ChevronRight className="w-3 h-3 ml-1" />
+                  </Button>
                 </AlertAction>
                 <AlertDescription className="line-clamp-2">
                   {notif.message}

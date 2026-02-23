@@ -97,9 +97,30 @@ function handleNotificationDeepLink(data: Record<string, any>) {
       break;
 
     case "post_game_survey":
-      // Survey notification — go to the game screen (survey modal is triggered there)
+      // Survey notification — go to settlement (survey modal auto-triggers there)
       if (data.game_id) {
+        navigationRef.navigate("Settlement", { gameId: data.game_id });
+      }
+      break;
+
+    case "settlement":
+    case "payment_received":
+      // Payment/settlement notifications — go to settlement screen
+      if (data.game_id) {
+        navigationRef.navigate("Settlement", { gameId: data.game_id });
+      } else {
+        navigationRef.navigate("Notifications");
+      }
+      break;
+
+    case "reminder":
+      // Payment or game reminders — route to settlement if ledger, else game
+      if (data.game_id && data.ledger_id) {
+        navigationRef.navigate("Settlement", { gameId: data.game_id });
+      } else if (data.game_id) {
         navigationRef.navigate("GameNight", { gameId: data.game_id });
+      } else {
+        navigationRef.navigate("Notifications");
       }
       break;
 

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, X, Lock, CreditCard, Loader2, AlertTriangle } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { PostGameSurveyDialog } from "@/components/feedback/PostGameSurveyDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -21,6 +22,7 @@ export default function Settlement() {
   const [settlements, setSettlements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [payingLedgerId, setPayingLedgerId] = useState(null);
+  const [showSurvey, setShowSurvey] = useState(false);
 
   useEffect(() => {
     // Only fetch when user is ready to prevent race conditions
@@ -50,6 +52,18 @@ export default function Settlement() {
       ]);
       setGame(gameRes.data);
       setSettlements(settlementRes.data);
+
+      // Check if user already submitted a survey; if not, auto-trigger
+      try {
+        const surveyRes = await axios.get(`${API}/feedback/surveys/${gameId}`);
+        const surveys = surveyRes.data?.surveys || surveyRes.data || [];
+        const alreadySubmitted = surveys.some(s => s.user_id === user?.user_id);
+        if (!alreadySubmitted) {
+          setTimeout(() => setShowSurvey(true), 1500);
+        }
+      } catch {
+        // Survey check is non-critical
+      }
     } catch (error) {
       toast.error("Failed to load settlement");
       navigate("/groups");
@@ -310,6 +324,14 @@ export default function Settlement() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Post-game survey — auto-triggered after viewing settlement */}
+      <PostGameSurveyDialog
+        open={showSurvey}
+        onOpenChange={setShowSurvey}
+        gameId={gameId}
+        groupId={game?.group_id}
+      />
     </div>
   );
 }

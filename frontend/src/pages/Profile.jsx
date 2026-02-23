@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   User, Mail, TrendingUp, TrendingDown, Trophy,
   DollarSign, Target, ArrowLeft, Moon, Sun, Bell, BellOff, CreditCard, Loader2, Wallet, Sparkles,
-  MessageSquare, Calendar, BarChart3, Flame, Volume2, VolumeX
+  MessageSquare, Calendar, BarChart3, Flame, Volume2, VolumeX, CheckCircle, Clock, AlertCircle, Wrench
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import UserBadges from "@/components/UserBadges";
@@ -26,6 +26,7 @@ export default function Profile() {
   const [payingLedgerId, setPayingLedgerId] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [engagementPrefs, setEngagementPrefs] = useState(null);
+  const [myFeedback, setMyFeedback] = useState([]);
 
   useEffect(() => {
     // Only fetch when user is ready to prevent race conditions
@@ -47,16 +48,18 @@ export default function Profile() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, balancesRes, walletRes, engPrefsRes] = await Promise.all([
+      const [statsRes, balancesRes, walletRes, engPrefsRes, feedbackRes] = await Promise.all([
         axios.get(`${API}/stats/me`, { withCredentials: true }),
         axios.get(`${API}/ledger/balances`, { withCredentials: true }),
         axios.get(`${API}/wallet`, { withCredentials: true }),
-        axios.get(`${API}/engagement/preferences`, { withCredentials: true }).catch(() => ({ data: null }))
+        axios.get(`${API}/engagement/preferences`, { withCredentials: true }).catch(() => ({ data: null })),
+        axios.get(`${API}/feedback/my`, { withCredentials: true }).catch(() => ({ data: { feedback: [] } }))
       ]);
       setStats(statsRes.data);
       setBalances(balancesRes.data);
       setWallet(walletRes.data);
       if (engPrefsRes.data) setEngagementPrefs(engPrefsRes.data);
+      setMyFeedback(feedbackRes.data?.feedback || []);
     } catch (error) {
       toast.error("Failed to load profile");
     } finally {
@@ -401,6 +404,99 @@ export default function Profile() {
             )}
           </CardContent>
         </Card>
+
+        {/* My Feedback */}
+        {myFeedback.length > 0 && (
+          <Card className="bg-card border-border/50 mb-4 sm:mb-6" data-testid="my-feedback">
+            <CardHeader className="px-4 sm:px-6 py-3 sm:py-4">
+              <CardTitle className="font-heading text-base sm:text-xl font-bold flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                MY FEEDBACK
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+              <div className="space-y-2">
+                {myFeedback.slice(0, 5).map(item => {
+                  const statusIcon = item.status === "resolved" ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> :
+                                     item.status === "in_progress" ? <Clock className="w-3.5 h-3.5 text-amber-500" /> :
+                                     <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />;
+                  const statusLabel = item.status === "resolved" ? "Resolved" :
+                                     item.status === "in_progress" ? "In Progress" :
+                                     item.status === "open" ? "Open" : item.status || "Submitted";
+                  const statusColor = item.status === "resolved" ? "text-green-500 bg-green-500/10" :
+                                     item.status === "in_progress" ? "text-amber-500 bg-amber-500/10" :
+                                     "text-muted-foreground bg-secondary/50";
+                  const hasPendingFix = item.auto_fix?.status === "pending_confirmation";
+
+                  return (
+                    <div key={item.feedback_id} className="p-3 bg-secondary/30 rounded-lg">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${statusColor}`}>
+                              {statusLabel}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground capitalize">
+                              {item.feedback_type?.replace("_", " ")}
+                            </span>
+                          </div>
+                          <p className="text-sm line-clamp-2">{item.content}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {new Date(item.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {statusIcon}
+                        </div>
+                      </div>
+                      {/* Auto-fix confirmation prompt */}
+                      {hasPendingFix && (
+                        <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Wrench className="w-3.5 h-3.5 text-amber-500" />
+                            <span className="text-xs font-medium text-amber-500">Auto-fix available</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mb-2">
+                            A fix for "{item.auto_fix.fix_type?.replace("_", " ")}" is ready to apply.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[10px]"
+                              onClick={async () => {
+                                try {
+                                  await axios.post(`${API}/feedback/${item.feedback_id}/confirm-fix`, { confirmed: false });
+                                  toast.success("Fix rejected");
+                                  fetchData();
+                                } catch { toast.error("Failed to reject fix"); }
+                              }}
+                            >
+                              Reject
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-6 text-[10px]"
+                              onClick={async () => {
+                                try {
+                                  await axios.post(`${API}/feedback/${item.feedback_id}/confirm-fix`, { confirmed: true });
+                                  toast.success("Fix applied!");
+                                  fetchData();
+                                } catch (err) { toast.error(err?.response?.data?.detail || "Failed to apply fix"); }
+                              }}
+                            >
+                              <Wrench className="w-3 h-3 mr-1" /> Apply Fix
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Pending Balances */}
         <Card className="bg-card border-border/50" data-testid="pending-balances">

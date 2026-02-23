@@ -88,6 +88,23 @@ export function GroupHubScreen() {
   const [showMemberActions, setShowMemberActions] = useState<string | null>(null);
   const [removingMember, setRemovingMember] = useState(false);
 
+  // Theme-aware colors
+  const lc = isDark ? LIQUID_COLORS : {
+    ...LIQUID_COLORS,
+    jetDark: colors.background,
+    jetSurface: colors.surface,
+    liquidGlassBg: "rgba(0, 0, 0, 0.04)",
+    liquidGlassBorder: "rgba(0, 0, 0, 0.10)",
+    liquidInnerBg: "rgba(0, 0, 0, 0.03)",
+    textPrimary: colors.textPrimary,
+    textSecondary: colors.textSecondary,
+    textMuted: colors.textMuted,
+  };
+
+  // Admin badge color - readable on both themes
+  const adminColor = isDark ? "#fbbf24" : "#b45309";
+  const adminBgColor = isDark ? "rgba(234,179,8,0.15)" : "rgba(180,83,9,0.12)";
+
   const chipValue = buyInAmount / chipsPerBuyIn;
   const isAdmin = group?.members?.find((m: any) => m.user_id === user?.user_id)?.role === "admin";
 

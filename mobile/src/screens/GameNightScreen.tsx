@@ -138,6 +138,13 @@ export function GameNightScreen() {
   // Hand rankings modal
   const [showHandRankings, setShowHandRankings] = useState(false);
 
+  // Game Thread/Chat state
+  const [showGameThread, setShowGameThread] = useState(false);
+  const [thread, setThread] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [loadingThread, setLoadingThread] = useState(false);
+
   // Resync state
   const resyncInFlight = useRef(false);
   const pendingResync = useRef(false);

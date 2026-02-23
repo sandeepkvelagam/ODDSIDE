@@ -1484,6 +1484,19 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.12)",
   },
+  // Notifications Panel - proper sizing
+  notificationsPanel: {
+    borderRadius: 28,
+    padding: 24,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+  },
+  notificationsScroll: {
+    maxHeight: 450,
+  },
   helpModalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

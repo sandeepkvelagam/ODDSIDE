@@ -24,6 +24,7 @@ import { SettlementScreen } from "../screens/SettlementScreen";
 import { PokerAIScreen } from "../screens/PokerAIScreen";
 import { AIToolkitScreen } from "../screens/AIToolkitScreen";
 import { WalletScreen } from "../screens/WalletScreen";
+import { FeedbackScreen } from "../screens/FeedbackScreen";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -42,6 +43,7 @@ export type RootStackParamList = {
   Language: undefined;
   AIAssistant: undefined;
   AIToolkit: undefined;
+  Feedback: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -90,6 +92,18 @@ function handleNotificationDeepLink(data: Record<string, any>) {
       } else {
         navigationRef.navigate("Groups");
       }
+      break;
+
+    case "post_game_survey":
+      // Survey notification — go to the game screen (survey modal is triggered there)
+      if (data.game_id) {
+        navigationRef.navigate("GameNight", { gameId: data.game_id });
+      }
+      break;
+
+    case "feedback_update":
+    case "issue_responded":
+      navigationRef.navigate("Notifications");
       break;
 
     default:
@@ -188,6 +202,7 @@ export default function RootNavigator() {
               <Stack.Screen name="Language" component={LanguageScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
               <Stack.Screen name="AIAssistant" component={AIAssistantScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
               <Stack.Screen name="AIToolkit" component={AIToolkitScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
             </>
           )}
         </Stack.Navigator>

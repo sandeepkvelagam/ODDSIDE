@@ -66,6 +66,15 @@ class AgentRegistry:
             return self.get("group_chat")
         elif any(kw in task_lower for kw in ["plan game", "suggest game", "next game", "weekend", "holiday"]):
             return self.get("game_planner")
+        elif any(kw in task_lower for kw in [
+            "engagement", "inactive", "nudge", "milestone", "re-engage"
+        ]):
+            return self.get("engagement")
+        elif any(kw in task_lower for kw in [
+            "feedback", "bug", "survey", "complaint", "feature request",
+            "report issue", "broken", "not working"
+        ]):
+            return self.get("feedback")
 
         # Default to None, let orchestrator handle
         return None

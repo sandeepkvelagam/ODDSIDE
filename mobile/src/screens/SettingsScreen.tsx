@@ -334,6 +334,17 @@ export function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
 
+          <TouchableOpacity
+            testID="settings-feedback-button"
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate("Feedback")}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.textPrimary} />
+            <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Report an Issue</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
           <View style={styles.spacer} />
 
           {/* Section 3: Haptic feedback */}

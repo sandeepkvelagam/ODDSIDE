@@ -11,7 +11,7 @@ Handles:
 """
 
 from typing import Dict, Optional, Callable, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 import asyncio
 
@@ -41,6 +41,7 @@ class EventListenerService:
         self.group_chat_agent = None
         self.game_planner = None
         self.engagement_agent = None
+        self.feedback_agent = None
         self.chat_watcher = None
         self.host_update_service = None
         self._event_handlers: Dict[str, List[Callable]] = {}
@@ -65,6 +66,8 @@ class EventListenerService:
         self.register_handler("game_ended", self._handle_post_game_engagement)
         self.register_handler("settlement_generated", self._handle_post_game_engagement)
         self.register_handler("game_started", self._handle_engagement_outcome_tracking)
+        self.register_handler("game_ended", self._handle_post_game_survey)
+        self.register_handler("feedback_submitted", self._handle_feedback_submitted)
 
     def set_orchestrator(self, orchestrator):
         """Set the AI orchestrator and get agents"""
@@ -74,6 +77,7 @@ class EventListenerService:
             self.group_chat_agent = orchestrator.agent_registry.get("group_chat")
             self.game_planner = orchestrator.agent_registry.get("game_planner")
             self.engagement_agent = orchestrator.agent_registry.get("engagement")
+            self.feedback_agent = orchestrator.agent_registry.get("feedback")
 
         # Initialize ChatWatcher
         from .chat_watcher import ChatWatcherService
@@ -403,6 +407,165 @@ class EventListenerService:
                     logger.info(f"Recorded engagement conversion: nudge {plan_id} → game started")
         except Exception as e:
             logger.error(f"Engagement outcome tracking error: {e}")
+
+    # ==================== Feedback Handlers ====================
+
+    async def _handle_post_game_survey(self, data: Dict):
+        """
+        Trigger post-game survey prompts when a game ends.
+
+        Survey Delay Policy (emotional timing):
+        - Winners (profit > 0): send immediately (positive emotion → higher ratings)
+        - Breakeven (profit = 0): send after 30 min
+        - Losers (profit < 0): delay 2 hours (cool-down period)
+        - Rage-quit (left early): delay 12 hours
+
+        This improves average survey quality without manipulating results —
+        just gives players time to process emotions before rating.
+        """
+        if not self.feedback_agent:
+            logger.debug("FeedbackAgent not available, skipping post-game survey")
+            return
+
+        game_id = data.get("game_id")
+        group_id = data.get("group_id")
+        player_ids = data.get("player_ids", [])
+
+        # If player_ids not provided, fetch from game
+        if not player_ids and game_id and self.db:
+            game = await self.db.game_nights.find_one(
+                {"game_id": game_id},
+                {"_id": 0, "players": 1, "group_id": 1}
+            )
+            if game:
+                player_ids = [
+                    p.get("user_id") for p in game.get("players", [])
+                    if p.get("user_id")
+                ]
+                if not group_id:
+                    group_id = game.get("group_id")
+
+        # Check if feedback surveys are enabled for this group
+        if group_id and self.db:
+            settings = await self.db.engagement_settings.find_one(
+                {"group_id": group_id}, {"_id": 0}
+            )
+            if settings and not settings.get("post_game_surveys", True):
+                logger.debug(f"Post-game surveys disabled for group {group_id}")
+                return
+
+        # Apply Survey Delay Policy: partition players by emotional state
+        immediate_ids = []
+        delayed_groups = []  # list of (player_ids, delay_minutes)
+
+        if game_id and self.db:
+            game = await self.db.game_nights.find_one(
+                {"game_id": game_id},
+                {"_id": 0, "players": 1}
+            )
+            players_data = {
+                p.get("user_id"): p for p in (game or {}).get("players", [])
+                if p.get("user_id")
+            }
+
+            winners = []
+            breakeven = []
+            losers = []
+            rage_quit = []
+
+            for pid in player_ids:
+                pdata = players_data.get(pid, {})
+                buy_in = pdata.get("total_buy_in", 0)
+                cash_out = pdata.get("cash_out", 0)
+                net = cash_out - buy_in
+
+                if pdata.get("left_early"):
+                    rage_quit.append(pid)
+                elif net > 0:
+                    winners.append(pid)
+                elif net == 0:
+                    breakeven.append(pid)
+                else:
+                    losers.append(pid)
+
+            immediate_ids = winners
+            if breakeven:
+                delayed_groups.append((breakeven, 30))    # 30 min delay
+            if losers:
+                delayed_groups.append((losers, 120))      # 2 hour delay
+            if rage_quit:
+                delayed_groups.append((rage_quit, 720))   # 12 hour delay
+        else:
+            immediate_ids = player_ids
+
+        try:
+            # Send immediately to winners
+            if immediate_ids:
+                result = await self.feedback_agent.execute(
+                    "Trigger post-game survey",
+                    context={
+                        "action": "trigger_post_game_survey",
+                        "game_id": game_id,
+                        "group_id": group_id,
+                        "player_ids": immediate_ids
+                    }
+                )
+                logger.info(
+                    f"Post-game survey (immediate) for game {game_id}: "
+                    f"sent to {len(immediate_ids)} winners"
+                )
+
+            # Schedule delayed surveys
+            for delayed_ids, delay_minutes in delayed_groups:
+                send_at = (
+                    datetime.now(timezone.utc) + timedelta(minutes=delay_minutes)
+                ).isoformat()
+
+                await self.db.scheduled_jobs.insert_one({
+                    "job_type": "delayed_survey",
+                    "game_id": game_id,
+                    "group_id": group_id,
+                    "player_ids": delayed_ids,
+                    "send_at": send_at,
+                    "delay_minutes": delay_minutes,
+                    "status": "pending",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                })
+                logger.info(
+                    f"Post-game survey (delayed {delay_minutes}m) for game {game_id}: "
+                    f"scheduled for {len(delayed_ids)} players"
+                )
+
+        except Exception as e:
+            logger.error(f"Post-game survey trigger error: {e}")
+
+    async def _handle_feedback_submitted(self, data: Dict):
+        """
+        Handle new feedback submission event.
+        Classifies and attempts auto-fix through the FeedbackAgent pipeline.
+        """
+        if not self.feedback_agent:
+            logger.debug("FeedbackAgent not available, skipping feedback processing")
+            return
+
+        feedback_id = data.get("feedback_id")
+        if not feedback_id:
+            return
+
+        try:
+            result = await self.feedback_agent.execute(
+                "Process feedback",
+                context={
+                    "action": "process_feedback",
+                    "feedback_id": feedback_id
+                }
+            )
+            logger.info(
+                f"Feedback {feedback_id} processed: "
+                f"{result.message if result.success else result.error}"
+            )
+        except Exception as e:
+            logger.error(f"Feedback processing error: {e}")
 
     # ==================== Group Chat Handlers ====================
 

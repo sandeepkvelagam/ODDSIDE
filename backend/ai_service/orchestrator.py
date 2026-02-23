@@ -60,6 +60,10 @@ class AIOrchestrator:
         from .tools.engagement_scorer import EngagementScorerTool
         from .tools.engagement_policy import EngagementPolicyTool
         from .tools.engagement_planner import EngagementPlannerTool
+        from .tools.feedback_collector import FeedbackCollectorTool
+        from .tools.feedback_classifier import FeedbackClassifierTool
+        from .tools.feedback_policy import FeedbackPolicyTool
+        from .tools.auto_fixer import AutoFixerTool
 
         self.tool_registry.register(PokerEvaluatorTool())
         self.tool_registry.register(NotificationSenderTool(db=self.db))
@@ -73,6 +77,14 @@ class AIOrchestrator:
         self.tool_registry.register(EngagementScorerTool(db=self.db))
         self.tool_registry.register(EngagementPolicyTool(db=self.db))
         self.tool_registry.register(EngagementPlannerTool(db=self.db))
+        self.tool_registry.register(FeedbackCollectorTool(db=self.db))
+        self.tool_registry.register(FeedbackClassifierTool(
+            db=self.db, llm_client=self.llm_client
+        ))
+        self.tool_registry.register(FeedbackPolicyTool(db=self.db))
+        self.tool_registry.register(AutoFixerTool(
+            db=self.db, tool_registry=self.tool_registry
+        ))
 
     def _setup_agents(self):
         """Register all available agents"""
@@ -83,6 +95,7 @@ class AIOrchestrator:
         from .agents.group_chat_agent import GroupChatAgent
         from .agents.game_planner_agent import GamePlannerAgent
         from .agents.engagement_agent import EngagementAgent
+        from .agents.feedback_agent import FeedbackAgent
 
         self.agent_registry.register(
             GameSetupAgent(
@@ -128,6 +141,13 @@ class AIOrchestrator:
         )
         self.agent_registry.register(
             EngagementAgent(
+                tool_registry=self.tool_registry,
+                db=self.db,
+                llm_client=self.llm_client
+            )
+        )
+        self.agent_registry.register(
+            FeedbackAgent(
                 tool_registry=self.tool_registry,
                 db=self.db,
                 llm_client=self.llm_client
@@ -365,6 +385,12 @@ class AIOrchestrator:
         ]):
             return {"type": "agent", "agent": "engagement"}
 
+        if any(kw in input_lower for kw in [
+            "feedback", "bug", "report issue", "survey", "complaint",
+            "feature request", "broken", "not working", "rate game"
+        ]):
+            return {"type": "agent", "agent": "feedback"}
+
         # Default to general
         return {"type": "general"}
 
@@ -418,7 +444,9 @@ class AIOrchestrator:
                       "- Generate a report or stats\n"
                       "- Send notifications\n"
                       "- Check pending decisions\n"
-                      "- Send payment reminders",
+                      "- Send payment reminders\n"
+                      "- Submit feedback or report a bug\n"
+                      "- Rate your game experience",
             "type": "help",
             "_handler": "general"
         }

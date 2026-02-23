@@ -936,6 +936,24 @@ export function GameNightScreen() {
           </View>
         )}
 
+        {/* Game Thread Button */}
+        <TouchableOpacity
+          style={[styles.threadButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.trustBlue + "40" }]}
+          onPress={() => {
+            loadThread();
+            setShowGameThread(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chatbubbles" size={20} color={lc.trustBlue} />
+          <Text style={[styles.threadButtonText, { color: lc.trustBlue }]}>Game Thread</Text>
+          {thread.length > 0 && (
+            <View style={[styles.threadBadge, { backgroundColor: lc.trustBlue }]}>
+              <Text style={styles.threadBadgeText}>{thread.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
         {/* AI Assistant Button */}
         <TouchableOpacity
           style={[styles.aiButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.orange + "40" }]}

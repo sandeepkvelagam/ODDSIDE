@@ -40,6 +40,7 @@ class EventListenerService:
         self.host_persona = None
         self.group_chat_agent = None
         self.game_planner = None
+        self.engagement_agent = None
         self.chat_watcher = None
         self.host_update_service = None
         self._event_handlers: Dict[str, List[Callable]] = {}
@@ -61,6 +62,8 @@ class EventListenerService:
         self.register_handler("rsvp_response", self._handle_rsvp_response)
         self.register_handler("payment_received", self._handle_payment_received)
         self.register_handler("group_message", self._handle_group_message)
+        self.register_handler("game_ended", self._handle_post_game_engagement)
+        self.register_handler("settlement_generated", self._handle_post_game_engagement)
 
     def set_orchestrator(self, orchestrator):
         """Set the AI orchestrator and get agents"""
@@ -69,6 +72,7 @@ class EventListenerService:
             self.host_persona = orchestrator.agent_registry.get("host_persona")
             self.group_chat_agent = orchestrator.agent_registry.get("group_chat")
             self.game_planner = orchestrator.agent_registry.get("game_planner")
+            self.engagement_agent = orchestrator.agent_registry.get("engagement")
 
         # Initialize ChatWatcher
         from .chat_watcher import ChatWatcherService
@@ -307,6 +311,59 @@ class EventListenerService:
                 notification_type="settlement",
                 data={"ledger_id": ledger_id, "amount": amount}
             )
+
+    # ==================== Engagement Handlers ====================
+
+    async def _handle_post_game_engagement(self, data: Dict):
+        """
+        Handle post-game engagement checks (milestones, big winners).
+        Triggered by game_ended and settlement_generated events.
+        """
+        if not self.engagement_agent:
+            logger.debug("EngagementAgent not available, skipping post-game engagement")
+            return
+
+        game_id = data.get("game_id")
+        group_id = data.get("group_id")
+        player_ids = data.get("player_ids", [])
+
+        # If player_ids not provided, fetch from game
+        if not player_ids and game_id and self.db:
+            game = await self.db.game_nights.find_one(
+                {"game_id": game_id},
+                {"_id": 0, "players": 1, "group_id": 1}
+            )
+            if game:
+                player_ids = [p.get("user_id") for p in game.get("players", []) if p.get("user_id")]
+                if not group_id:
+                    group_id = game.get("group_id")
+
+        # Check engagement settings for this group
+        if group_id and self.db:
+            settings = await self.db.engagement_settings.find_one(
+                {"group_id": group_id},
+                {"_id": 0}
+            )
+            if settings and not settings.get("engagement_enabled", True):
+                logger.debug(f"Engagement disabled for group {group_id}")
+                return
+
+        try:
+            result = await self.engagement_agent.execute(
+                "Post-game engagement check",
+                context={
+                    "action": "post_game_check",
+                    "game_id": game_id,
+                    "group_id": group_id,
+                    "player_ids": player_ids
+                }
+            )
+            logger.info(
+                f"Post-game engagement for game {game_id}: "
+                f"{result.message if result.success else result.error}"
+            )
+        except Exception as e:
+            logger.error(f"Post-game engagement error: {e}")
 
     # ==================== Group Chat Handlers ====================
 

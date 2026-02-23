@@ -21,6 +21,7 @@ from .game_manager import GameManagerTool
 from .scheduler import SchedulerTool
 from .report_generator import ReportGeneratorTool
 from .email_sender import EmailSenderTool
+from .engagement_scorer import EngagementScorerTool
 
 __all__ = [
     'ToolRegistry',
@@ -31,4 +32,5 @@ __all__ = [
     'SchedulerTool',
     'ReportGeneratorTool',
     'EmailSenderTool',
+    'EngagementScorerTool',
 ]

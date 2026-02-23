@@ -57,6 +57,7 @@ class AIOrchestrator:
         from .tools.host_decision import HostDecisionTool
         from .tools.smart_config import SmartConfigTool
         from .tools.payment_tracker import PaymentTrackerTool
+        from .tools.engagement_scorer import EngagementScorerTool
 
         self.tool_registry.register(PokerEvaluatorTool())
         self.tool_registry.register(NotificationSenderTool(db=self.db))
@@ -67,6 +68,7 @@ class AIOrchestrator:
         self.tool_registry.register(HostDecisionTool(db=self.db))
         self.tool_registry.register(SmartConfigTool(db=self.db))
         self.tool_registry.register(PaymentTrackerTool(db=self.db))
+        self.tool_registry.register(EngagementScorerTool(db=self.db))
 
     def _setup_agents(self):
         """Register all available agents"""
@@ -76,6 +78,7 @@ class AIOrchestrator:
         from .agents.host_persona_agent import HostPersonaAgent
         from .agents.group_chat_agent import GroupChatAgent
         from .agents.game_planner_agent import GamePlannerAgent
+        from .agents.engagement_agent import EngagementAgent
 
         self.agent_registry.register(
             GameSetupAgent(
@@ -114,6 +117,13 @@ class AIOrchestrator:
         )
         self.agent_registry.register(
             GamePlannerAgent(
+                tool_registry=self.tool_registry,
+                db=self.db,
+                llm_client=self.llm_client
+            )
+        )
+        self.agent_registry.register(
+            EngagementAgent(
                 tool_registry=self.tool_registry,
                 db=self.db,
                 llm_client=self.llm_client
@@ -344,6 +354,12 @@ class AIOrchestrator:
 
         if any(kw in input_lower for kw in ["payment", "remind", "owed"]):
             return {"type": "agent", "agent": "host_persona"}
+
+        if any(kw in input_lower for kw in [
+            "engagement", "inactive", "nudge", "milestone", "big winner",
+            "re-engage", "dormant", "engagement digest"
+        ]):
+            return {"type": "agent", "agent": "engagement"}
 
         # Default to general
         return {"type": "general"}

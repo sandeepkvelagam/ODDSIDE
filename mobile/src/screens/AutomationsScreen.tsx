@@ -21,6 +21,12 @@ import { api } from "../api/client";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
 import { GlassButton } from "../components/ui/GlassButton";
 
+type HealthScore = {
+  status: "healthy" | "warning" | "critical" | "disabled" | "new";
+  score: number;
+  reasons: string[];
+};
+
 type Automation = {
   automation_id: string;
   name: string;
@@ -28,18 +34,44 @@ type Automation = {
   trigger: { type: string; config?: any };
   actions: Array<{ type: string; params?: any }>;
   enabled: boolean;
-  total_runs?: number;
-  last_run_at?: string;
+  run_count?: number;
+  error_count?: number;
+  skip_count?: number;
   consecutive_errors?: number;
+  last_run?: string;
+  last_run_result?: string;
+  health?: HealthScore;
+  engine_version?: string;
 };
 
 type RunHistory = {
   run_id: string;
   status: string;
-  skip_reason?: string;
-  started_at: string;
+  reason?: string;
+  created_at?: string;
+  started_at?: string;
   duration_ms?: number;
-  actions_executed?: number;
+  trigger_latency_ms?: number;
+  policy_block_reason_enum?: string;
+  force_replay?: boolean;
+  engine_version?: string;
+  action_results?: Array<{ type: string; success: boolean }>;
+};
+
+const HEALTH_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  healthy: { bg: "#22c55e15", text: "#16a34a", dot: "#22c55e" },
+  warning: { bg: "#eab30815", text: "#ca8a04", dot: "#eab308" },
+  critical: { bg: "#ef444415", text: "#dc2626", dot: "#ef4444" },
+  disabled: { bg: "#9ca3af15", text: "#6b7280", dot: "#9ca3af" },
+  new: { bg: "#3b82f615", text: "#2563eb", dot: "#3b82f6" },
+};
+
+const HEALTH_LABELS: Record<string, string> = {
+  healthy: "Healthy",
+  warning: "Warning",
+  critical: "Critical",
+  disabled: "Disabled",
+  new: "New",
 };
 
 type Template = {
@@ -109,8 +141,12 @@ export function AutomationsScreen() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
 
+  // Cost budget
+  const [costBudget, setCostBudget] = useState<{ remaining: number; max: number } | null>(null);
+
   useEffect(() => {
     fetchAutomations();
+    fetchCostBudget();
   }, []);
 
   const fetchAutomations = async () => {
@@ -125,9 +161,22 @@ export function AutomationsScreen() {
     }
   };
 
+  const fetchCostBudget = async () => {
+    try {
+      const res = await api.get("/automations/usage/cost-budget");
+      const data = res.data?.data;
+      if (data) {
+        setCostBudget({ remaining: data.cost_budget_remaining, max: data.max_daily_cost_points });
+      }
+    } catch {
+      // Non-critical
+    }
+  };
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchAutomations();
+    fetchCostBudget();
   }, []);
 
   const handleToggle = async (id: string) => {
@@ -166,6 +215,18 @@ export function AutomationsScreen() {
       Alert.alert("Test Run", res.data?.message || "Dry run completed");
     } catch (err: any) {
       Alert.alert("Error", err?.response?.data?.detail || "Dry run failed");
+    }
+  };
+
+  const handleReplay = async (id: string) => {
+    triggerHaptic("medium");
+    try {
+      const res = await api.post(`/automations/${id}/replay`);
+      Alert.alert("Replay", res.data?.message || "Replay completed");
+      fetchAutomations();
+      fetchCostBudget();
+    } catch (err: any) {
+      Alert.alert("Error", err?.response?.data?.detail || "Replay failed");
     }
   };
 
@@ -290,6 +351,14 @@ export function AutomationsScreen() {
               <Ionicons name="flash-outline" size={18} color={colors.orange} />
               <Text style={[styles.quickActionLabel, { color: colors.orange }]}>Templates</Text>
             </TouchableOpacity>
+            {costBudget && (
+              <View style={[styles.quickActionBtn, { backgroundColor: colors.textMuted + "10", borderColor: colors.textMuted + "20" }]}>
+                <Ionicons name="speedometer-outline" size={18} color={colors.textSecondary} />
+                <Text style={[styles.quickActionLabel, { color: colors.textSecondary }]}>
+                  {costBudget.remaining}/{costBudget.max} pts
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Loading */}
@@ -343,13 +412,21 @@ export function AutomationsScreen() {
                     >
                       {auto.name}
                     </Text>
-                    {(auto.consecutive_errors || 0) > 0 && (
-                      <View style={[styles.errorBadge, { backgroundColor: colors.danger + "20" }]}>
-                        <Text style={[styles.errorBadgeText, { color: colors.danger }]}>
-                          {auto.consecutive_errors} err
-                        </Text>
-                      </View>
-                    )}
+                    {/* Health indicator */}
+                    {auto.health && (() => {
+                      const hc = HEALTH_COLORS[auto.health.status] || HEALTH_COLORS.new;
+                      return (
+                        <View style={[styles.healthBadge, { backgroundColor: hc.bg }]}>
+                          <View style={[styles.healthDot, { backgroundColor: hc.dot }]} />
+                          <Text style={[styles.healthBadgeText, { color: hc.text }]}>
+                            {HEALTH_LABELS[auto.health.status] || auto.health.status}
+                            {auto.health.score !== undefined && auto.health.status !== "new" && auto.health.status !== "disabled"
+                              ? ` ${auto.health.score}`
+                              : ""}
+                          </Text>
+                        </View>
+                      );
+                    })()}
                   </View>
                   <Switch
                     value={auto.enabled}
@@ -387,9 +464,12 @@ export function AutomationsScreen() {
                 </View>
 
                 {/* Stats */}
-                {(auto.total_runs || 0) > 0 && (
+                {(auto.run_count || 0) > 0 && (
                   <Text style={[styles.statsText, { color: colors.textMuted }]}>
-                    {auto.total_runs} runs · Last: {formatDate(auto.last_run_at)}
+                    {auto.run_count} runs
+                    {(auto.error_count || 0) > 0 ? ` · ${auto.error_count} errors` : ""}
+                    {auto.last_run ? ` · Last: ${formatDate(auto.last_run)}` : ""}
+                    {auto.engine_version ? `  ${auto.engine_version}` : ""}
                   </Text>
                 )}
 
@@ -402,6 +482,14 @@ export function AutomationsScreen() {
                   >
                     <Ionicons name="play-outline" size={18} color={colors.textSecondary} />
                     <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>Test</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => handleReplay(auto.automation_id)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="refresh-outline" size={18} color={colors.textSecondary} />
+                    <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>Replay</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.actionBtn}
@@ -605,51 +693,51 @@ export function AutomationsScreen() {
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
-                {historyData.map((run, i) => (
-                  <View key={run.run_id || i} style={[styles.historyItem, { borderColor: colors.border }]}>
-                    <View style={styles.historyItemHeader}>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          {
-                            backgroundColor:
-                              run.status === "completed"
-                                ? colors.success + "20"
-                                : run.status === "skipped"
-                                ? colors.warning + "20"
-                                : colors.danger + "20",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusText,
-                            {
-                              color:
-                                run.status === "completed"
-                                  ? colors.success
-                                  : run.status === "skipped"
-                                  ? colors.warning
-                                  : colors.danger,
-                            },
-                          ]}
-                        >
-                          {run.status}
-                        </Text>
+                {historyData.map((run, i) => {
+                  const statusColor =
+                    run.status === "success" || run.status === "completed"
+                      ? colors.success
+                      : run.status === "skipped"
+                      ? colors.warning
+                      : colors.danger;
+                  const successActions = run.action_results?.filter(a => a.success).length ?? 0;
+                  const totalActions = run.action_results?.length ?? 0;
+                  return (
+                    <View key={run.run_id || i} style={[styles.historyItem, { borderColor: colors.border }]}>
+                      <View style={styles.historyItemHeader}>
+                        <View style={[styles.statusBadge, { backgroundColor: statusColor + "20" }]}>
+                          <Text style={[styles.statusText, { color: statusColor }]}>
+                            {run.status}
+                          </Text>
+                        </View>
+                        {run.force_replay && (
+                          <View style={[styles.statusBadge, { backgroundColor: colors.textMuted + "15" }]}>
+                            <Ionicons name="refresh-outline" size={10} color={colors.textMuted} />
+                            <Text style={[styles.statusText, { color: colors.textMuted, marginLeft: 2 }]}>
+                              replay
+                            </Text>
+                          </View>
+                        )}
+                        {run.policy_block_reason_enum && (
+                          <Text style={[styles.skipReason, { color: colors.textMuted }]}>
+                            {run.policy_block_reason_enum.replace(/_/g, " ")}
+                          </Text>
+                        )}
+                        {run.reason && !run.policy_block_reason_enum && (
+                          <Text style={[styles.skipReason, { color: colors.textMuted }]}>
+                            {run.reason.replace(/_/g, " ")}
+                          </Text>
+                        )}
                       </View>
-                      {run.skip_reason && (
-                        <Text style={[styles.skipReason, { color: colors.textMuted }]}>
-                          {run.skip_reason.replace(/_/g, " ")}
-                        </Text>
-                      )}
+                      <Text style={[styles.historyDate, { color: colors.textMuted }]}>
+                        {formatDate(run.created_at || run.started_at)}
+                        {run.duration_ms ? ` · ${run.duration_ms}ms` : ""}
+                        {run.trigger_latency_ms ? ` · latency: ${run.trigger_latency_ms}ms` : ""}
+                        {totalActions > 0 ? ` · ${successActions}/${totalActions} actions` : ""}
+                      </Text>
                     </View>
-                    <Text style={[styles.historyDate, { color: colors.textMuted }]}>
-                      {formatDate(run.started_at)}
-                      {run.duration_ms ? ` · ${run.duration_ms}ms` : ""}
-                      {run.actions_executed !== undefined ? ` · ${run.actions_executed} action${run.actions_executed !== 1 ? "s" : ""}` : ""}
-                    </Text>
-                  </View>
-                ))}
+                  );
+                })}
               </ScrollView>
             )}
           </View>
@@ -810,6 +898,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   errorBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  healthBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  healthDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  healthBadgeText: {
     fontSize: 10,
     fontWeight: "600",
   },

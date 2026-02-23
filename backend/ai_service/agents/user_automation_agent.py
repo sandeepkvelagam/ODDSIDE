@@ -681,6 +681,7 @@ class UserAutomationAgent(BaseAgent):
             event_id=context.get("event_id"),
             causation_run_id=context.get("causation_run_id"),
             correlation_id=context.get("correlation_id"),
+            force_replay=context.get("force_replay", False),
         )
         steps.append({"step": "run", "result": run_result})
 

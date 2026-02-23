@@ -7778,6 +7778,58 @@ async def get_automation_templates(
         raise HTTPException(status_code=500, detail=result.error)
     return {"success": True, "data": result.data}
 
+@api_router.post("/automations/{automation_id}/replay")
+async def replay_automation(automation_id: str, current_user: User = Depends(get_current_user)):
+    """Re-run an automation bypassing dedupe (force replay)."""
+    from ai_service.tools.automation_runner import AutomationRunnerTool
+    runner = AutomationRunnerTool(db=db)
+    automation = await db.user_automations.find_one(
+        {"automation_id": automation_id, "user_id": current_user.user_id},
+        {"_id": 0}
+    )
+    if not automation:
+        raise HTTPException(status_code=404, detail="Automation not found")
+    result = await runner.execute(
+        action="run_automation",
+        automation_id=automation_id,
+        event_data={"source": "manual_replay"},
+        force_replay=True,
+    )
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "data": result.data, "message": result.message}
+
+@api_router.get("/automations/{automation_id}/health")
+async def get_automation_health(automation_id: str, current_user: User = Depends(get_current_user)):
+    """Get the health score for a single automation."""
+    from ai_service.tools.automation_builder import AutomationBuilderTool
+    builder = AutomationBuilderTool(db=db)
+    result = await builder.execute(action="get", user_id=current_user.user_id, automation_id=automation_id)
+    if not result.success:
+        raise HTTPException(status_code=404, detail=result.error)
+    return {"success": True, "data": {"health": result.data.get("health")}}
+
+@api_router.get("/automations/usage/cost-budget")
+async def get_cost_budget(current_user: User = Depends(get_current_user)):
+    """Get the user's action cost budget usage for today."""
+    from ai_service.tools.automation_policy import AutomationPolicyTool
+    policy = AutomationPolicyTool(db=db)
+    result = await policy.execute(action="get_usage_stats", user_id=current_user.user_id)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    data = result.data or {}
+    return {
+        "success": True,
+        "data": {
+            "today_cost_points": data.get("today_cost_points", 0),
+            "max_daily_cost_points": data.get("max_daily_cost_points", 100),
+            "cost_budget_remaining": data.get("cost_budget_remaining", 100),
+            "action_cost_table": data.get("action_cost_table", {}),
+            "today_executions": data.get("today_executions", 0),
+            "max_daily_executions": data.get("max_daily_executions", 50),
+        }
+    }
+
 
 # Include the router
 app.include_router(api_router)

@@ -434,6 +434,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // Page Header
+  pageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pageTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   // Header Card - Liquid Glass
   headerCard: {
     marginHorizontal: 20,

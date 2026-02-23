@@ -24,12 +24,12 @@ export function MainStack() {
       <Stack.Screen
         name="Groups"
         component={GroupsScreen}
-        options={{ title: "Kvitt" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="GroupHub"
         component={GroupHubScreen}
-        options={({ route }) => ({ title: route.params.groupName ?? "Group" })}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="GameNight"

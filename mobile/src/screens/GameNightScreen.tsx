@@ -1828,6 +1828,133 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
+  // Thread Button
+  threadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    marginBottom: 12,
+  },
+  threadButtonText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  threadBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  threadBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  // Thread Modal
+  threadSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "85%",
+    minHeight: "60%",
+  },
+  threadHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  threadLoading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  threadEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 12,
+  },
+  threadEmptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  threadEmptySubtext: {
+    fontSize: 14,
+  },
+  threadMessages: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  messageRow: {
+    flexDirection: "row",
+    marginBottom: 12,
+    alignItems: "flex-end",
+  },
+  messageRowOwn: {
+    justifyContent: "flex-end",
+  },
+  messageAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  messageAvatarText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  messageBubble: {
+    maxWidth: "75%",
+    borderRadius: 16,
+    padding: 12,
+  },
+  messageSender: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  messageTime: {
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: "right",
+  },
+  threadInputContainer: {
+    flexDirection: "row",
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+  },
+  threadInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    maxHeight: 100,
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   // Action bar
   actionBar: {
     position: "absolute",

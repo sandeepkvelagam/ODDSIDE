@@ -72,18 +72,23 @@ export function GameNightScreen() {
   const insets = useSafeAreaInsets();
   const { gameId } = route.params;
 
-  // Use liquid glass colors
+  // Use liquid glass colors - with light theme adjustments
   const lc = isDark ? LIQUID_COLORS : {
     ...LIQUID_COLORS,
     jetDark: colors.background,
     jetSurface: colors.surface,
     liquidGlassBg: "rgba(0, 0, 0, 0.04)",
-    liquidGlassBorder: "rgba(0, 0, 0, 0.08)",
-    liquidInnerBg: "rgba(0, 0, 0, 0.02)",
+    liquidGlassBorder: "rgba(0, 0, 0, 0.10)",
+    liquidInnerBg: "rgba(0, 0, 0, 0.03)",
     textPrimary: colors.textPrimary,
     textSecondary: colors.textSecondary,
     textMuted: colors.textMuted,
   };
+
+  // Host/Admin color - amber that's readable on both themes
+  const hostColor = isDark ? "#fbbf24" : "#b45309"; // amber-400 in dark, amber-700 in light
+  const hostBgColor = isDark ? "rgba(234,179,8,0.15)" : "rgba(180,83,9,0.12)";
+  const hostBorderColor = isDark ? "rgba(234,179,8,0.3)" : "rgba(180,83,9,0.25)";
 
   const socketRef = useRef<Socket | null>(null);
   const [snapshot, setSnapshot] = useState<any>(null);

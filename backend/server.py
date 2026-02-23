@@ -7113,6 +7113,181 @@ async def unsubscribe(email: str):
     return {"status": "unsubscribed", "message": "You've been unsubscribed. Sorry to see you go!"}
 
 
+# ============== ENGAGEMENT ENDPOINTS ==============
+
+class EngagementSettingsUpdate(BaseModel):
+    """Settings for group engagement features."""
+    engagement_enabled: Optional[bool] = None
+    inactive_group_nudge_days: Optional[int] = None
+    inactive_user_nudge_days: Optional[int] = None
+    milestone_celebrations: Optional[bool] = None
+    big_winner_celebrations: Optional[bool] = None
+    weekly_digest: Optional[bool] = None
+
+@api_router.get("/engagement/scores/group/{group_id}")
+async def get_group_engagement_score(group_id: str, current_user: User = Depends(get_current_user)):
+    """Get engagement score for a group."""
+    from ai_service.tools.engagement_scorer import EngagementScorerTool
+    scorer = EngagementScorerTool(db=db)
+    result = await scorer.execute(action="score_group", group_id=group_id)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+@api_router.get("/engagement/scores/user/{user_id}")
+async def get_user_engagement_score(
+    user_id: str,
+    group_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Get engagement score for a user."""
+    from ai_service.tools.engagement_scorer import EngagementScorerTool
+    scorer = EngagementScorerTool(db=db)
+    result = await scorer.execute(action="score_user", user_id=user_id, group_id=group_id)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+@api_router.get("/engagement/scores/me")
+async def get_my_engagement_score(
+    group_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Get engagement score for the current user."""
+    from ai_service.tools.engagement_scorer import EngagementScorerTool
+    scorer = EngagementScorerTool(db=db)
+    result = await scorer.execute(action="score_user", user_id=current_user.user_id, group_id=group_id)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+@api_router.get("/engagement/inactive-groups")
+async def get_inactive_groups(
+    days: int = 14,
+    current_user: User = Depends(get_current_user)
+):
+    """Get list of inactive groups (admin use)."""
+    from ai_service.tools.engagement_scorer import EngagementScorerTool
+    scorer = EngagementScorerTool(db=db)
+    result = await scorer.execute(action="find_inactive_groups", inactive_days=days)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+@api_router.get("/engagement/inactive-users/{group_id}")
+async def get_inactive_users(
+    group_id: str,
+    days: int = 30,
+    current_user: User = Depends(get_current_user)
+):
+    """Get list of inactive users in a group."""
+    from ai_service.tools.engagement_scorer import EngagementScorerTool
+    scorer = EngagementScorerTool(db=db)
+    result = await scorer.execute(action="find_inactive_users", group_id=group_id, inactive_days=days)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+@api_router.get("/engagement/settings/{group_id}")
+async def get_engagement_settings(group_id: str, current_user: User = Depends(get_current_user)):
+    """Get engagement settings for a group."""
+    settings = await db.engagement_settings.find_one(
+        {"group_id": group_id},
+        {"_id": 0}
+    )
+    if not settings:
+        # Return defaults
+        settings = {
+            "group_id": group_id,
+            "engagement_enabled": True,
+            "inactive_group_nudge_days": 14,
+            "inactive_user_nudge_days": 30,
+            "milestone_celebrations": True,
+            "big_winner_celebrations": True,
+            "weekly_digest": True,
+        }
+    return settings
+
+@api_router.put("/engagement/settings/{group_id}")
+async def update_engagement_settings(
+    group_id: str,
+    updates: EngagementSettingsUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """Update engagement settings for a group (admin only)."""
+    # Check admin permission
+    member = await db.group_members.find_one({
+        "group_id": group_id,
+        "user_id": current_user.user_id,
+        "role": "admin"
+    })
+    if not member:
+        raise HTTPException(status_code=403, detail="Only group admins can update engagement settings")
+
+    update_data = {k: v for k, v in updates.model_dump().items() if v is not None}
+    update_data["group_id"] = group_id
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    await db.engagement_settings.update_one(
+        {"group_id": group_id},
+        {"$set": update_data},
+        upsert=True
+    )
+
+    return {"status": "updated", "settings": update_data}
+
+@api_router.post("/engagement/trigger-check/{group_id}")
+async def trigger_engagement_check(group_id: str, current_user: User = Depends(get_current_user)):
+    """Manually trigger an engagement check for a group (admin only)."""
+    member = await db.group_members.find_one({
+        "group_id": group_id,
+        "user_id": current_user.user_id,
+        "role": "admin"
+    })
+    if not member:
+        raise HTTPException(status_code=403, detail="Only group admins can trigger engagement checks")
+
+    from ai_service.agents.engagement_agent import EngagementAgent
+    from ai_service.tools.registry import ToolRegistry
+
+    tool_registry = ToolRegistry()
+    agent = EngagementAgent(tool_registry=tool_registry, db=db)
+    result = await agent.execute(
+        "Send engagement digest",
+        context={"action": "send_engagement_digest", "group_id": group_id}
+    )
+
+    return {
+        "status": "completed" if result.success else "failed",
+        "message": result.message,
+        "data": result.data
+    }
+
+@api_router.get("/engagement/nudge-history/{group_id}")
+async def get_nudge_history(
+    group_id: str,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user)
+):
+    """Get nudge history for a group."""
+    nudges = await db.engagement_nudges_log.find(
+        {"group_id": group_id},
+        {"_id": 0}
+    ).sort("sent_at", -1).to_list(limit)
+
+    return {"nudges": nudges, "count": len(nudges)}
+
+@api_router.get("/engagement/report/{group_id}")
+async def get_engagement_report(group_id: str, current_user: User = Depends(get_current_user)):
+    """Get a comprehensive engagement report for a group."""
+    from ai_service.tools.engagement_scorer import EngagementScorerTool
+    scorer = EngagementScorerTool(db=db)
+    result = await scorer.execute(action="get_engagement_report", group_id=group_id)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+
 # Include the router
 app.include_router(api_router)
 
@@ -7142,11 +7317,30 @@ async def create_indexes():
     except Exception as e:
         logger.warning(f"ProactiveScheduler failed to start (non-critical): {e}")
 
+    # Start engagement scheduler for re-engagement nudges
+    try:
+        from ai_service.engagement_scheduler import start_engagement_scheduler
+        await start_engagement_scheduler(db=db)
+        logger.info("EngagementScheduler started")
+    except Exception as e:
+        logger.warning(f"EngagementScheduler failed to start (non-critical): {e}")
+
+    # Create indexes for engagement collections
+    await db.engagement_nudges_log.create_index([("target_id", 1), ("nudge_type", 1), ("sent_at", -1)])
+    await db.engagement_nudges_log.create_index([("group_id", 1), ("sent_at", -1)])
+    await db.engagement_settings.create_index("group_id", unique=True)
+    logger.info("Database indexes ensured for engagement collections")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     try:
         from ai_service.proactive_scheduler import stop_proactive_scheduler
         await stop_proactive_scheduler()
+    except Exception:
+        pass
+    try:
+        from ai_service.engagement_scheduler import stop_engagement_scheduler
+        await stop_engagement_scheduler()
     except Exception:
         pass
     client.close()

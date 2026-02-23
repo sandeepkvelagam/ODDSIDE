@@ -861,7 +861,63 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: "700",
-    textAlign: "center",
+    marginLeft: 12,
+  },
+  // Liquid Glass Card Styles
+  liquidCard: {
+    borderRadius: 20,
+    padding: 4,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  liquidInner: {
+    borderRadius: 16,
+    padding: 16,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  cardHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  cardHeaderTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
+  gameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  inviteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  inviteBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  livePulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
   // Bottom Action Buttons - Labeled FABs
   bottomActions: {

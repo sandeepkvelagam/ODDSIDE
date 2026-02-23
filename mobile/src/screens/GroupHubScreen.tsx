@@ -1005,15 +1005,19 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "rgba(239,68,68,0.12)",
     padding: 14,
     borderRadius: 12,
     marginBottom: 18,
+    gap: 10,
+    borderWidth: 1,
   },
   errorText: {
-    color: "#fca5a5",
     fontSize: 14,
     lineHeight: 20,
+    flex: 1,
   },
   sectionHeader: {
     flexDirection: "row",

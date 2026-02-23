@@ -183,9 +183,9 @@ export function GroupsScreen() {
         <View style={styles.groupNameRow}>
           <Text style={[styles.groupName, { color: lc.textPrimary }]}>{item.name}</Text>
           {item.role === "admin" && (
-            <View style={[styles.adminBadge, { backgroundColor: "rgba(234,179,8,0.15)" }]}>
-              <Ionicons name="shield" size={10} color="#eab308" />
-              <Text style={styles.adminText}>Admin</Text>
+            <View style={[styles.adminBadge, { backgroundColor: adminBgColor }]}>
+              <Ionicons name="shield" size={10} color={adminColor} />
+              <Text style={[styles.adminText, { color: adminColor }]}>Admin</Text>
             </View>
           )}
         </View>

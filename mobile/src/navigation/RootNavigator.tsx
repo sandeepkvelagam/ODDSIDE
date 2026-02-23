@@ -174,7 +174,7 @@ export default function RootNavigator() {
           ) : (
             <>
               <Stack.Screen name="Dashboard" component={DashboardScreenV2} options={{ headerShown: false }} />
-              <Stack.Screen name="Groups" component={GroupsScreen} options={{ title: "Groups", headerBackTitle: "" }} />
+              <Stack.Screen name="Groups" component={GroupsScreen} options={{ headerShown: false }} />
               <Stack.Screen
                 name="GroupHub"
                 component={GroupHubScreen}

@@ -150,6 +150,7 @@ class AutoFixerTool(BaseTool):
             )
 
         # ==================== MUTATE TIER (writes data, needs confirmation) ====================
+        # Safety guards: never auto-mutate on critical severity or high-value disputes
 
         elif action == "reconcile_payment_apply":
             if not kwargs.get("confirmed"):
@@ -158,6 +159,13 @@ class AutoFixerTool(BaseTool):
                     error="reconcile_payment_apply requires confirmed=true. "
                           "Run reconcile_payment_preview first, then apply with confirmation."
                 )
+            # High-value threshold: block auto-mutation for disputes > $100
+            high_value_block = await self._check_high_value_threshold(
+                kwargs.get("game_id"), kwargs.get("feedback_id")
+            )
+            if high_value_block:
+                return high_value_block
+
             return await self._reconcile_payment_apply(
                 user_id=kwargs.get("user_id"),
                 game_id=kwargs.get("game_id"),
@@ -853,6 +861,84 @@ class AutoFixerTool(BaseTool):
         except Exception as e:
             logger.error(f"Permission apply error: {e}")
             return ToolResult(success=False, error=str(e))
+
+    # ==================== Safety Guards ====================
+
+    # Money always needs stricter rules. This threshold blocks auto-mutation
+    # for payment disputes involving real funds above this amount.
+    HIGH_VALUE_THRESHOLD = 100  # USD
+
+    async def _check_high_value_threshold(
+        self, game_id: str = None, feedback_id: str = None
+    ) -> Optional[ToolResult]:
+        """
+        Block auto-mutation for high-value disputes.
+
+        Returns ToolResult (blocked) or None (allowed).
+        Checks:
+        1. If feedback involves critical severity → always block mutation
+        2. If game has total pot > HIGH_VALUE_THRESHOLD → block mutation
+        """
+        if not self.db:
+            return None
+
+        # Check 1: Critical severity feedback → never auto-mutate
+        if feedback_id:
+            feedback = await self.db.feedback.find_one(
+                {"feedback_id": feedback_id},
+                {"_id": 0, "priority": 1, "classification": 1}
+            )
+            if feedback:
+                priority = feedback.get("priority")
+                severity = (feedback.get("classification") or {}).get("severity")
+                if priority == "critical" or severity == "critical":
+                    await self._log_fix_attempt(
+                        fix_type="blocked_critical_severity",
+                        feedback_id=feedback_id,
+                        result={"blocked": True, "reason": "critical_severity"}
+                    )
+                    return ToolResult(
+                        success=False,
+                        error="Auto-mutation blocked: critical severity issues require "
+                              "manual review. This has been escalated to a team member.",
+                        data={"blocked": True, "reason": "critical_severity"}
+                    )
+
+        # Check 2: High-value game → block mutation
+        if game_id:
+            game = await self.db.game_nights.find_one(
+                {"game_id": game_id},
+                {"_id": 0, "players": 1}
+            )
+            if game:
+                total_pot = sum(
+                    p.get("total_buy_in", 0) for p in game.get("players", [])
+                )
+                if total_pot > self.HIGH_VALUE_THRESHOLD:
+                    await self._log_fix_attempt(
+                        fix_type="blocked_high_value",
+                        game_id=game_id,
+                        feedback_id=feedback_id,
+                        result={
+                            "blocked": True,
+                            "reason": "high_value",
+                            "total_pot": total_pot,
+                            "threshold": self.HIGH_VALUE_THRESHOLD
+                        }
+                    )
+                    return ToolResult(
+                        success=False,
+                        error=f"Auto-mutation blocked: game total (${total_pot:.0f}) "
+                              f"exceeds ${self.HIGH_VALUE_THRESHOLD} threshold. "
+                              f"Payment disputes above this amount require manual review.",
+                        data={
+                            "blocked": True,
+                            "reason": "high_value",
+                            "total_pot": total_pot,
+                        }
+                    )
+
+        return None  # No block — proceed
 
     # ==================== Helpers ====================
 

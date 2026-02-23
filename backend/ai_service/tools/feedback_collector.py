@@ -1,9 +1,17 @@
 """
-Feedback Collector Tool (v2)
+Feedback Collector Tool (v3)
 
 Stores, retrieves, and manages user feedback submissions.
 
-v2 upgrades:
+v3 upgrades:
+- Idempotency: idempotency_key prevents duplicate processing from retries/double-taps
+- Cross-channel dedup: survey auto-complaint merges with manual reports for same game
+- Low-rating guardrails: 1★=auto-complaint, 2★=only if comment present, 3★=no escalation
+- rating_context: structured context (lost_money, settlement_changed, etc.)
+- Statistical honesty: minimum 100 ratings, unique per user/game, rolling 90-day
+- Feedback health score: internal red/yellow/green operational metric
+
+Prior (v2) features:
 - Expanded lifecycle: new → classified → needs_user_info → needs_host_action →
   in_progress → auto_fixed → resolved → wont_fix → duplicate
 - context_refs: structured pointers (group_id, game_id, settlement_id, etc.)
@@ -241,9 +249,10 @@ class FeedbackCollectorTool(BaseTool):
         game_id: str = None,
         tags: List[str] = None,
         context: Dict = None,
-        context_refs: Dict = None
+        context_refs: Dict = None,
+        idempotency_key: str = None
     ) -> ToolResult:
-        """Store a feedback submission with PII redaction and duplicate detection."""
+        """Store a feedback submission with PII redaction, dedup, and idempotency."""
         if not self.db:
             return ToolResult(success=False, error="Database not available")
 
@@ -253,6 +262,58 @@ class FeedbackCollectorTool(BaseTool):
         try:
             now = datetime.now(timezone.utc)
             now_iso = now.isoformat()
+
+            # Idempotency check: same key = return existing result (prevents double-taps/retries)
+            if idempotency_key:
+                existing = await self.db.feedback.find_one(
+                    {"idempotency_key": idempotency_key},
+                    {"_id": 0, "feedback_id": 1, "feedback_type": 1, "status": 1}
+                )
+                if existing:
+                    return ToolResult(
+                        success=True,
+                        data={
+                            "feedback_id": existing["feedback_id"],
+                            "idempotent_hit": True,
+                        },
+                        message="Feedback already processed (idempotent)"
+                    )
+
+            # Cross-channel dedup: if user submits manual report for same game
+            # that already has an auto-complaint from low survey rating, merge them
+            if game_id and user_id:
+                existing_auto = await self.db.feedback.find_one({
+                    "user_id": user_id,
+                    "game_id": game_id,
+                    "tags": "auto_from_survey",
+                    "status": {"$in": ["new", "classified"]},
+                })
+                if existing_auto:
+                    # Append manual content to existing auto-created complaint
+                    redacted_new = _redact_pii(content)
+                    await self.db.feedback.update_one(
+                        {"feedback_id": existing_auto["feedback_id"]},
+                        {
+                            "$set": {
+                                "content": f"{existing_auto.get('content', '')}\n\n[User followup]: {redacted_new}",
+                                "feedback_type": feedback_type,  # user's chosen type overrides
+                            },
+                            "$push": {"events": {
+                                "ts": now_iso,
+                                "actor": user_id,
+                                "action": "merged_manual_report",
+                                "details": {"original_type": existing_auto.get("feedback_type")}
+                            }}
+                        }
+                    )
+                    return ToolResult(
+                        success=True,
+                        data={
+                            "feedback_id": existing_auto["feedback_id"],
+                            "merged": True,
+                        },
+                        message="Feedback merged with existing report for this game"
+                    )
 
             # PII redaction
             redacted_content = _redact_pii(content)
@@ -305,6 +366,7 @@ class FeedbackCollectorTool(BaseTool):
                 "tags": tags or [],
                 "context": context or {},
                 "context_refs": refs,
+                "idempotency_key": idempotency_key,
 
                 # Lifecycle
                 "status": "new",
@@ -415,6 +477,9 @@ class FeedbackCollectorTool(BaseTool):
             survey_id = f"srv_{uuid.uuid4().hex[:12]}"
             redacted_comment = _redact_pii(content) if content else ""
 
+            # Build rating_context from game data
+            rating_context = await self._build_rating_context(user_id, game_id)
+
             doc = {
                 "survey_id": survey_id,
                 "user_id": user_id,
@@ -422,21 +487,48 @@ class FeedbackCollectorTool(BaseTool):
                 "group_id": group_id,
                 "rating": rating,
                 "comment": redacted_comment,
+                "rating_context": rating_context,
                 "created_at": now_iso,
             }
 
             await self.db.feedback_surveys.insert_one(doc)
 
-            # If rating is low (1-2), auto-create a feedback entry for follow-up
-            if rating <= 2:
+            # Low-rating escalation guardrails:
+            # 1★ → always auto-create complaint (high severity)
+            # 2★ → only if comment present (user explained what went wrong)
+            # 3★ → store but don't escalate (neutral)
+            # 4-5★ → no action needed
+            low_rating_flagged = False
+            if rating == 1:
+                low_rating_flagged = True
                 await self._submit_feedback(
                     user_id=user_id,
                     feedback_type="complaint",
                     content=redacted_comment or f"Low survey rating ({rating}/5) after game",
                     group_id=group_id,
                     game_id=game_id,
+                    tags=["auto_from_survey", f"rating_{rating}", "severity_critical"],
+                    context={
+                        "source": "post_game_survey",
+                        "rating": rating,
+                        "rating_context": rating_context,
+                    },
+                    context_refs={"game_id": game_id, "group_id": group_id}
+                )
+            elif rating == 2 and redacted_comment:
+                low_rating_flagged = True
+                await self._submit_feedback(
+                    user_id=user_id,
+                    feedback_type="complaint",
+                    content=redacted_comment,
+                    group_id=group_id,
+                    game_id=game_id,
                     tags=["auto_from_survey", f"rating_{rating}"],
-                    context={"source": "post_game_survey", "rating": rating},
+                    context={
+                        "source": "post_game_survey",
+                        "rating": rating,
+                        "rating_context": rating_context,
+                    },
                     context_refs={"game_id": game_id, "group_id": group_id}
                 )
 
@@ -445,13 +537,214 @@ class FeedbackCollectorTool(BaseTool):
                 data={
                     "survey_id": survey_id,
                     "rating": rating,
-                    "low_rating_flagged": rating <= 2
+                    "low_rating_flagged": low_rating_flagged,
+                    "rating_context": rating_context,
                 },
                 message=f"Survey submitted: {rating}/5 stars"
             )
 
         except Exception as e:
             logger.error(f"Error submitting survey: {e}")
+            return ToolResult(success=False, error=str(e))
+
+    # ==================== Rating Context Builder ====================
+
+    async def _build_rating_context(self, user_id: str, game_id: str) -> Dict:
+        """
+        Build structured rating_context from game data.
+        Captures player emotional state for analytics:
+        - lost_money: player's net P&L
+        - settlement_changed: was settlement recalculated
+        - left_early: player departed before game ended
+        - game_duration_hours: how long the game lasted
+        """
+        ctx = {}
+        if not self.db or not game_id:
+            return ctx
+
+        try:
+            game = await self.db.game_nights.find_one(
+                {"game_id": game_id},
+                {"_id": 0, "players": 1, "status": 1, "created_at": 1, "ended_at": 1}
+            )
+            if not game:
+                return ctx
+
+            # Find this player's P&L
+            for p in game.get("players", []):
+                if p.get("user_id") == user_id:
+                    buy_in = p.get("total_buy_in", 0)
+                    cash_out = p.get("cash_out", 0)
+                    net = cash_out - buy_in
+                    ctx["net_profit"] = net
+                    ctx["lost_money"] = net < 0
+                    ctx["left_early"] = p.get("left_early", False)
+                    break
+
+            # Game duration
+            if game.get("created_at") and game.get("ended_at"):
+                try:
+                    start = datetime.fromisoformat(game["created_at"])
+                    end = datetime.fromisoformat(game["ended_at"])
+                    ctx["game_duration_hours"] = round((end - start).total_seconds() / 3600, 1)
+                except (ValueError, TypeError):
+                    pass
+
+        except Exception as e:
+            logger.debug(f"Error building rating context: {e}")
+
+        return ctx
+
+    # ==================== Feedback Health Score ====================
+
+    async def get_health_score(self, group_id: str = None) -> ToolResult:
+        """
+        Compute internal feedback health score (0-100).
+
+        Formula:
+        health = 100
+          - (critical_open * 10)
+          - (high_open * 5)
+          - (reopen_rate_pct * 0.2)
+          - min(avg_resolution_hours * 0.5, 20)
+
+        Green: 80-100, Yellow: 50-79, Red: 0-49
+        """
+        if not self.db:
+            return ToolResult(success=False, error="Database not available")
+
+        try:
+            query = {"status": {"$nin": ["resolved", "wont_fix", "duplicate"]}}
+            if group_id:
+                query["group_id"] = group_id
+
+            open_feedback = await self.db.feedback.find(
+                query, {"_id": 0, "priority": 1}
+            ).to_list(500)
+
+            critical_open = sum(1 for f in open_feedback if f.get("priority") == "critical")
+            high_open = sum(1 for f in open_feedback if f.get("priority") == "high")
+
+            # Get trends for reopen rate and resolution time
+            trends = await self._get_trends(group_id=group_id, days=30)
+            metrics = trends.data.get("metrics", {}) if trends.success else {}
+
+            reopen_rate = metrics.get("reopen_rate", 0)
+            avg_hours = metrics.get("avg_resolution_hours") or 0
+
+            score = 100
+            score -= critical_open * 10
+            score -= high_open * 5
+            score -= reopen_rate * 0.2
+            score -= min(avg_hours * 0.5, 20)
+            score = max(0, round(score, 1))
+
+            if score >= 80:
+                status = "green"
+            elif score >= 50:
+                status = "yellow"
+            else:
+                status = "red"
+
+            return ToolResult(
+                success=True,
+                data={
+                    "health_score": score,
+                    "status": status,
+                    "critical_open": critical_open,
+                    "high_open": high_open,
+                    "reopen_rate": reopen_rate,
+                    "avg_resolution_hours": avg_hours,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error computing health score: {e}")
+            return ToolResult(success=False, error=str(e))
+
+    # ==================== Public Rating Stats (Landing Page) ====================
+
+    async def get_public_rating_stats(self, days: int = 90) -> ToolResult:
+        """
+        Get statistically honest public-facing rating stats.
+
+        Rules:
+        - Minimum 100 unique surveys before showing
+        - Only count verified post-game surveys (not manual feedback)
+        - Deduplicate: one rating per user per game
+        - Rolling window (default 90 days)
+        - Returns None if confidence floor not met
+        """
+        if not self.db:
+            return ToolResult(success=False, error="Database not available")
+
+        try:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+            # Aggregate: unique (user_id, game_id) pairs, average rating
+            pipeline = [
+                {"$match": {"created_at": {"$gte": cutoff}}},
+                # Deduplicate: take first survey per user per game
+                {"$group": {
+                    "_id": {"user_id": "$user_id", "game_id": "$game_id"},
+                    "rating": {"$first": "$rating"},
+                }},
+                {"$group": {
+                    "_id": None,
+                    "avg_rating": {"$avg": "$rating"},
+                    "total_unique": {"$sum": 1},
+                    "five_star": {"$sum": {"$cond": [{"$eq": ["$rating", 5]}, 1, 0]}},
+                    "four_star": {"$sum": {"$cond": [{"$eq": ["$rating", 4]}, 1, 0]}},
+                }}
+            ]
+
+            results = await self.db.feedback_surveys.aggregate(pipeline).to_list(1)
+
+            if not results:
+                return ToolResult(
+                    success=True,
+                    data={"show_public": False, "reason": "no_data"}
+                )
+
+            stats = results[0]
+            total = stats["total_unique"]
+            avg = round(stats["avg_rating"], 2)
+
+            # Confidence floor: need 100+ unique ratings AND avg >= 3.5
+            if total < 100:
+                return ToolResult(
+                    success=True,
+                    data={
+                        "show_public": False,
+                        "reason": "insufficient_data",
+                        "total_unique": total,
+                    }
+                )
+
+            if avg < 3.5:
+                return ToolResult(
+                    success=True,
+                    data={
+                        "show_public": False,
+                        "reason": "avg_below_threshold",
+                        "total_unique": total,
+                        "avg_rating": avg,
+                    }
+                )
+
+            return ToolResult(
+                success=True,
+                data={
+                    "show_public": True,
+                    "avg_rating": avg,
+                    "total_unique": total,
+                    "period_days": days,
+                    "five_star_count": stats.get("five_star", 0),
+                    "four_star_count": stats.get("four_star", 0),
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Error getting public rating stats: {e}")
             return ToolResult(success=False, error=str(e))
 
     # ==================== Get Feedback ====================

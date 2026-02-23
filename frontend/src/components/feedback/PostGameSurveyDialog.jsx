@@ -69,12 +69,16 @@ export function PostGameSurveyDialog({ open, onOpenChange, gameId, groupId }) {
               <CheckCircle className="w-8 h-8 text-green-500" />
             </div>
             <h3 className="text-lg font-semibold text-foreground">
-              Thanks for the feedback!
+              {rating <= 2 ? "We hear you" : "Thanks for the feedback!"}
             </h3>
             <p className="text-sm text-muted-foreground text-center">
-              {rating >= 4
-                ? "Glad you enjoyed the game!"
-                : "We'll use your feedback to make things better."}
+              {rating <= 2
+                ? "Sorry this didn't go smoothly tonight. We'll look into what went wrong and follow up."
+                : rating === 3
+                ? "Thanks for the honest feedback. We're always working to make things better."
+                : rating === 4
+                ? "Thanks for the rating! Glad the game went well."
+                : "Awesome, glad you had a great time!"}
             </p>
             <Button onClick={handleClose} className="mt-2">Done</Button>
           </div>

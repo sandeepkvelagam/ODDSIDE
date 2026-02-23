@@ -7297,6 +7297,7 @@ class FeedbackSubmit(BaseModel):
     game_id: Optional[str] = None
     tags: List[str] = []
     context: Dict[str, Any] = {}
+    idempotency_key: Optional[str] = None  # Prevents duplicate processing from retries
 
 class SurveySubmit(BaseModel):
     game_id: str
@@ -7333,7 +7334,8 @@ async def submit_feedback(data: FeedbackSubmit, current_user: User = Depends(get
             "group_id": data.group_id,
             "game_id": data.game_id,
             "tags": data.tags,
-            "context": data.context
+            "context": data.context,
+            "idempotency_key": data.idempotency_key,
         }
     )
     if not result.success:
@@ -7571,6 +7573,35 @@ async def get_allowed_fixes(
         group_id=group_id,
         feedback_owner_id=current_user.user_id
     )
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+
+@api_router.get("/feedback/health")
+async def get_feedback_health(
+    group_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Get internal feedback health score (red/yellow/green)."""
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.get_health_score(group_id=group_id)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+
+@api_router.get("/feedback/public-stats")
+async def get_public_rating_stats(days: int = 90):
+    """
+    Get statistically honest public-facing rating stats for the landing page.
+    No auth required — public endpoint.
+    Returns stats only if confidence floor is met (100+ unique ratings, avg >= 3.5).
+    """
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.get_public_rating_stats(days=days)
     if not result.success:
         raise HTTPException(status_code=500, detail=result.error)
     return result.data

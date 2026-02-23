@@ -62,13 +62,14 @@ export default function TestimonialsSection() {
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    // Silently attempt to load real aggregate stats for the subtitle
+    // Use the statistically honest public-stats endpoint (no auth required)
+    // Only shows stats if 100+ unique ratings AND avg >= 3.5
     axios
-      .get(`${API}/feedback/trends`, { params: { days: 90 } })
+      .get(`${API}/feedback/public-stats`, { params: { days: 90 } })
       .then((res) => {
-        const { total_surveys, avg_survey_rating } = res.data || {};
-        if (total_surveys >= 5 && avg_survey_rating >= 3.5) {
-          setStats({ count: total_surveys, avgRating: avg_survey_rating });
+        const data = res.data || {};
+        if (data.show_public) {
+          setStats({ count: data.total_unique, avgRating: data.avg_rating });
         }
       })
       .catch(() => {});

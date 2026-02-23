@@ -229,7 +229,7 @@ class FeedbackAgent(BaseAgent):
 
     async def _handle_submit_feedback(self, context: Dict, steps: List) -> AgentResult:
         """
-        Full v2 pipeline: Collect -> Classify -> Policy -> Fix(verify) -> Log -> Notify.
+        Full v3 pipeline: Collect (idempotent) -> Classify -> Policy -> Fix(verify) -> Log -> Notify.
         """
         user_id = context.get("user_id")
         content = context.get("content", "")
@@ -237,6 +237,7 @@ class FeedbackAgent(BaseAgent):
         group_id = context.get("group_id")
         game_id = context.get("game_id")
         extra_context = context.get("context", {})
+        idempotency_key = context.get("idempotency_key")
 
         if not user_id or not content:
             return AgentResult(
@@ -245,7 +246,7 @@ class FeedbackAgent(BaseAgent):
                 steps_taken=steps
             )
 
-        # Step 1: COLLECT — store the feedback (PII redacted, dedup checked)
+        # Step 1: COLLECT — store the feedback (idempotent, PII redacted, dedup checked)
         collect_result = await self.call_tool(
             "feedback_collector",
             action="submit_feedback",
@@ -255,7 +256,8 @@ class FeedbackAgent(BaseAgent):
             group_id=group_id,
             game_id=game_id,
             context=extra_context,
-            context_refs={"group_id": group_id, "game_id": game_id}
+            context_refs={"group_id": group_id, "game_id": game_id},
+            idempotency_key=idempotency_key,
         )
         steps.append({"step": "collect", "result": collect_result})
 
@@ -268,6 +270,24 @@ class FeedbackAgent(BaseAgent):
 
         collect_data = collect_result.get("data", {})
         feedback_id = collect_data.get("feedback_id")
+
+        # If idempotent retry hit, return cached result (no re-processing)
+        if collect_data.get("idempotent_hit"):
+            return AgentResult(
+                success=True,
+                data={"feedback_id": feedback_id, "idempotent_hit": True},
+                message="Feedback already processed (idempotent retry)",
+                steps_taken=steps
+            )
+
+        # If merged with existing auto-complaint from survey, skip classify
+        if collect_data.get("merged"):
+            return AgentResult(
+                success=True,
+                data={"feedback_id": feedback_id, "merged": True},
+                message="Feedback merged with existing report for this game",
+                steps_taken=steps
+            )
 
         # If duplicate detected, skip further processing
         if collect_data.get("duplicate"):
@@ -448,34 +468,123 @@ class FeedbackAgent(BaseAgent):
         auto_fix_result: Optional[Dict],
         policy_decision: Optional[Dict]
     ) -> str:
-        """Build the user acknowledgment message."""
-        msg = "Thanks for your feedback! We've received it"
+        """
+        Build confidence-based structured notification message.
+
+        Every automated response includes:
+        1. What was checked
+        2. What was found
+        3. What happens next
+        4. What user can do
+
+        This replaces generic "we're looking into it" with transparency.
+        Trust > automation.
+        """
+        category = classification.get("category", "other")
+        severity = classification.get("severity", "medium")
 
         if classification.get("auto_fixable"):
             if policy_decision and not policy_decision.get("allowed"):
-                msg += " and we're looking into it"
-            elif auto_fix_result and auto_fix_result.get("success"):
+                reason = policy_decision.get("blocked_reason", "policy")
+                return (
+                    f"Thanks for reporting this. We checked our automation rules "
+                    f"but this requires manual review ({reason}). "
+                    f"A team member will follow up. "
+                    f"You can check your notification inbox for updates."
+                )
+
+            if auto_fix_result and auto_fix_result.get("success"):
                 fix_data = auto_fix_result.get("data", {})
+                fix_type = fix_data.get("fix_type", "")
+
+                # Structured response per fix type
+                if fix_type == "settlement_recheck" or "settlement" in category:
+                    issues = fix_data.get("issues_found", False)
+                    if issues:
+                        return (
+                            "We rechecked the settlement for your last game. "
+                            "We found a discrepancy in the chip totals. "
+                            "The host has been notified to review. "
+                            "You'll get an update once it's resolved."
+                        )
+                    return (
+                        "We rechecked the settlement for your last game. "
+                        "Chip totals match all buy-in and cash-out records — no discrepancies found. "
+                        "If you still think something is off, reply with specifics."
+                    )
+
+                if fix_type == "resend_notification" or "notification" in category:
+                    resent = fix_data.get("resent", 0)
+                    if resent > 0:
+                        return (
+                            f"We checked the last 7 days of notification logs and "
+                            f"found {resent} undelivered notification(s). We've resent them. "
+                            f"If you still don't see them, check your notification settings."
+                        )
+                    return (
+                        "We checked your notification delivery logs. "
+                        "All recent notifications were delivered successfully. "
+                        "If you're not seeing them, check your device notification settings."
+                    )
+
+                if "payment" in fix_type or "payment" in category:
+                    matched = fix_data.get("matched", 0)
+                    if matched > 0:
+                        return (
+                            f"We matched {matched} payment(s) to pending ledger entries. "
+                            f"A preview is ready for review. The host can confirm to mark them as paid."
+                        )
+                    return (
+                        "We checked for unmatched payments but didn't find any pending matches. "
+                        "If you believe a payment was missed, share a screenshot or transaction ID."
+                    )
+
+                if "permission" in fix_type or "permission" in category:
+                    return (
+                        "We diagnosed your access permissions. "
+                        f"{fix_data.get('user_message', 'Check your notification inbox for details.')} "
+                        "If the issue persists, the group admin can re-invite you."
+                    )
+
+                # Generic structured fallback (still better than "looking into it")
                 user_message = fix_data.get("user_message")
                 if user_message:
-                    msg += f". {user_message}"
-                    return msg
+                    return f"Thanks for the report. {user_message}"
+
                 actions = fix_data.get("actions_taken", [])
                 if actions:
-                    msg += f" and automatically checked: {actions[0]}"
-                else:
-                    msg += " and attempted an automatic resolution"
-            else:
-                msg += " and we're looking into it"
-        else:
-            severity = classification.get("severity", "medium")
-            if severity in ("critical", "high"):
-                msg += " and it's been flagged as high priority"
-            else:
-                msg += " and it's been added to our review queue"
+                    return (
+                        f"Thanks for the report. We automatically checked: {actions[0]}. "
+                        f"No further action needed — but let us know if it happens again."
+                    )
 
-        msg += "."
-        return msg
+            # Auto-fix attempted but failed
+            if auto_fix_result and not auto_fix_result.get("success"):
+                return (
+                    "Thanks for reporting this. We attempted an automatic check "
+                    "but couldn't resolve it automatically. "
+                    "This has been escalated for manual review. "
+                    "You'll be notified when there's an update."
+                )
+
+        # Non-auto-fixable: severity-based response
+        if severity == "critical":
+            return (
+                "Thanks for reporting this — it's been flagged as critical priority. "
+                "Our team will investigate within 24 hours. "
+                "You'll receive an update in your notification inbox."
+            )
+        if severity == "high":
+            return (
+                "Thanks for the report. This has been flagged as high priority "
+                "and will be reviewed within 3 days. "
+                "Check your notifications for updates."
+            )
+
+        return (
+            "Thanks for your feedback! It's been added to our review queue. "
+            "We review all submissions and will follow up if needed."
+        )
 
     def _build_result_message(
         self,
@@ -563,15 +672,27 @@ class FeedbackAgent(BaseAgent):
         )
 
     def _build_survey_message(self, rating: int, data: Dict) -> str:
-        """Build survey result message."""
+        """Build emotionally-aware survey response message."""
         if data.get("duplicate"):
             return "Survey already submitted for this game"
         if data.get("skipped"):
             return f"Survey skipped ({data.get('reason', 'cooldown')})"
-        msg = f"Survey submitted: {rating}/5"
+
+        # Emotional UX: different responses based on rating
         if rating <= 2:
-            msg += " (low rating flagged)"
-        return msg
+            return (
+                "Sorry this didn't go smoothly tonight. "
+                "Want to tell us more about what went wrong? "
+                "Your feedback helps us fix things."
+            )
+        if rating == 3:
+            return (
+                "Thanks for the honest feedback. "
+                "We're always working to make things better."
+            )
+        if rating == 4:
+            return "Thanks for the rating! Glad the game went well."
+        return "Awesome, glad you had a great time! Thanks for the love."
 
     # ==================== Process Single Feedback ====================
 
@@ -704,7 +825,13 @@ class FeedbackAgent(BaseAgent):
     # ==================== Auto-Fix Attempt (Policy-Gated) ====================
 
     async def _attempt_auto_fix(self, context: Dict, steps: List) -> AgentResult:
-        """Attempt a policy-gated auto-fix for a specific feedback entry or pattern."""
+        """
+        Attempt a policy-gated auto-fix for a specific feedback entry or pattern.
+
+        Safety guards:
+        - Critical severity: verify-tier only, mutations blocked
+        - High-value disputes (>$100): mutations blocked by AutoFixerTool
+        """
         feedback_id = context.get("feedback_id")
         fix_type = context.get("fix_type")
         user_id = context.get("user_id")
@@ -725,6 +852,18 @@ class FeedbackAgent(BaseAgent):
                 game_id = game_id or entry.get("game_id")
                 group_id = group_id or entry.get("group_id")
                 feedback_owner_id = entry.get("user_id")
+
+                # Critical severity guard: never auto-mutate, only verify
+                severity = classification.get("severity") or entry.get("priority")
+                if severity == "critical" and confirmed:
+                    return AgentResult(
+                        success=False,
+                        error="Critical severity issues cannot be auto-mutated. "
+                              "Verify-tier (read-only) checks are allowed, but "
+                              "mutations require manual human review.",
+                        data={"blocked": True, "reason": "critical_severity"},
+                        steps_taken=steps
+                    )
 
         if not fix_type:
             return AgentResult(

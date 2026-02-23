@@ -93,12 +93,18 @@ export function PostGameSurveyModal({
             <Ionicons name="checkmark-circle" size={48} color={COLORS.status.success} />
           </View>
           <Text style={[styles.successTitle, { color: colors.textPrimary }]}>
-            Thanks for the feedback!
+            {rating <= 2
+              ? "We hear you"
+              : "Thanks for the feedback!"}
           </Text>
           <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
-            {rating >= 4
-              ? "Glad you enjoyed the game!"
-              : "We'll use your feedback to make things better."}
+            {rating <= 2
+              ? "Sorry this didn't go smoothly tonight. We'll look into what went wrong and follow up."
+              : rating === 3
+              ? "Thanks for the honest feedback. We're always working to make things better."
+              : rating === 4
+              ? "Thanks for the rating! Glad the game went well."
+              : "Awesome, glad you had a great time!"}
           </Text>
           <GlassButton variant="ghost" onPress={handleClose} fullWidth>
             Done

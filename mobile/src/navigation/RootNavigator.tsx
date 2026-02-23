@@ -180,7 +180,7 @@ export default function RootNavigator() {
                 component={GroupHubScreen}
                 options={({ route }) => ({ title: route.params?.groupName || "Group", headerBackTitle: "" })}
               />
-              <Stack.Screen name="GameNight" component={GameNightScreen} options={{ title: "Game Night", headerBackTitle: "" }} />
+              <Stack.Screen name="GameNight" component={GameNightScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Settlement" component={SettlementScreen} options={{ title: "Settlement", headerBackTitle: "" }} />
               <Stack.Screen name="PokerAI" component={PokerAIScreen} options={{ title: "Poker AI", headerBackTitle: "" }} />
               <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />

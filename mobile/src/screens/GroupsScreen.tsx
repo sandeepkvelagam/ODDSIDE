@@ -11,14 +11,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
-import { AIChatFab } from "../components/AIChatFab";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -28,6 +29,26 @@ type GroupItem = {
   name: string;
   member_count?: number;
   role?: string;
+};
+
+// Liquid Glass Design System Colors (matching DashboardV2)
+const LIQUID_COLORS = {
+  jetDark: "#282B2B",
+  jetSurface: "#323535",
+  orange: "#EE6C29",
+  orangeDark: "#C45A22",
+  trustBlue: "#3B82F6",
+  moonstone: "#7AA6B3",
+  liquidGlassBg: "rgba(255, 255, 255, 0.06)",
+  liquidGlassBorder: "rgba(255, 255, 255, 0.12)",
+  liquidInnerBg: "rgba(255, 255, 255, 0.03)",
+  liquidGlowOrange: "rgba(238, 108, 41, 0.15)",
+  liquidGlowBlue: "rgba(59, 130, 246, 0.15)",
+  textPrimary: "#F5F5F5",
+  textSecondary: "#B8B8B8",
+  textMuted: "#7A7A7A",
+  success: "#22C55E",
+  danger: "#EF4444",
 };
 
 // Fun random group name generator
@@ -41,9 +62,10 @@ function generateRandomName() {
 }
 
 export function GroupsScreen() {
-  const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const { t } = useLanguage();
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,8 +78,31 @@ export function GroupsScreen() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Join Group Sheet state (by invite - just shows notification guidance)
-  const [showJoinSheet, setShowJoinSheet] = useState(false);
+  // Entrance animations
+  const entranceAnim = useState(new Animated.Value(0))[0];
+  const headerEntrance = useState(new Animated.Value(0))[0];
+  const listEntrance = useState(new Animated.Value(0))[0];
+
+  // Use liquid glass colors
+  const lc = isDark ? LIQUID_COLORS : {
+    ...LIQUID_COLORS,
+    jetDark: colors.background,
+    jetSurface: colors.surface,
+    liquidGlassBg: "rgba(0, 0, 0, 0.04)",
+    liquidGlassBorder: "rgba(0, 0, 0, 0.08)",
+    liquidInnerBg: "rgba(0, 0, 0, 0.02)",
+    textPrimary: colors.textPrimary,
+    textSecondary: colors.textSecondary,
+    textMuted: colors.textMuted,
+  };
+
+  useEffect(() => {
+    // Staggered entrance animations
+    Animated.stagger(100, [
+      Animated.spring(headerEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+      Animated.spring(listEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+    ]).start();
+  }, [headerEntrance, listEntrance]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -95,9 +140,7 @@ export function GroupsScreen() {
       setShowCreateSheet(false);
       setNewGroupName("");
       setNewGroupDescription("");
-      // Refresh groups list
       await load();
-      // Navigate to the new group
       if (res.data?.group_id) {
         navigation.navigate("GroupHub", {
           groupId: res.data.group_id,
@@ -115,136 +158,173 @@ export function GroupsScreen() {
     setNewGroupName(generateRandomName());
   };
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]} testID="groups-screen">
-      {/* Page Header */}
-      <View style={styles.pageHeader}>
-        <View style={styles.pageHeaderRow}>
-          <View>
-            <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>MY GROUPS</Text>
-            <Text style={[styles.pageSubtitle, { color: colors.textMuted }]}>
-              Manage your poker circles
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.joinGroupBtn, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-            onPress={() => navigation.navigate("Notifications")}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="mail-open-outline" size={16} color={colors.orange} />
-            <Text style={[styles.joinGroupBtnText, { color: colors.orange }]}>Invites</Text>
-          </TouchableOpacity>
-        </View>
+  const renderGroupCard = ({ item }: { item: GroupItem }) => (
+    <TouchableOpacity
+      style={[styles.groupItem, { borderBottomColor: lc.liquidGlassBorder }]}
+      onPress={() =>
+        navigation.navigate("GroupHub", {
+          groupId: item.group_id,
+          groupName: item.name,
+        })
+      }
+      activeOpacity={0.7}
+      testID={`group-card-${item.group_id}`}
+    >
+      <View style={[styles.groupAvatar, { backgroundColor: lc.liquidGlowOrange }]}>
+        <Text style={[styles.groupAvatarText, { color: lc.orange }]}>
+          {item.name?.[0]?.toUpperCase() || "G"}
+        </Text>
       </View>
+      <View style={styles.groupInfo}>
+        <View style={styles.groupNameRow}>
+          <Text style={[styles.groupName, { color: lc.textPrimary }]}>{item.name}</Text>
+          {item.role === "admin" && (
+            <View style={[styles.adminBadge, { backgroundColor: "rgba(234,179,8,0.15)" }]}>
+              <Ionicons name="shield" size={10} color="#eab308" />
+              <Text style={styles.adminText}>Admin</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[styles.groupMeta, { color: lc.textMuted }]}>
+          {item.member_count ?? 0} members
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={lc.textMuted} />
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: lc.jetDark, paddingTop: insets.top }]} testID="groups-screen">
+      {/* Header Section - Liquid Glass Card */}
+      <Animated.View style={[styles.headerCard, {
+        backgroundColor: lc.liquidGlassBg,
+        borderColor: lc.liquidGlassBorder,
+        opacity: headerEntrance,
+        transform: [{
+          translateY: headerEntrance.interpolate({
+            inputRange: [0, 1],
+            outputRange: [-20, 0],
+          })
+        }]
+      }]}>
+        <View style={[styles.headerInner, { backgroundColor: lc.liquidInnerBg }]}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft}>
+              <View style={styles.headerTitleRow}>
+                <Ionicons name="people" size={20} color={lc.orange} />
+                <Text style={[styles.headerTitle, { color: lc.moonstone }]}>MY GROUPS</Text>
+              </View>
+              <Text style={[styles.headerSubtitle, { color: lc.textMuted }]}>
+                Manage your poker circles
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.invitesButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+              onPress={() => navigation.navigate("Notifications")}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="mail-open-outline" size={16} color={lc.orange} />
+              <Text style={[styles.invitesButtonText, { color: lc.orange }]}>Invites</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Animated.View>
 
       {error && (
-        <View style={[styles.errorBanner, { backgroundColor: "rgba(239,68,68,0.12)" }]}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorBanner, { borderColor: "rgba(239,68,68,0.3)" }]}>
+          <Ionicons name="alert-circle" size={16} color={lc.danger} />
+          <Text style={[styles.errorText, { color: lc.danger }]}>{error}</Text>
         </View>
       )}
 
-      {loading && groups.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.textMuted }]}>Loading groups...</Text>
+      {/* Groups List - Liquid Glass Card */}
+      <Animated.View style={[styles.listCard, {
+        backgroundColor: lc.liquidGlassBg,
+        borderColor: lc.liquidGlassBorder,
+        opacity: listEntrance,
+        transform: [{
+          translateY: listEntrance.interpolate({
+            inputRange: [0, 1],
+            outputRange: [20, 0],
+          })
+        }]
+      }]}>
+        <View style={styles.listHeader}>
+          <View style={styles.listHeaderLeft}>
+            <Ionicons name="list" size={16} color={lc.trustBlue} />
+            <Text style={[styles.listHeaderTitle, { color: lc.moonstone }]}>YOUR GROUPS</Text>
+          </View>
+          <Text style={[styles.countBadge, { color: lc.textMuted }]}>{groups.length}</Text>
         </View>
-      ) : groups.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color={colors.textMuted} />
-          <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No Groups Yet</Text>
-          <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
-            Create a group or accept an invite to start playing
-          </Text>
+
+        {loading && groups.length === 0 ? (
+          <View style={[styles.listInner, { backgroundColor: lc.liquidInnerBg }]}>
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="large" color={lc.orange} />
+              <Text style={[styles.emptyText, { color: lc.textMuted }]}>Loading groups...</Text>
+            </View>
+          </View>
+        ) : groups.length === 0 ? (
+          <View style={[styles.listInner, { backgroundColor: lc.liquidInnerBg }]}>
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people-outline" size={48} color={lc.textMuted} />
+              <Text style={[styles.emptyTitle, { color: lc.textSecondary }]}>No Groups Yet</Text>
+              <Text style={[styles.emptySubtext, { color: lc.textMuted }]}>
+                Create a group or accept an invite to start playing
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.listInner, { backgroundColor: lc.liquidInnerBg }]}>
+            <FlatList
+              data={groups}
+              keyExtractor={(g) => g.group_id}
+              renderItem={renderGroupCard}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={{ height: 0 }} />}
+            />
+          </View>
+        )}
+
+        {/* Quick Actions inside the card */}
+        <View style={styles.quickActionsContainer}>
           <TouchableOpacity
-            style={[styles.emptyCreateButton, { backgroundColor: colors.orange }]}
-            onPress={() => setShowCreateSheet(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={20} color="#fff" />
-            <Text style={styles.emptyCreateText}>Create Group</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.emptyCreateButton, { backgroundColor: colors.glassBg, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 4 }]}
+            style={[styles.quickActionButton, { backgroundColor: lc.trustBlue }]}
             onPress={() => navigation.navigate("Notifications")}
             activeOpacity={0.8}
           >
-            <Ionicons name="mail-open-outline" size={20} color={colors.orange} />
-            <Text style={[styles.emptyCreateText, { color: colors.orange }]}>View Invites</Text>
+            <Ionicons name="mail-outline" size={18} color="#fff" />
+            <Text style={styles.quickActionText}>View Invites</Text>
           </TouchableOpacity>
         </View>
-      ) : (
-        <FlatList
-          data={groups}
-          keyExtractor={(g) => g.group_id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.orange}
-            />
-          }
-          ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.groupCard,
-                styles.glassCard,
-                { backgroundColor: colors.glassCardBg, borderColor: colors.glassCardBorder }
-              ]}
-              onPress={() =>
-                navigation.navigate("GroupHub", {
-                  groupId: item.group_id,
-                  groupName: item.name,
-                })
-              }
-              activeOpacity={0.7}
-              testID={`group-card-${item.group_id}`}
-            >
-              <View style={[styles.groupAvatar, { backgroundColor: "rgba(239,110,89,0.15)" }]}>
-                <Text style={[styles.groupAvatarText, { color: colors.orange }]}>
-                  {item.name?.[0]?.toUpperCase() || "G"}
-                </Text>
-              </View>
-              <View style={styles.groupInfo}>
-                <Text style={[styles.groupName, { color: colors.textPrimary }]}>{item.name}</Text>
-                <View style={styles.groupMeta}>
-                  <Text style={[styles.memberCount, { color: colors.textMuted }]}>
-                    {item.member_count ?? 0} members
-                  </Text>
-                  <View style={[
-                    styles.roleBadge,
-                    { backgroundColor: item.role === "admin" ? "rgba(234,179,8,0.15)" : colors.glassBg }
-                  ]}>
-                    <Ionicons
-                      name={item.role === "admin" ? "shield" : "person"}
-                      size={10}
-                      color={item.role === "admin" ? "#EAB308" : colors.textMuted}
-                    />
-                    <Text style={[
-                      styles.roleText,
-                      { color: item.role === "admin" ? "#EAB308" : colors.textMuted }
-                    ]}>
-                      {item.role === "admin" ? "Admin" : "Member"}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        />
-      )}
+      </Animated.View>
 
-      {/* Floating Action Button */}
-      {groups.length > 0 && (
+      {/* Bottom Action Buttons - Labeled FABs */}
+      <View style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        {/* AI Chat Button - Labeled */}
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: colors.orange }]}
+          style={[styles.labeledFab, { backgroundColor: lc.orangeDark }]}
+          onPress={() => navigation.navigate("AIAssistant")}
+          activeOpacity={0.8}
+        >
+          <View style={styles.fabIconContainer}>
+            <Ionicons name="sparkles" size={22} color="#fff" />
+          </View>
+          <Text style={styles.fabLabel}>AI Chat</Text>
+        </TouchableOpacity>
+
+        {/* Create Group Button - Labeled */}
+        <TouchableOpacity
+          style={[styles.labeledFab, styles.primaryFab, { backgroundColor: lc.trustBlue }]}
           onPress={() => setShowCreateSheet(true)}
           activeOpacity={0.8}
         >
-          <Ionicons name="add" size={28} color="#fff" />
+          <View style={styles.fabIconContainer}>
+            <Ionicons name="add" size={24} color="#fff" />
+          </View>
+          <Text style={styles.fabLabel}>New Group</Text>
         </TouchableOpacity>
-      )}
+      </View>
 
       {/* Create Group Modal */}
       <Modal
@@ -262,56 +342,61 @@ export function GroupsScreen() {
             activeOpacity={1}
             onPress={() => setShowCreateSheet(false)}
           />
-          <View style={[styles.sheetContainer, { backgroundColor: colors.surface }]}>
+          <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
-            <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>Create Group</Text>
+            <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>Create Group</Text>
 
             {createError && (
-              <View style={styles.sheetError}>
-                <Text style={styles.sheetErrorText}>{createError}</Text>
+              <View style={[styles.sheetError, { backgroundColor: "rgba(239,68,68,0.12)" }]}>
+                <Text style={[styles.sheetErrorText, { color: lc.danger }]}>{createError}</Text>
               </View>
             )}
 
-            <View style={styles.inputRow}>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.glassBorder }]}
-                placeholder="Group Name"
-                placeholderTextColor={colors.textMuted}
-                value={newGroupName}
-                onChangeText={setNewGroupName}
-                autoFocus
-              />
-              <TouchableOpacity
-                style={[styles.randomButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-                onPress={handleRandomName}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="dice" size={20} color={colors.orange} />
-              </TouchableOpacity>
-            </View>
+            {/* Input Section - Liquid Glass Style */}
+            <View style={[styles.inputSection, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+              <View style={[styles.inputInner, { backgroundColor: lc.liquidInnerBg }]}>
+                <View style={styles.inputRow}>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: lc.liquidGlassBg, color: lc.textPrimary, borderColor: lc.liquidGlassBorder }]}
+                    placeholder="Group Name"
+                    placeholderTextColor={lc.textMuted}
+                    value={newGroupName}
+                    onChangeText={setNewGroupName}
+                    autoFocus
+                  />
+                  <TouchableOpacity
+                    style={[styles.randomButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+                    onPress={handleRandomName}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="dice" size={20} color={lc.orange} />
+                  </TouchableOpacity>
+                </View>
 
-            <TextInput
-              style={[styles.input, styles.textArea, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.glassBorder }]}
-              placeholder="Description (optional)"
-              placeholderTextColor={colors.textMuted}
-              value={newGroupDescription}
-              onChangeText={setNewGroupDescription}
-              multiline
-              numberOfLines={3}
-            />
+                <TextInput
+                  style={[styles.input, styles.textArea, { backgroundColor: lc.liquidGlassBg, color: lc.textPrimary, borderColor: lc.liquidGlassBorder }]}
+                  placeholder="Description (optional)"
+                  placeholderTextColor={lc.textMuted}
+                  value={newGroupDescription}
+                  onChangeText={setNewGroupDescription}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </View>
 
             <View style={styles.sheetActions}>
               <TouchableOpacity
-                style={[styles.cancelButton, { borderColor: colors.glassBorder }]}
+                style={[styles.cancelButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
                 onPress={() => setShowCreateSheet(false)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
+                <Text style={[styles.cancelText, { color: lc.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.createButton,
-                  { backgroundColor: colors.orange },
+                  { backgroundColor: lc.trustBlue },
                   (!newGroupName.trim() || creating) && styles.buttonDisabled,
                 ]}
                 onPress={handleCreateGroup}
@@ -328,9 +413,6 @@ export function GroupsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-      {/* AI Chat FAB */}
-      <AIChatFab />
     </View>
   );
 }
@@ -339,173 +421,259 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  pageHeader: {
-    paddingHorizontal: 28,
-    paddingTop: 12,
-    paddingBottom: 8,
+  // Header Card - Liquid Glass
+  headerCard: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 16,
+    borderRadius: 24,
+    padding: 4,
+    borderWidth: 1.5,
+    shadowColor: "rgba(255, 255, 255, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 8,
   },
-  pageHeaderRow: {
+  headerInner: {
+    borderRadius: 20,
+    padding: 18,
+  },
+  headerContent: {
     flexDirection: "row",
-    alignItems: "flex-start",
     justifyContent: "space-between",
+    alignItems: "center",
   },
-  joinGroupBtn: {
+  headerLeft: {
+    flex: 1,
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    marginTop: 6,
+    marginLeft: 30,
+  },
+  invitesButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     borderWidth: 1,
     borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginTop: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
-  joinGroupBtnText: {
+  invitesButtonText: {
     fontSize: 13,
     fontWeight: "600",
   },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-    textTransform: "uppercase",
-  },
-  pageSubtitle: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  listContent: {
-    padding: 28,
-    paddingTop: 14,
-    paddingBottom: 100,
-  },
+  // Error Banner
   errorBanner: {
-    margin: 28,
-    padding: 14,
-    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(239,68,68,0.1)",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    gap: 10,
+    borderWidth: 1,
   },
   errorText: {
-    color: "#fca5a5",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  emptyContainer: {
+    fontSize: 13,
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 28,
-    gap: 12,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginTop: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  emptyCreateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  emptyCreateText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  groupCard: {
-    borderRadius: 20,
-    padding: 18,
-    flexDirection: "row",
-    alignItems: "center",
+  // List Card - Liquid Glass
+  listCard: {
+    flex: 1,
+    marginHorizontal: 20,
+    borderRadius: 24,
+    padding: 4,
     borderWidth: 1.5,
-    gap: 14,
-  },
-  glassCard: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
+    shadowColor: "rgba(255, 255, 255, 0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
     elevation: 8,
+    marginBottom: 100,
   },
-  groupAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    justifyContent: "center",
+  listHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  groupAvatarText: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  groupInfo: {
-    flex: 1,
-    gap: 6,
-  },
-  groupName: {
-    fontSize: 17,
-    fontWeight: "600",
-    lineHeight: 24,
-  },
-  groupMeta: {
+  listHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  memberCount: {
-    fontSize: 14,
-    lineHeight: 20,
+  listHeaderTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 1,
   },
-  roleBadge: {
+  countBadge: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  listInner: {
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 4,
+  },
+  // Group Item
+  groupItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    gap: 12,
+    borderBottomWidth: 1,
   },
-  roleText: {
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  fab: {
-    position: "absolute",
-    bottom: 28,
-    right: 28,
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: "center",
+  groupAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  groupAvatarText: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  groupInfo: {
+    flex: 1,
+  },
+  groupNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  groupName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  groupMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  adminBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  adminText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: "#eab308",
+  },
+  // Quick Actions inside card
+  quickActionsContainer: {
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    paddingTop: 4,
+  },
+  quickActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 8,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  // Empty State
+  emptyContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  emptyText: {
+    fontSize: 14,
+  },
+  emptySubtext: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: 20,
+  },
+  // Bottom Actions - Labeled FABs
+  bottomActions: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    backgroundColor: "transparent",
+  },
+  labeledFab: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    gap: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
+  primaryFab: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: "center",
+  },
+  fabIconContainer: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fabLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  // Modal
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
   sheetContainer: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 28,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
     paddingBottom: 40,
   },
   sheetHandle: {
@@ -519,36 +687,44 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 22,
     fontWeight: "700",
-    marginBottom: 24,
+    marginBottom: 20,
     textAlign: "center",
   },
   sheetError: {
-    backgroundColor: "rgba(239,68,68,0.12)",
     padding: 12,
-    borderRadius: 10,
-    marginBottom: 18,
+    borderRadius: 12,
+    marginBottom: 16,
   },
   sheetErrorText: {
-    color: "#fca5a5",
     fontSize: 14,
+  },
+  // Input Section - Liquid Glass Style
+  inputSection: {
+    borderRadius: 20,
+    padding: 4,
+    borderWidth: 1.5,
+    marginBottom: 20,
+  },
+  inputInner: {
+    borderRadius: 16,
+    padding: 16,
   },
   inputRow: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 18,
+    marginBottom: 14,
   },
   input: {
     flex: 1,
     borderWidth: 1,
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: 22,
   },
   textArea: {
     height: 80,
     textAlignVertical: "top",
-    marginBottom: 24,
   },
   randomButton: {
     width: 52,
@@ -560,12 +736,12 @@ const styles = StyleSheet.create({
   },
   sheetActions: {
     flexDirection: "row",
-    gap: 14,
+    gap: 12,
   },
   cancelButton: {
     flex: 1,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     alignItems: "center",
   },
@@ -576,7 +752,7 @@ const styles = StyleSheet.create({
   createButton: {
     flex: 2,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: "center",
     minHeight: 52,
     justifyContent: "center",

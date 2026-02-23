@@ -102,6 +102,10 @@ class AutomationRunnerTool(BaseTool):
                     "type": "string",
                     "description": "Correlation ID to trace related events",
                 },
+                "force_replay": {
+                    "type": "boolean",
+                    "description": "Bypass dedupe check for manual event replay (default false)",
+                },
             },
             "required": ["action"],
         }
@@ -236,6 +240,7 @@ class AutomationRunnerTool(BaseTool):
         event_id = kwargs.get("event_id")
         causation_run_id = kwargs.get("causation_run_id")
         correlation_id = kwargs.get("correlation_id")
+        force_replay = kwargs.get("force_replay", False)
 
         if not automation_id or not self.db:
             return ToolResult(success=False, error="automation_id and database required")
@@ -255,12 +260,20 @@ class AutomationRunnerTool(BaseTool):
                 data={"auto_disabled": automation.get("auto_disabled", False)}
             )
 
-        # Idempotency check
+        # Idempotency check (skip if force_replay for manual re-runs)
         effective_event_id = event_id or event_data.get("event_id")
         if not effective_event_id:
             # Generate content-based hash as fallback
             trigger_type = automation.get("trigger", {}).get("type", "unknown")
             effective_event_id = f"hash_{self._generate_event_hash(event_data, trigger_type)}"
+
+        if force_replay:
+            # Generate a fresh event_id so the replay is tracked separately
+            effective_event_id = f"replay_{uuid.uuid4().hex[:12]}"
+            logger.info(
+                f"Force replay: automation={automation_id} "
+                f"replay_event_id={effective_event_id}"
+            )
 
         is_duplicate = await self._check_dedupe(automation_id, effective_event_id)
         if is_duplicate:
@@ -278,6 +291,7 @@ class AutomationRunnerTool(BaseTool):
         # Loop guard
         loop_reason = await self._check_loop_guard(automation_id, causation_run_id)
         if loop_reason:
+            block_enum = "loop_guard_causation" if causation_run_id else "loop_guard_hot_loop"
             await self._log_run(
                 automation_id=automation_id,
                 run_id=f"run_{uuid.uuid4().hex[:12]}",
@@ -288,6 +302,8 @@ class AutomationRunnerTool(BaseTool):
                 correlation_id=correlation_id,
                 causation_run_id=causation_run_id,
                 policy_result=loop_reason,
+                policy_block_reason_enum=block_enum,
+                engine_version=automation.get("engine_version"),
             )
             return ToolResult(
                 success=False,
@@ -304,6 +320,7 @@ class AutomationRunnerTool(BaseTool):
             event_id=effective_event_id,
             correlation_id=correlation_id,
             causation_run_id=causation_run_id,
+            force_replay=force_replay,
         )
 
     # ==================== Run By Trigger ====================
@@ -412,6 +429,7 @@ class AutomationRunnerTool(BaseTool):
         event_id: str = None,
         correlation_id: str = None,
         causation_run_id: str = None,
+        force_replay: bool = False,
     ) -> ToolResult:
         """
         Execute a single automation:
@@ -441,6 +459,19 @@ class AutomationRunnerTool(BaseTool):
         # Correlation ID: inherit or create
         effective_correlation_id = correlation_id or f"corr_{uuid.uuid4().hex[:12]}"
 
+        # Trigger latency: time between event emission and execution start
+        trigger_latency_ms = None
+        event_ts = event_data.get("timestamp") or event_data.get("event_ts")
+        if event_ts:
+            try:
+                if isinstance(event_ts, str):
+                    event_dt = datetime.fromisoformat(event_ts.replace("Z", "+00:00"))
+                else:
+                    event_dt = event_ts
+                trigger_latency_ms = int((now - event_dt).total_seconds() * 1000)
+            except (ValueError, TypeError):
+                pass
+
         # Step 1: Evaluate conditions
         if conditions:
             conditions_met, condition_details = self._evaluate_conditions(
@@ -455,7 +486,10 @@ class AutomationRunnerTool(BaseTool):
                     event_data=event_data,
                     event_id=event_id,
                     correlation_id=effective_correlation_id,
+                    trigger_latency_ms=trigger_latency_ms,
                     policy_result=f"Failed conditions: {condition_details}",
+                    policy_block_reason_enum="conditions_not_met",
+                    engine_version=automation.get("engine_version"),
                 )
                 # Track skip count
                 await self._increment_skip_count(automation_id)
@@ -592,25 +626,34 @@ class AutomationRunnerTool(BaseTool):
             correlation_id=effective_correlation_id,
             causation_run_id=causation_run_id,
             duration_ms=duration_ms,
+            trigger_latency_ms=trigger_latency_ms,
             resolved_params=resolved_params,
+            force_replay=force_replay,
+            engine_version=automation.get("engine_version"),
         )
 
         succeeded_count = sum(1 for r in action_results if r.get("success"))
         failed_count = len(action_results) - succeeded_count
 
+        result_data = {
+            "automation_id": automation_id,
+            "run_id": run_id,
+            "event_id": event_id,
+            "correlation_id": effective_correlation_id,
+            "actions_total": len(action_results),
+            "actions_succeeded": succeeded_count,
+            "actions_failed": failed_count,
+            "action_results": action_results,
+            "duration_ms": duration_ms,
+        }
+        if trigger_latency_ms is not None:
+            result_data["trigger_latency_ms"] = trigger_latency_ms
+        if force_replay:
+            result_data["force_replay"] = True
+
         return ToolResult(
             success=all_succeeded,
-            data={
-                "automation_id": automation_id,
-                "run_id": run_id,
-                "event_id": event_id,
-                "correlation_id": effective_correlation_id,
-                "actions_total": len(action_results),
-                "actions_succeeded": succeeded_count,
-                "actions_failed": failed_count,
-                "action_results": action_results,
-                "duration_ms": duration_ms,
-            },
+            data=result_data,
             message=(
                 f"Automation '{automation.get('name', automation_id)}': "
                 f"{succeeded_count}/{len(action_results)} actions succeeded"
@@ -1219,8 +1262,12 @@ class AutomationRunnerTool(BaseTool):
         correlation_id: str = None,
         causation_run_id: str = None,
         duration_ms: int = None,
+        trigger_latency_ms: int = None,
         policy_result: str = None,
+        policy_block_reason_enum: str = None,
         resolved_params: List = None,
+        force_replay: bool = False,
+        engine_version: str = None,
     ):
         """Log an automation run with full traceability."""
         if not self.db:
@@ -1244,10 +1291,18 @@ class AutomationRunnerTool(BaseTool):
             log_entry["causation_run_id"] = causation_run_id
         if duration_ms is not None:
             log_entry["duration_ms"] = duration_ms
+        if trigger_latency_ms is not None:
+            log_entry["trigger_latency_ms"] = trigger_latency_ms
         if policy_result:
             log_entry["policy_result"] = policy_result
+        if policy_block_reason_enum:
+            log_entry["policy_block_reason_enum"] = policy_block_reason_enum
         if resolved_params:
             log_entry["resolved_params"] = resolved_params
+        if force_replay:
+            log_entry["force_replay"] = True
+        if engine_version:
+            log_entry["engine_version"] = engine_version
 
         if reason:
             log_entry["reason"] = reason

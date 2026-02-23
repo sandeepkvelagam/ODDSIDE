@@ -29,6 +29,10 @@ import {
   History,
   Settings,
   AlertCircle,
+  RefreshCcw,
+  Heart,
+  Activity,
+  Gauge,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
@@ -55,6 +59,14 @@ const ACTION_ICONS = {
   generate_summary: FileText,
 };
 
+const HEALTH_STATUS = {
+  healthy: { label: "Healthy", color: "bg-green-500", textColor: "text-green-700", bgLight: "bg-green-50" },
+  warning: { label: "Warning", color: "bg-yellow-500", textColor: "text-yellow-700", bgLight: "bg-yellow-50" },
+  critical: { label: "Critical", color: "bg-red-500", textColor: "text-red-700", bgLight: "bg-red-50" },
+  disabled: { label: "Disabled", color: "bg-gray-400", textColor: "text-gray-600", bgLight: "bg-gray-50" },
+  new: { label: "New", color: "bg-blue-500", textColor: "text-blue-700", bgLight: "bg-blue-50" },
+};
+
 export default function Automations() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -66,6 +78,7 @@ export default function Automations() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [costBudget, setCostBudget] = useState(null);
 
   // Create form state
   const [formName, setFormName] = useState("");
@@ -79,6 +92,7 @@ export default function Automations() {
   useEffect(() => {
     if (user?.user_id) {
       fetchAutomations();
+      fetchCostBudget();
     }
   }, [user?.user_id]);
 
@@ -90,6 +104,26 @@ export default function Automations() {
       toast.error("Failed to load automations");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCostBudget = async () => {
+    try {
+      const res = await axios.get(`${API}/automations/usage/cost-budget`);
+      setCostBudget(res.data?.data || null);
+    } catch {
+      // Non-critical — silently fail
+    }
+  };
+
+  const handleReplay = async (automationId) => {
+    try {
+      const res = await axios.post(`${API}/automations/${automationId}/replay`);
+      toast.success(res.data?.message || "Replay completed");
+      fetchAutomations();
+      fetchCostBudget();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Replay failed");
     }
   };
 
@@ -238,7 +272,13 @@ export default function Automations() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {costBudget && (
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground border rounded-md px-2 py-1">
+                <Gauge className="w-3.5 h-3.5" />
+                <span>{costBudget.cost_budget_remaining}/{costBudget.max_daily_cost_points} pts</span>
+              </div>
+            )}
             <Button variant="outline" size="sm" onClick={loadTemplates}>
               Templates
             </Button>
@@ -276,6 +316,8 @@ export default function Automations() {
         <div className="space-y-3">
           {automations.map((auto) => {
             const ActionIcon = ACTION_ICONS[auto.actions?.[0]?.type] || Zap;
+            const health = auto.health || {};
+            const healthConfig = HEALTH_STATUS[health.status] || HEALTH_STATUS.new;
             return (
               <Card key={auto.automation_id} className={!auto.enabled ? "opacity-60" : ""}>
                 <CardContent className="p-4">
@@ -284,10 +326,19 @@ export default function Automations() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-lg">{TRIGGER_ICONS[auto.trigger?.type] || "⚡"}</span>
                         <h3 className="font-semibold truncate">{auto.name}</h3>
-                        {auto.consecutive_errors > 0 && (
-                          <Badge variant="destructive" className="text-xs">
-                            {auto.consecutive_errors} errors
-                          </Badge>
+                        {/* Health indicator */}
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${healthConfig.bgLight} ${healthConfig.textColor}`}
+                          title={health.reasons?.join(", ") || ""}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${healthConfig.color}`} />
+                          {healthConfig.label}
+                          {health.score !== undefined && health.status !== "new" && health.status !== "disabled" && (
+                            <span className="opacity-70">{health.score}</span>
+                          )}
+                        </span>
+                        {auto.engine_version && (
+                          <span className="text-[10px] text-muted-foreground font-mono">{auto.engine_version}</span>
                         )}
                       </div>
                       {auto.description && (
@@ -305,14 +356,16 @@ export default function Automations() {
                             {a.type?.replace(/_/g, " ")}
                           </Badge>
                         ))}
-                        {auto.total_runs > 0 && (
+                        {auto.run_count > 0 && (
                           <span className="ml-2">
-                            {auto.total_runs} runs · Last: {formatDate(auto.last_run_at)}
+                            {auto.run_count} runs
+                            {auto.error_count > 0 && ` · ${auto.error_count} errors`}
+                            {auto.last_run && ` · Last: ${formatDate(auto.last_run)}`}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -321,6 +374,15 @@ export default function Automations() {
                         onClick={() => handleDryRun(auto.automation_id)}
                       >
                         <Play className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Force replay"
+                        onClick={() => handleReplay(auto.automation_id)}
+                      >
+                        <RefreshCcw className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -476,6 +538,7 @@ export default function Automations() {
                     <div className="flex items-center gap-2">
                       <Badge
                         variant={
+                          run.status === "success" ? "default" :
                           run.status === "completed" ? "default" :
                           run.status === "skipped" ? "secondary" :
                           "destructive"
@@ -484,20 +547,37 @@ export default function Automations() {
                       >
                         {run.status}
                       </Badge>
-                      {run.skip_reason && (
+                      {run.force_replay && (
+                        <Badge variant="outline" className="text-xs">
+                          <RefreshCcw className="w-3 h-3 mr-0.5" />
+                          replay
+                        </Badge>
+                      )}
+                      {run.policy_block_reason_enum && (
                         <span className="text-xs text-muted-foreground">
-                          {run.skip_reason.replace(/_/g, " ")}
+                          {run.policy_block_reason_enum.replace(/_/g, " ")}
+                        </span>
+                      )}
+                      {run.reason && !run.policy_block_reason_enum && (
+                        <span className="text-xs text-muted-foreground">
+                          {run.reason.replace(/_/g, " ")}
                         </span>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {formatDate(run.started_at)}
+                      {formatDate(run.created_at || run.started_at)}
                       {run.duration_ms ? ` · ${run.duration_ms}ms` : ""}
+                      {run.trigger_latency_ms ? ` · latency: ${run.trigger_latency_ms}ms` : ""}
                     </p>
                   </div>
                   <div className="text-right text-xs text-muted-foreground">
-                    {run.actions_executed !== undefined && (
-                      <span>{run.actions_executed} action{run.actions_executed !== 1 ? "s" : ""}</span>
+                    {run.action_results && (
+                      <span>
+                        {run.action_results.filter(a => a.success).length}/{run.action_results.length} actions
+                      </span>
+                    )}
+                    {run.engine_version && (
+                      <span className="block font-mono opacity-50">{run.engine_version}</span>
                     )}
                   </div>
                 </div>

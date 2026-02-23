@@ -619,7 +619,6 @@ const styles = StyleSheet.create({
   adminText: {
     fontSize: 9,
     fontWeight: "600",
-    color: "#eab308",
   },
   // Quick Actions inside card
   quickActionsContainer: {

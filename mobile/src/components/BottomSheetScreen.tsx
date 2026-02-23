@@ -153,6 +153,34 @@ const styles = StyleSheet.create({
   topTouchArea: {
     width: "100%",
   },
+  overlayWithCurve: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  curvedCornersOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 56,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  cornerMask: {
+    width: 56,
+    height: 56,
+    borderRadius: 56,
+  },
+  cornerMaskLeft: {
+    marginLeft: -28,
+    marginBottom: -28,
+  },
+  cornerMaskRight: {
+    marginRight: -28,
+    marginBottom: -28,
+  },
   contentContainer: {
     flex: 1,
     borderTopLeftRadius: 56,

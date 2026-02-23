@@ -25,6 +25,7 @@ import { PokerAIScreen } from "../screens/PokerAIScreen";
 import { AIToolkitScreen } from "../screens/AIToolkitScreen";
 import { WalletScreen } from "../screens/WalletScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
+import { AutomationsScreen } from "../screens/AutomationsScreen";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -44,6 +45,7 @@ export type RootStackParamList = {
   AIAssistant: undefined;
   AIToolkit: undefined;
   Feedback: undefined;
+  Automations: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -104,6 +106,11 @@ function handleNotificationDeepLink(data: Record<string, any>) {
     case "feedback_update":
     case "issue_responded":
       navigationRef.navigate("Notifications");
+      break;
+
+    case "automation_disabled":
+    case "automation_error":
+      navigationRef.navigate("Automations");
       break;
 
     default:
@@ -203,6 +210,7 @@ export default function RootNavigator() {
               <Stack.Screen name="AIAssistant" component={AIAssistantScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
               <Stack.Screen name="AIToolkit" component={AIToolkitScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
               <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="Automations" component={AutomationsScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
             </>
           )}
         </Stack.Navigator>

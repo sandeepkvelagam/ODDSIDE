@@ -335,6 +335,17 @@ export function SettingsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            testID="settings-automations-button"
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate("Automations" as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="flash-outline" size={22} color={colors.textPrimary} />
+            <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Automations</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             testID="settings-feedback-button"
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
             onPress={() => navigation.navigate("Feedback")}

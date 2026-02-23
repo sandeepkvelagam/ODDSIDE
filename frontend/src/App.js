@@ -25,6 +25,7 @@ import GameHistory from "@/pages/GameHistory";
 import Premium from "@/pages/Premium";
 import SpotifyCallback from "@/pages/SpotifyCallback";
 import Wallet from "@/pages/Wallet";
+import Automations from "@/pages/Automations";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -204,6 +205,11 @@ function App() {
             <Route path="/wallet" element={
               <ProtectedRoute>
                 <Wallet />
+              </ProtectedRoute>
+            } />
+            <Route path="/automations" element={
+              <ProtectedRoute>
+                <Automations />
               </ProtectedRoute>
             } />
 

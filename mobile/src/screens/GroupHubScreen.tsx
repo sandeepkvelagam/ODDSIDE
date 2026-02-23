@@ -893,9 +893,6 @@ export function GroupHubScreen() {
           </View>
         </View>
       </Modal>
-
-      {/* AI Chat FAB */}
-      <AIChatFab />
     </View>
   );
 }

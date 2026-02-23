@@ -42,6 +42,7 @@ class EventListenerService:
         self.game_planner = None
         self.engagement_agent = None
         self.feedback_agent = None
+        self.payment_reconciliation_agent = None
         self.chat_watcher = None
         self.host_update_service = None
         self._event_handlers: Dict[str, List[Callable]] = {}
@@ -68,6 +69,10 @@ class EventListenerService:
         self.register_handler("game_started", self._handle_engagement_outcome_tracking)
         self.register_handler("game_ended", self._handle_post_game_survey)
         self.register_handler("feedback_submitted", self._handle_feedback_submitted)
+        # Payment reconciliation handlers
+        self.register_handler("settlement_generated", self._handle_post_settlement_reminders)
+        self.register_handler("stripe_payment_received", self._handle_stripe_payment)
+        self.register_handler("payment_received", self._handle_payment_reconciliation)
 
     def set_orchestrator(self, orchestrator):
         """Set the AI orchestrator and get agents"""
@@ -78,6 +83,7 @@ class EventListenerService:
             self.game_planner = orchestrator.agent_registry.get("game_planner")
             self.engagement_agent = orchestrator.agent_registry.get("engagement")
             self.feedback_agent = orchestrator.agent_registry.get("feedback")
+            self.payment_reconciliation_agent = orchestrator.agent_registry.get("payment_reconciliation")
 
         # Initialize ChatWatcher
         from .chat_watcher import ChatWatcherService
@@ -566,6 +572,112 @@ class EventListenerService:
             )
         except Exception as e:
             logger.error(f"Feedback processing error: {e}")
+
+    # ==================== Payment Reconciliation Handlers ====================
+
+    async def _handle_post_settlement_reminders(self, data: Dict):
+        """
+        After a settlement is generated, schedule payment reminders.
+        Triggered by settlement_generated event.
+        """
+        if not self.payment_reconciliation_agent:
+            logger.debug("PaymentReconciliationAgent not available, skipping settlement reminders")
+            return
+
+        game_id = data.get("game_id")
+        group_id = data.get("group_id")
+
+        if not game_id:
+            return
+
+        try:
+            # Schedule reminders for all pending payments in this game
+            result = await self.payment_reconciliation_agent.execute(
+                "Scan and send reminders for settled game",
+                context={
+                    "action": "scan_and_remind",
+                    "game_id": game_id,
+                    "group_id": group_id,
+                    "overdue_days": 0,  # Include brand new entries (day 0 = gentle)
+                }
+            )
+            logger.info(
+                f"Post-settlement reminders for game {game_id}: "
+                f"{result.message if result.success else result.error}"
+            )
+        except Exception as e:
+            logger.error(f"Post-settlement reminder error: {e}")
+
+    async def _handle_stripe_payment(self, data: Dict):
+        """
+        Handle incoming Stripe payment webhook.
+        Routes to PaymentReconciliationAgent for matching and auto-marking.
+        """
+        if not self.payment_reconciliation_agent:
+            logger.debug("PaymentReconciliationAgent not available, skipping Stripe match")
+            return
+
+        try:
+            result = await self.payment_reconciliation_agent.execute(
+                "Match Stripe payment",
+                context={
+                    "action": "match_stripe_payment",
+                    "stripe_event": data,
+                }
+            )
+            logger.info(
+                f"Stripe payment match: "
+                f"{result.message if result.success else result.error}"
+            )
+        except Exception as e:
+            logger.error(f"Stripe payment match error: {e}")
+
+    async def _handle_payment_reconciliation(self, data: Dict):
+        """
+        When a manual payment is received, check if there are
+        remaining debts to consolidate or additional reconciliation needed.
+        """
+        if not self.payment_reconciliation_agent or not self.db:
+            return
+
+        group_id = data.get("group_id")
+        if not group_id:
+            # Try to get group_id from ledger entry
+            ledger_id = data.get("ledger_id")
+            if ledger_id:
+                entry = await self.db.ledger_entries.find_one(
+                    {"_id": ledger_id} if not isinstance(ledger_id, str)
+                    else {"ledger_id": ledger_id},
+                    {"_id": 0, "group_id": 1}
+                )
+                if entry:
+                    group_id = entry.get("group_id")
+
+        if not group_id:
+            return
+
+        try:
+            # Check remaining debts for consolidation opportunities
+            remaining = await self.db.ledger_entries.count_documents({
+                "group_id": group_id,
+                "status": "pending",
+            })
+
+            # Only suggest consolidation if there are multiple pending entries
+            if remaining >= 3:
+                result = await self.payment_reconciliation_agent.execute(
+                    "Check consolidation after payment",
+                    context={
+                        "action": "consolidate_debts",
+                        "group_id": group_id,
+                    }
+                )
+                logger.info(
+                    f"Payment consolidation check for group {group_id}: "
+                    f"{result.message if result.success else result.error}"
+                )
+        except Exception as e:
+            logger.error(f"Payment reconciliation check error: {e}")
 
     # ==================== Group Chat Handlers ====================
 

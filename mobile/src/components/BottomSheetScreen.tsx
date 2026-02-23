@@ -80,41 +80,24 @@ export function BottomSheetScreen({ children, noBorderRadius }: BottomSheetScree
 
   return (
     <View style={styles.container}>
-      {/* Transparent backdrop at top - tap to close */}
-      <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]}>
+      {/* Semi-transparent backdrop that covers the entire screen behind content */}
+      <Animated.View 
+        style={[
+          styles.fullBackdrop, 
+          { 
+            opacity: opacityAnim,
+            backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.15)",
+          }
+        ]}
+      >
         <TouchableOpacity
-          style={[styles.topTouchArea, { height: TOP_VISIBLE_HEIGHT + insets.top + 56 }]}
+          style={styles.backdropTouchable}
           activeOpacity={1}
           onPress={handleClose}
-        >
-          {/* Theme-aware semi-transparent overlay with curved bottom to match content */}
-          <View 
-            style={[
-              styles.overlayWithCurve, 
-              { 
-                backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.15)",
-                height: TOP_VISIBLE_HEIGHT + insets.top,
-              }
-            ]} 
-          />
-          {/* Curved corners overlay that blends with content */}
-          <View 
-            style={[
-              styles.curvedCornersOverlay,
-              { 
-                backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.15)",
-              }
-            ]}
-          >
-            {/* Left curved corner mask */}
-            <View style={[styles.cornerMask, styles.cornerMaskLeft, { backgroundColor: colors.contentBg }]} />
-            {/* Right curved corner mask */}
-            <View style={[styles.cornerMask, styles.cornerMaskRight, { backgroundColor: colors.contentBg }]} />
-          </View>
-        </TouchableOpacity>
+        />
       </Animated.View>
 
-      {/* Main content with curved corners */}
+      {/* Main content with curved corners - sits on top of backdrop */}
       <Animated.View
         style={[
           styles.contentContainer,

@@ -34,7 +34,7 @@ export function MainStack() {
       <Stack.Screen
         name="GameNight"
         component={GameNightScreen}
-        options={{ title: "Game" }}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

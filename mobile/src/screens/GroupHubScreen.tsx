@@ -901,11 +901,74 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
   },
+  // Page Header
+  pageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pageTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  // Bottom Action Buttons - Labeled FABs
+  bottomActions: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    backgroundColor: "transparent",
+  },
+  labeledFab: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  primaryFab: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: "center",
+  },
+  fabIconContainer: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fabLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
+  },
   container: {
     flex: 1,
   },
   content: {
-    padding: 28,
+    padding: 20,
     paddingBottom: 32,
   },
   // Group Header

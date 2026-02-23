@@ -22,7 +22,8 @@ import Logo from "@/components/Logo";
 import { Alert, AlertTitle, AlertDescription, AlertAction } from "@/components/reui/alert";
 import { Frame, FramePanel } from "@/components/reui/frame";
 import { toast } from "sonner";
-import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight, Wallet } from "lucide-react";
+import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight, Wallet, MessageSquare } from "lucide-react";
+import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -33,6 +34,7 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Fetch notifications with polling
   const fetchNotifications = useCallback(async () => {
@@ -362,6 +364,7 @@ export default function Navbar() {
   };
 
   return (
+    <>
     <nav className="border-b border-border/50 bg-background/80 backdrop-blur-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
@@ -460,6 +463,10 @@ export default function Navbar() {
                   <Wallet className="w-4 h-4 mr-2" />
                   Wallet
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFeedbackOpen(true)} className="cursor-pointer text-sm">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Report an Issue
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive text-sm">
                   <LogOut className="w-4 h-4 mr-2" />
@@ -505,5 +512,9 @@ export default function Navbar() {
         )}
       </div>
     </nav>
+
+      {/* Feedback Dialog */}
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+    </>
   );
 }

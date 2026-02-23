@@ -166,6 +166,18 @@ class UserAutomationAgent(BaseAgent):
                     "type": "object",
                     "description": "Event data for trigger execution"
                 },
+                "event_id": {
+                    "type": "string",
+                    "description": "Unique event ID for idempotency"
+                },
+                "causation_run_id": {
+                    "type": "string",
+                    "description": "Run ID that caused this event (loop guard)"
+                },
+                "correlation_id": {
+                    "type": "string",
+                    "description": "Correlation ID to trace related events"
+                },
             },
             "required": ["user_input"]
         }
@@ -305,6 +317,27 @@ class UserAutomationAgent(BaseAgent):
                 error="Automation limit reached (20 max). Delete unused automations first.",
                 steps_taken=steps
             )
+
+        # Step 2b: BUILD-TIME POLICY — permissions + cron constraints
+        if group_id:
+            build_policy = await self.call_tool(
+                "automation_policy",
+                action="check_build_policy",
+                user_id=user_id,
+                group_id=group_id,
+                trigger=trigger,
+                actions=actions,
+            )
+            steps.append({"step": "build_policy_check", "result": build_policy})
+
+            build_data = build_policy.get("data", {})
+            if not build_data.get("allowed", True):
+                return AgentResult(
+                    success=False,
+                    error=f"Build policy blocked: {build_policy.get('error', 'Permission denied')}",
+                    data={"policy_errors": build_data.get("errors", [])},
+                    steps_taken=steps,
+                )
 
         # Step 3: BUILD — create the automation
         create_result = await self.call_tool(
@@ -618,7 +651,7 @@ class UserAutomationAgent(BaseAgent):
         automation = get_result.get("data", {})
         action_types = [a.get("type") for a in automation.get("actions", [])]
 
-        # POLICY CHECK
+        # POLICY CHECK (pass full actions for permission matrix)
         policy_result = await self.call_tool(
             "automation_policy",
             action="check_policy",
@@ -626,6 +659,7 @@ class UserAutomationAgent(BaseAgent):
             automation_id=automation_id,
             group_id=automation.get("group_id"),
             action_types=action_types,
+            actions=automation.get("actions", []),
         )
         steps.append({"step": "policy_check", "result": policy_result})
 
@@ -638,12 +672,15 @@ class UserAutomationAgent(BaseAgent):
                 steps_taken=steps
             )
 
-        # EXECUTE
+        # EXECUTE (pass idempotency fields from context)
         run_result = await self.call_tool(
             "automation_runner",
             action="run_automation",
             automation_id=automation_id,
             event_data=event_data,
+            event_id=context.get("event_id"),
+            causation_run_id=context.get("causation_run_id"),
+            correlation_id=context.get("correlation_id"),
         )
         steps.append({"step": "run", "result": run_result})
 
@@ -662,11 +699,14 @@ class UserAutomationAgent(BaseAgent):
         Trigger all matching automations for an event.
         Called by EventListenerService when events fire.
 
-        Full pipeline: Match → Policy → Execute → Measure
+        Full pipeline: Match → Dedupe → Policy → Execute → Measure
         """
         trigger_type = context.get("trigger_type")
         event_data = context.get("event_data", {})
         group_id = context.get("group_id") or event_data.get("group_id")
+        event_id = context.get("event_id") or event_data.get("event_id")
+        causation_run_id = context.get("causation_run_id")
+        correlation_id = context.get("correlation_id")
 
         if not trigger_type:
             return AgentResult(
@@ -726,7 +766,7 @@ class UserAutomationAgent(BaseAgent):
             user_id = automation["user_id"]
             action_types = [a.get("type") for a in automation.get("actions", [])]
 
-            # Policy check per automation
+            # Policy check per automation (pass full actions for permission matrix)
             policy_result = await self.call_tool(
                 "automation_policy",
                 action="check_policy",
@@ -734,6 +774,7 @@ class UserAutomationAgent(BaseAgent):
                 automation_id=automation_id,
                 group_id=automation.get("group_id") or group_id,
                 action_types=action_types,
+                actions=automation.get("actions", []),
             )
 
             policy_data = policy_result.get("data", {})
@@ -744,28 +785,37 @@ class UserAutomationAgent(BaseAgent):
                     "name": automation.get("name"),
                     "status": "blocked",
                     "reason": policy_data.get("blocked_reason"),
+                    "blocked_check": policy_data.get("blocked_check"),
                 })
                 continue
 
-            # Execute
+            # Execute (pass idempotency + loop guard fields)
             run_result = await self.call_tool(
                 "automation_runner",
                 action="run_automation",
                 automation_id=automation_id,
                 event_data=event_data,
+                event_id=event_id,
+                causation_run_id=causation_run_id,
+                correlation_id=correlation_id,
             )
 
             executed += 1
+            run_data = run_result.get("data", {})
             run_success = run_result.get("success", False)
-            if run_success:
+            was_skipped = run_data.get("skipped", False)
+
+            if run_success and not was_skipped:
                 succeeded += 1
-            else:
+            elif not run_success:
                 failed += 1
 
             results.append({
                 "automation_id": automation_id,
                 "name": automation.get("name"),
-                "status": "success" if run_success else "failed",
+                "status": "success" if (run_success and not was_skipped) else ("skipped" if was_skipped else "failed"),
+                "skip_reason": run_data.get("reason") if was_skipped else None,
+                "blocked_check": policy_data.get("blocked_check") if not policy_data.get("allowed") else None,
                 "error": run_result.get("error") if not run_success else None,
             })
 
@@ -997,12 +1047,15 @@ class UserAutomationAgent(BaseAgent):
                 blocked += 1
                 continue
 
-            # Execute
+            # Execute (generate unique event_id for each scheduled run)
+            import uuid as _uuid
+            sched_event_id = f"sched_{_uuid.uuid4().hex[:12]}"
             run_result = await self.call_tool(
                 "automation_runner",
                 action="run_automation",
                 automation_id=automation_id,
                 event_data={"trigger_type": "schedule"},
+                event_id=sched_event_id,
             )
 
             executed += 1
@@ -1031,6 +1084,7 @@ class UserAutomationAgent(BaseAgent):
         """
         Check if a schedule-based automation should run now.
         Simple check: if it hasn't run in the last cooldown period.
+        Respects the automation's stored timezone for schedule evaluation.
         Full cron evaluation would use APScheduler in production.
         """
         last_run = automation.get("last_run")
@@ -1042,8 +1096,21 @@ class UserAutomationAgent(BaseAgent):
         else:
             last_run_dt = last_run
 
-        # Simple daily check — if it hasn't run today, it should run
+        # Use the automation's timezone snapshot for schedule evaluation
+        user_tz = automation.get("timezone")
         now = datetime.now(timezone.utc)
+
+        if user_tz:
+            try:
+                from zoneinfo import ZoneInfo
+                user_zone = ZoneInfo(user_tz)
+                now_local = now.astimezone(user_zone)
+                last_run_local = last_run_dt.astimezone(user_zone)
+                # Check if it hasn't run in the current local-time hour
+                return (now_local - last_run_local) > timedelta(hours=1)
+            except (ImportError, KeyError):
+                pass
+
         return (now - last_run_dt) > timedelta(hours=1)
 
     # ==================== Job Queue Processing ====================

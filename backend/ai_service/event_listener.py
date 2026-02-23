@@ -14,6 +14,7 @@ from typing import Dict, Optional, Callable, List
 from datetime import datetime, timezone, timedelta
 import logging
 import asyncio
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -122,8 +123,20 @@ class EventListenerService:
         Args:
             event_type: Type of event (e.g., "buy_in_request")
             data: Event data including game_id, player_id, host_id, etc.
+
+        Automatically assigns:
+        - event_id: unique ID for idempotency (if not already set)
+        - event_type: tagged into data for downstream handlers
         """
-        logger.info(f"Event received: {event_type} - {data.get('game_id', 'no game')}")
+        # Generate event_id for idempotency if not already present
+        if "event_id" not in data:
+            data["event_id"] = f"evt_{uuid.uuid4().hex[:16]}"
+
+        logger.info(
+            f"Event received: {event_type} - "
+            f"{data.get('game_id', 'no game')} "
+            f"[event_id={data['event_id']}]"
+        )
 
         # Tag event_type into data for downstream handlers
         data["event_type"] = event_type
@@ -132,6 +145,7 @@ class EventListenerService:
         if self.db:
             await self.db.event_logs.insert_one({
                 "event_type": event_type,
+                "event_id": data["event_id"],
                 "data": data,
                 "timestamp": datetime.utcnow()
             })
@@ -737,6 +751,9 @@ class EventListenerService:
                     "trigger_type": event_type,
                     "event_data": data,
                     "group_id": group_id,
+                    "event_id": data.get("event_id"),
+                    # causation_run_id: not set here — these are organic events.
+                    # Only automation-generated events would carry a causation_run_id.
                 }
             )
             if result.data and result.data.get("executed", 0) > 0:

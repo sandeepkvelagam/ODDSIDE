@@ -13,13 +13,17 @@ Automations consist of:
     send_payment_reminder, generate_summary
 - Conditions (optional): Additional filters on the trigger
   - group_id match, amount threshold, user role, etc.
+- Execution options: stop_on_failure, per-action timeout, max duration
 
 Safety:
 - Validates trigger types against allowlist
 - Validates action types and their required params
 - Enforces per-user automation limits
+- Cron schedule constraints (minimum 15 min interval)
+- Build-time policy check (role-based action permissions)
 - Prevents infinite loops (no automation can trigger another automation)
 - No PII in automation names/descriptions
+- Expanded condition operators: exists, contains, between, any_of, starts_with
 """
 
 from typing import Dict, List, Optional
@@ -123,16 +127,31 @@ CRON_PATTERN = re.compile(
     r'(\*|[0-9,\-\/]+)$'      # day of week
 )
 
+# Minimum cron interval (minutes)
+MIN_CRON_INTERVAL_MINUTES = 15
+
+# Expanded condition operators
+ALLOWED_CONDITION_OPS = {
+    "eq", "neq", "gt", "gte", "lt", "lte",
+    "in", "not_in",
+    "exists", "not_exists",
+    "contains", "starts_with",
+    "between",
+    "any_of",
+}
+
 
 class AutomationBuilderTool(BaseTool):
     """
     Creates and manages user-defined automations.
 
     Handles CRUD operations, validation, and template suggestions.
+    Includes build-time policy check and cron schedule constraints.
     """
 
-    def __init__(self, db=None):
+    def __init__(self, db=None, policy_tool=None):
         self.db = db
+        self.policy_tool = policy_tool
 
     @property
     def name(self) -> str:
@@ -144,7 +163,7 @@ class AutomationBuilderTool(BaseTool):
             "Create, edit, delete, and list user-defined automations. "
             "Automations are IFTTT-style rules: when a trigger fires, "
             "execute one or more actions. Supports event-based and "
-            "schedule-based triggers."
+            "schedule-based triggers with cron constraints."
         )
 
     @property
@@ -167,6 +186,10 @@ class AutomationBuilderTool(BaseTool):
                 "trigger": {"type": "object"},
                 "actions": {"type": "array"},
                 "conditions": {"type": "object"},
+                "execution_options": {
+                    "type": "object",
+                    "description": "Options: stop_on_failure, action_timeout_ms, max_duration_ms",
+                },
                 "enabled": {"type": "boolean"},
                 "group_id": {"type": "string"},
             },
@@ -208,6 +231,7 @@ class AutomationBuilderTool(BaseTool):
         actions = kwargs.get("actions", [])
         conditions = kwargs.get("conditions", {})
         group_id = kwargs.get("group_id")
+        execution_options = kwargs.get("execution_options", {})
 
         if not user_id:
             return ToolResult(success=False, error="user_id required")
@@ -253,6 +277,37 @@ class AutomationBuilderTool(BaseTool):
         if not conditions_validation["valid"]:
             return ToolResult(success=False, error=conditions_validation["error"])
 
+        # Validate execution options
+        exec_validation = self._validate_execution_options(execution_options)
+        if not exec_validation["valid"]:
+            return ToolResult(success=False, error=exec_validation["error"])
+
+        # Build-time policy check (permissions + cron constraints)
+        if self.policy_tool and group_id:
+            build_policy = await self.policy_tool.execute(
+                action="check_build_policy",
+                user_id=user_id,
+                group_id=group_id,
+                trigger=trigger,
+                actions=actions,
+            )
+            if not build_policy.success or not (build_policy.data or {}).get("allowed", True):
+                return ToolResult(
+                    success=False,
+                    error=f"Build policy blocked: {build_policy.error or 'Permission denied'}",
+                    data={"policy_errors": (build_policy.data or {}).get("errors", [])},
+                )
+
+        # Snapshot user timezone for stability
+        user_tz = None
+        if self.db:
+            user_doc = await self.db.users.find_one(
+                {"user_id": user_id},
+                {"_id": 0, "timezone": 1}
+            )
+            if user_doc:
+                user_tz = user_doc.get("timezone")
+
         automation_id = f"auto_{uuid.uuid4().hex[:12]}"
         now = datetime.now(timezone.utc).isoformat()
 
@@ -264,15 +319,21 @@ class AutomationBuilderTool(BaseTool):
             "trigger": trigger,
             "actions": actions,
             "conditions": conditions,
+            "execution_options": execution_options,
             "group_id": group_id,
             "enabled": True,
             "last_run": None,
             "last_run_result": None,
+            "last_event_id": None,
             "run_count": 0,
             "error_count": 0,
             "consecutive_errors": 0,
+            "skip_count": 0,
+            "consecutive_skips": 0,
             "auto_disabled": False,
             "auto_disabled_reason": None,
+            "timezone": user_tz,
+            "created_from_template_id": kwargs.get("template_id"),
             "created_at": now,
             "updated_at": now,
             "events": [{
@@ -360,6 +421,14 @@ class AutomationBuilderTool(BaseTool):
                 return ToolResult(success=False, error=validation["error"])
             updates["conditions"] = conditions
 
+        # Update execution_options
+        execution_options = kwargs.get("execution_options")
+        if execution_options is not None:
+            validation = self._validate_execution_options(execution_options)
+            if not validation["valid"]:
+                return ToolResult(success=False, error=validation["error"])
+            updates["execution_options"] = execution_options
+
         # Update group_id
         group_id = kwargs.get("group_id")
         if group_id is not None:
@@ -375,6 +444,23 @@ class AutomationBuilderTool(BaseTool):
             updates["auto_disabled"] = False
             updates["auto_disabled_reason"] = None
             updates["consecutive_errors"] = 0
+            updates["consecutive_skips"] = 0
+
+        # Build-time policy re-check if actions or trigger changed
+        effective_group_id = group_id or existing.get("group_id")
+        if self.policy_tool and effective_group_id and (actions or trigger):
+            build_policy = await self.policy_tool.execute(
+                action="check_build_policy",
+                user_id=user_id,
+                group_id=effective_group_id,
+                trigger=trigger or existing.get("trigger", {}),
+                actions=actions or existing.get("actions", []),
+            )
+            if not build_policy.success or not (build_policy.data or {}).get("allowed", True):
+                return ToolResult(
+                    success=False,
+                    error=f"Build policy blocked: {build_policy.error or 'Permission denied'}",
+                )
 
         await self.db.user_automations.update_one(
             {"automation_id": automation_id, "user_id": user_id},
@@ -466,7 +552,9 @@ class AutomationBuilderTool(BaseTool):
                 "actions": 1,
                 "enabled": 1,
                 "auto_disabled": 1,
+                "auto_disabled_reason": 1,
                 "run_count": 1,
+                "skip_count": 1,
                 "last_run": 1,
                 "last_run_result": 1,
                 "group_id": 1,
@@ -505,6 +593,7 @@ class AutomationBuilderTool(BaseTool):
             updates["auto_disabled"] = False
             updates["auto_disabled_reason"] = None
             updates["consecutive_errors"] = 0
+            updates["consecutive_skips"] = 0
 
         result = await self.db.user_automations.update_one(
             {"automation_id": automation_id, "user_id": user_id},
@@ -567,12 +656,14 @@ class AutomationBuilderTool(BaseTool):
         """Suggest pre-built automation templates."""
         templates = [
             {
+                "template_id": "tpl_auto_rsvp",
                 "name": "Auto-RSVP to games",
                 "description": "Automatically confirm your attendance when a new game is created",
                 "trigger": {"type": "game_created"},
                 "actions": [{"type": "auto_rsvp", "params": {"response": "confirmed"}}],
             },
             {
+                "template_id": "tpl_payment_reminder",
                 "name": "Payment reminder after 3 days",
                 "description": "Remind people who owe you if they haven't paid within 3 days",
                 "trigger": {
@@ -584,6 +675,7 @@ class AutomationBuilderTool(BaseTool):
                 ],
             },
             {
+                "template_id": "tpl_self_reminder",
                 "name": "Self-reminder when I owe",
                 "description": "Get a reminder notification when you owe someone money",
                 "trigger": {"type": "payment_due"},
@@ -597,6 +689,7 @@ class AutomationBuilderTool(BaseTool):
                 }],
             },
             {
+                "template_id": "tpl_friday_game",
                 "name": "Friday game suggestion",
                 "description": "Suggest creating a game every Friday at 5pm",
                 "trigger": {"type": "schedule", "schedule": "0 17 * * 5"},
@@ -610,6 +703,7 @@ class AutomationBuilderTool(BaseTool):
                 }],
             },
             {
+                "template_id": "tpl_game_summary",
                 "name": "Game summary after every game",
                 "description": "Automatically generate and share a game summary when a game ends",
                 "trigger": {"type": "game_ended"},
@@ -618,6 +712,7 @@ class AutomationBuilderTool(BaseTool):
                 ],
             },
             {
+                "template_id": "tpl_all_confirmed",
                 "name": "Notify me when all players confirmed",
                 "description": "Get notified when every invited player has confirmed",
                 "trigger": {"type": "all_players_confirmed"},
@@ -644,6 +739,7 @@ class AutomationBuilderTool(BaseTool):
         trigger = kwargs.get("trigger", {})
         actions = kwargs.get("actions", [])
         conditions = kwargs.get("conditions", {})
+        execution_options = kwargs.get("execution_options", {})
 
         errors = []
 
@@ -658,6 +754,11 @@ class AutomationBuilderTool(BaseTool):
         conditions_result = self._validate_conditions(conditions, trigger)
         if not conditions_result["valid"]:
             errors.append(f"Conditions: {conditions_result['error']}")
+
+        if execution_options:
+            exec_result = self._validate_execution_options(execution_options)
+            if not exec_result["valid"]:
+                errors.append(f"Execution options: {exec_result['error']}")
 
         if errors:
             return ToolResult(
@@ -702,7 +803,41 @@ class AutomationBuilderTool(BaseTool):
                     "error": "Invalid cron expression. Format: 'minute hour day_of_month month day_of_week'"
                 }
 
+            # Cron frequency constraints
+            cron_error = self._validate_cron_frequency(schedule)
+            if cron_error:
+                return {"valid": False, "error": cron_error}
+
         return {"valid": True, "error": None}
+
+    def _validate_cron_frequency(self, schedule: str) -> Optional[str]:
+        """Validate that a cron schedule doesn't fire too frequently."""
+        parts = schedule.strip().split()
+        if len(parts) != 5:
+            return None  # Let the pattern validator handle format errors
+
+        minute, hour = parts[0], parts[1]
+
+        # Block "every minute" patterns
+        if minute == "*" and hour == "*":
+            return (
+                f"Schedule too frequent. Minimum interval is "
+                f"{MIN_CRON_INTERVAL_MINUTES} minutes."
+            )
+
+        # Check step intervals (*/N)
+        if minute.startswith("*/"):
+            try:
+                interval = int(minute.split("/")[1])
+                if interval < MIN_CRON_INTERVAL_MINUTES and hour == "*":
+                    return (
+                        f"Schedule interval ({interval} min) below minimum "
+                        f"({MIN_CRON_INTERVAL_MINUTES} min)"
+                    )
+            except (ValueError, IndexError):
+                pass
+
+        return None
 
     def _validate_actions(self, actions: List) -> Dict:
         """Validate action configurations."""
@@ -740,14 +875,24 @@ class AutomationBuilderTool(BaseTool):
                         )
                     }
 
+            # Validate per-action timeout if specified
+            if "timeout_ms" in action:
+                timeout = action["timeout_ms"]
+                if not isinstance(timeout, (int, float)) or timeout < 1000 or timeout > 60000:
+                    return {
+                        "valid": False,
+                        "error": (
+                            f"Action {i+1} ({action_type}): "
+                            f"timeout_ms must be between 1000 and 60000"
+                        )
+                    }
+
         return {"valid": True, "error": None}
 
     def _validate_conditions(self, conditions: Dict, trigger: Dict) -> Dict:
-        """Validate condition configuration."""
+        """Validate condition configuration with expanded operators."""
         if not conditions:
             return {"valid": True, "error": None}
-
-        allowed_ops = {"eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in"}
 
         for field, condition in conditions.items():
             if not isinstance(condition, dict):
@@ -760,16 +905,86 @@ class AutomationBuilderTool(BaseTool):
             if not op:
                 return {"valid": False, "error": f"Condition for '{field}': 'op' required"}
 
-            if op not in allowed_ops:
+            if op not in ALLOWED_CONDITION_OPS:
                 return {
                     "valid": False,
-                    "error": f"Condition for '{field}': unknown op '{op}'. Allowed: {', '.join(allowed_ops)}"
+                    "error": (
+                        f"Condition for '{field}': unknown op '{op}'. "
+                        f"Allowed: {', '.join(sorted(ALLOWED_CONDITION_OPS))}"
+                    )
                 }
+
+            # exists/not_exists don't require a value
+            if op in ("exists", "not_exists"):
+                continue
 
             if "value" not in condition:
                 return {
                     "valid": False,
-                    "error": f"Condition for '{field}': 'value' required"
+                    "error": f"Condition for '{field}': 'value' required for op '{op}'"
+                }
+
+            # Type-specific validation
+            value = condition["value"]
+
+            if op == "between":
+                if not isinstance(value, list) or len(value) != 2:
+                    return {
+                        "valid": False,
+                        "error": (
+                            f"Condition for '{field}': 'between' requires "
+                            f"a [min, max] array"
+                        )
+                    }
+
+            if op in ("in", "not_in", "any_of"):
+                if not isinstance(value, list):
+                    return {
+                        "valid": False,
+                        "error": (
+                            f"Condition for '{field}': '{op}' requires "
+                            f"an array value"
+                        )
+                    }
+
+            if op in ("contains", "starts_with"):
+                if not isinstance(value, str):
+                    return {
+                        "valid": False,
+                        "error": (
+                            f"Condition for '{field}': '{op}' requires "
+                            f"a string value"
+                        )
+                    }
+
+        return {"valid": True, "error": None}
+
+    def _validate_execution_options(self, options: Dict) -> Dict:
+        """Validate execution options."""
+        if not options:
+            return {"valid": True, "error": None}
+
+        if "stop_on_failure" in options:
+            if not isinstance(options["stop_on_failure"], bool):
+                return {
+                    "valid": False,
+                    "error": "stop_on_failure must be a boolean"
+                }
+
+        if "action_timeout_ms" in options:
+            timeout = options["action_timeout_ms"]
+            if not isinstance(timeout, (int, float)) or timeout < 1000 or timeout > 60000:
+                return {
+                    "valid": False,
+                    "error": "action_timeout_ms must be between 1000 and 60000"
+                }
+
+        if "max_duration_ms" in options:
+            max_dur = options["max_duration_ms"]
+            if not isinstance(max_dur, (int, float)) or max_dur < 5000 or max_dur > 300000:
+                return {
+                    "valid": False,
+                    "error": "max_duration_ms must be between 5000 and 300000"
                 }
 
         return {"valid": True, "error": None}

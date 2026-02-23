@@ -126,49 +126,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "transparent",
   },
-  backdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
+  fullBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
-  topTouchArea: {
-    width: "100%",
-  },
-  overlayWithCurve: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  curvedCornersOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 56,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  cornerMask: {
-    width: 56,
-    height: 56,
-    borderRadius: 56,
-  },
-  cornerMaskLeft: {
-    marginLeft: -28,
-    marginBottom: -28,
-  },
-  cornerMaskRight: {
-    marginRight: -28,
-    marginBottom: -28,
+  backdropTouchable: {
+    flex: 1,
   },
   contentContainer: {
     flex: 1,
     borderTopLeftRadius: 56,
     borderTopRightRadius: 56,
     overflow: "hidden",
+    zIndex: 1,
     // Shadow for depth
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },

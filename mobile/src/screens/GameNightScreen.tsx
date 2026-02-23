@@ -501,12 +501,12 @@ export function GameNightScreen() {
             <View style={[
               styles.statusBadge,
               isActive ? { backgroundColor: "rgba(34,197,94,0.15)" } : 
-              isScheduled ? { backgroundColor: "rgba(234,179,8,0.15)" } :
+              isScheduled ? { backgroundColor: hostBgColor } :
               { backgroundColor: lc.liquidGlassBg }
             ]}>
               <Text style={[
                 styles.statusBadgeText,
-                { color: isActive ? lc.success : isScheduled ? "#fbbf24" : lc.textMuted }
+                { color: isActive ? lc.success : isScheduled ? hostColor : lc.textMuted }
               ]}>
                 {gameStatus.toUpperCase()}
               </Text>

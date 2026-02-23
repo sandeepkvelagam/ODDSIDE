@@ -14,11 +14,11 @@ import {
 } from "react-native";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-import { AIChatFab } from "../components/AIChatFab";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type R = RouteProp<RootStackParamList, "GroupHub">;
@@ -27,11 +27,32 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 const BUY_IN_OPTIONS = [5, 10, 20, 50, 100];
 const CHIPS_OPTIONS = [10, 20, 50, 100];
 
+// Liquid Glass Design System Colors
+const LIQUID_COLORS = {
+  jetDark: "#282B2B",
+  jetSurface: "#323535",
+  orange: "#EE6C29",
+  orangeDark: "#C45A22",
+  trustBlue: "#3B82F6",
+  moonstone: "#7AA6B3",
+  liquidGlassBg: "rgba(255, 255, 255, 0.06)",
+  liquidGlassBorder: "rgba(255, 255, 255, 0.12)",
+  liquidInnerBg: "rgba(255, 255, 255, 0.03)",
+  liquidGlowOrange: "rgba(238, 108, 41, 0.15)",
+  liquidGlowBlue: "rgba(59, 130, 246, 0.15)",
+  textPrimary: "#F5F5F5",
+  textSecondary: "#B8B8B8",
+  textMuted: "#7A7A7A",
+  success: "#22C55E",
+  danger: "#EF4444",
+};
+
 export function GroupHubScreen() {
-  const { colors } = useTheme();
+  const { isDark, colors } = useTheme();
   const { user } = useAuth();
   const route = useRoute<R>();
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { groupId } = route.params;
 
   const [group, setGroup] = useState<any>(null);

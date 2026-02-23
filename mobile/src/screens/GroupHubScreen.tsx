@@ -656,7 +656,7 @@ export function GroupHubScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Start Game Modal */}
+      {/* Start Game Modal - Liquid Glass Style */}
       <Modal
         visible={showStartGameSheet}
         animationType="slide"
@@ -672,103 +672,110 @@ export function GroupHubScreen() {
             activeOpacity={1}
             onPress={() => setShowStartGameSheet(false)}
           />
-          <View style={[styles.sheetContainer, { backgroundColor: colors.surface }]}>
+          <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
-            <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>Start Game</Text>
+            <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>New Game</Text>
 
             {startError && (
-              <View style={styles.sheetError}>
-                <Text style={styles.sheetErrorText}>{startError}</Text>
+              <View style={[styles.sheetError, { backgroundColor: "rgba(239,68,68,0.12)" }]}>
+                <Text style={[styles.sheetErrorText, { color: lc.danger }]}>{startError}</Text>
               </View>
             )}
 
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.glassBorder }]}
-              placeholder="Game Title (optional)"
-              placeholderTextColor={colors.textMuted}
-              value={gameTitle}
-              onChangeText={setGameTitle}
-            />
-
-            {/* Buy-in Selection */}
-            <Text style={[styles.optionLabel, { color: colors.textSecondary }]}>Buy-in Amount</Text>
-            <View style={styles.optionRow}>
-              {BUY_IN_OPTIONS.map((amount) => (
-                <TouchableOpacity
-                  key={amount}
-                  style={[
-                    styles.optionButton,
-                    { borderColor: colors.glassBorder },
-                    buyInAmount === amount && { borderColor: colors.orange, backgroundColor: "rgba(239,110,89,0.15)" },
-                  ]}
-                  onPress={() => setBuyInAmount(amount)}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      { color: colors.textPrimary },
-                      buyInAmount === amount && { color: colors.orange },
-                    ]}
-                  >
-                    ${amount}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            {/* Input Section - Liquid Glass */}
+            <View style={[styles.inputSection, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+              <View style={[styles.inputInner, { backgroundColor: lc.liquidInnerBg }]}>
+                <TextInput
+                  style={[styles.input, { backgroundColor: lc.liquidGlassBg, color: lc.textPrimary, borderColor: lc.liquidGlassBorder }]}
+                  placeholder="Game Title (optional)"
+                  placeholderTextColor={lc.textMuted}
+                  value={gameTitle}
+                  onChangeText={setGameTitle}
+                />
+              </View>
             </View>
 
-            {/* Chips Selection */}
-            <Text style={[styles.optionLabel, { color: colors.textSecondary }]}>Chips per Buy-in</Text>
-            <View style={styles.optionRow}>
-              {CHIPS_OPTIONS.map((chips) => (
-                <TouchableOpacity
-                  key={chips}
-                  style={[
-                    styles.optionButton,
-                    { borderColor: colors.glassBorder },
-                    chipsPerBuyIn === chips && { borderColor: colors.orange, backgroundColor: "rgba(239,110,89,0.15)" },
-                  ]}
-                  onPress={() => setChipsPerBuyIn(chips)}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      { color: colors.textPrimary },
-                      chipsPerBuyIn === chips && { color: colors.orange },
-                    ]}
-                  >
-                    {chips}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {/* Options Section - Liquid Glass */}
+            <View style={[styles.optionSection, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+              <View style={[styles.optionInner, { backgroundColor: lc.liquidInnerBg }]}>
+                {/* Buy-in Selection */}
+                <Text style={[styles.optionLabel, { color: lc.textSecondary }]}>Buy-in Amount</Text>
+                <View style={styles.optionRow}>
+                  {BUY_IN_OPTIONS.map((amount) => (
+                    <TouchableOpacity
+                      key={amount}
+                      style={[
+                        styles.optionButton,
+                        { borderColor: lc.liquidGlassBorder },
+                        buyInAmount === amount && { borderColor: lc.orange, backgroundColor: lc.liquidGlowOrange },
+                      ]}
+                      onPress={() => setBuyInAmount(amount)}
+                    >
+                      <Text
+                        style={[
+                          styles.optionText,
+                          { color: lc.textPrimary },
+                          buyInAmount === amount && { color: lc.orange },
+                        ]}
+                      >
+                        ${amount}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-            {/* Chip Value Preview */}
-            <View style={[styles.previewCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-              <Text style={[styles.previewLabel, { color: colors.textMuted }]}>Each chip equals</Text>
-              <Text style={[styles.previewValue, { color: colors.orange }]}>
-                ${chipValue.toFixed(2)}
-              </Text>
+                {/* Chips Selection */}
+                <Text style={[styles.optionLabel, { color: lc.textSecondary, marginTop: 16 }]}>Chips per Buy-in</Text>
+                <View style={styles.optionRow}>
+                  {CHIPS_OPTIONS.map((chips) => (
+                    <TouchableOpacity
+                      key={chips}
+                      style={[
+                        styles.optionButton,
+                        { borderColor: lc.liquidGlassBorder },
+                        chipsPerBuyIn === chips && { borderColor: lc.trustBlue, backgroundColor: lc.liquidGlowBlue },
+                      ]}
+                      onPress={() => setChipsPerBuyIn(chips)}
+                    >
+                      <Text
+                        style={[
+                          styles.optionText,
+                          { color: lc.textPrimary },
+                          chipsPerBuyIn === chips && { color: lc.trustBlue },
+                        ]}
+                      >
+                        {chips}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Chip Value Preview */}
+                <View style={[styles.previewCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.previewLabel, { color: lc.textMuted }]}>Each chip equals</Text>
+                  <Text style={[styles.previewValue, { color: lc.orange }]}>
+                    ${chipValue.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
             </View>
 
             <View style={styles.sheetActions}>
               <TouchableOpacity
-                style={[styles.cancelButton, { borderColor: colors.glassBorder }]}
+                style={[styles.cancelButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
                 onPress={() => setShowStartGameSheet(false)}
               >
-                <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
+                <Text style={[styles.cancelText, { color: lc.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.startButton, { backgroundColor: colors.orange }, starting && styles.buttonDisabled]}
+                style={[styles.continueButton, { backgroundColor: lc.trustBlue }, starting && styles.buttonDisabled]}
                 onPress={handleStartGame}
                 disabled={starting}
               >
                 {starting ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <>
-                    <Ionicons name="play" size={18} color="#fff" />
-                    <Text style={styles.startText}>Start Game</Text>
-                  </>
+                  <Text style={styles.continueText}>Continue</Text>
                 )}
               </TouchableOpacity>
             </View>

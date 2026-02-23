@@ -7673,6 +7673,116 @@ async def get_public_rating_stats(days: int = 90):
     return result.data
 
 
+@api_router.get("/feedback/my")
+async def get_my_feedback(
+    status: Optional[str] = None,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user)
+):
+    """Get the current user's submitted feedback with status tracking."""
+    query = {"user_id": current_user.user_id}
+    if status:
+        query["status"] = status
+
+    feedback_items = await db.feedback.find(
+        query, {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+
+    # For each feedback, attach the latest auto-fix log if any
+    for item in feedback_items:
+        fid = item.get("feedback_id")
+        if fid:
+            fix_log = await db.auto_fix_log.find_one(
+                {"feedback_id": fid},
+                {"_id": 0},
+                sort=[("created_at", -1)]
+            )
+            item["auto_fix"] = fix_log
+
+    return {"feedback": feedback_items}
+
+
+class ConfirmFixRequest(BaseModel):
+    confirmed: bool = True
+
+
+@api_router.post("/feedback/{feedback_id}/confirm-fix")
+async def confirm_auto_fix(
+    feedback_id: str,
+    data: ConfirmFixRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Confirm or reject a pending auto-fix for a specific feedback item.
+    This is a convenience endpoint — it looks up the pending fix and
+    re-submits through the policy-gated auto-fix pipeline with confirmed=true.
+    """
+    # Find the feedback
+    feedback = await db.feedback.find_one({"feedback_id": feedback_id})
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+
+    # Only the feedback owner or a group admin can confirm
+    if feedback.get("user_id") != current_user.user_id:
+        # Check if user is group admin
+        group_id = feedback.get("context", {}).get("group_id")
+        if group_id:
+            group = await db.groups.find_one({"group_id": group_id})
+            if not group or current_user.user_id not in (group.get("admin_ids") or []):
+                raise HTTPException(status_code=403, detail="Not authorized to confirm this fix")
+        else:
+            raise HTTPException(status_code=403, detail="Not authorized to confirm this fix")
+
+    # Find the pending auto-fix log entry
+    pending_fix = await db.auto_fix_log.find_one(
+        {"feedback_id": feedback_id, "status": "pending_confirmation"},
+        sort=[("created_at", -1)]
+    )
+
+    if not pending_fix:
+        raise HTTPException(status_code=404, detail="No pending fix found for this feedback")
+
+    if not data.confirmed:
+        # User rejected the fix
+        await db.auto_fix_log.update_one(
+            {"_id": pending_fix["_id"]},
+            {"$set": {"status": "rejected", "rejected_at": datetime.utcnow(), "rejected_by": current_user.user_id}}
+        )
+        return {"success": True, "message": "Fix rejected"}
+
+    # Re-submit through the auto-fix pipeline with confirmed=true
+    from ai_service.tools.feedback_policy import FeedbackPolicyTool
+    from ai_service.tools.auto_fixer import AutoFixerTool
+    from ai_service.tools.registry import ToolRegistry
+
+    fix_type = pending_fix.get("fix_type")
+    group_id = pending_fix.get("group_id") or feedback.get("context", {}).get("group_id")
+    game_id = pending_fix.get("game_id") or feedback.get("context", {}).get("game_id")
+
+    tool_registry = ToolRegistry()
+    fixer = AutoFixerTool(db=db, tool_registry=tool_registry)
+    fix_result = await fixer.execute(
+        action="auto_fix",
+        fix_type=fix_type,
+        user_id=current_user.user_id,
+        group_id=group_id,
+        game_id=game_id,
+        feedback_id=feedback_id,
+        confirmed=True
+    )
+
+    if not fix_result.success:
+        raise HTTPException(status_code=500, detail=fix_result.error)
+
+    # Update the pending log entry
+    await db.auto_fix_log.update_one(
+        {"_id": pending_fix["_id"]},
+        {"$set": {"status": "confirmed", "confirmed_at": datetime.utcnow(), "confirmed_by": current_user.user_id}}
+    )
+
+    return {"success": True, "data": fix_result.data, "message": "Fix confirmed and applied"}
+
+
 # ============== AUTOMATION ENDPOINTS ==============
 
 class AutomationCreate(BaseModel):

@@ -17,6 +17,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import Constants from "expo-constants";
+import { PostGameSurveyModal } from "../components/feedback/PostGameSurveyModal";
 
 type R = RouteProp<RootStackParamList, "Settlement">;
 
@@ -33,6 +34,8 @@ export function SettlementScreen() {
   const [error, setError] = useState<string | null>(null);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [payingStripe, setPayingStripe] = useState<string | null>(null);
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [surveyChecked, setSurveyChecked] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -45,6 +48,26 @@ export function SettlementScreen() {
       setLoading(false);
     }
   }, [gameId]);
+
+  // Check if user already submitted a survey for this game; if not, show survey modal
+  useEffect(() => {
+    if (!settlement || surveyChecked) return;
+    setSurveyChecked(true);
+
+    api.get(`/feedback/surveys/${gameId}`)
+      .then((res) => {
+        const surveys = res.data?.surveys || res.data || [];
+        const already = surveys.some(
+          (s: any) => s.user_id === user?.user_id
+        );
+        if (!already) {
+          // Short delay so user sees settlement first
+          const timer = setTimeout(() => setShowSurvey(true), 1500);
+          return () => clearTimeout(timer);
+        }
+      })
+      .catch(() => {});
+  }, [settlement, gameId, user?.user_id, surveyChecked]);
 
   useEffect(() => {
     load();
@@ -305,6 +328,14 @@ export function SettlementScreen() {
         {/* Bottom spacing */}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Post-game survey modal — auto-triggered after viewing settlement */}
+      <PostGameSurveyModal
+        visible={showSurvey}
+        onClose={() => setShowSurvey(false)}
+        gameId={gameId}
+        groupId={settlement?.group_id}
+      />
     </View>
   );
 }

@@ -97,7 +97,7 @@ export function BottomSheetScreen({ children, noBorderRadius }: BottomSheetScree
         style={[
           styles.contentContainer,
           {
-            backgroundColor: isDark ? colors.jetDark : colors.contentBg,
+            backgroundColor: colors.contentBg,
             marginTop: TOP_VISIBLE_HEIGHT + insets.top,
             transform: [{ translateY: slideAnim }],
             ...(noBorderRadius && {
@@ -133,8 +133,8 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    borderTopLeftRadius: 48,
-    borderTopRightRadius: 48,
+    borderTopLeftRadius: 56,
+    borderTopRightRadius: 56,
     overflow: "hidden",
     // Shadow for depth
     shadowColor: "#000",

@@ -343,6 +343,42 @@ export const COMPONENT_STYLES = {
       gap: SPACING.md,
     },
   },
+
+  // Liquid Glass Popup (context menus, info popups)
+  liquidGlassPopup: {
+    container: {
+      borderRadius: RADIUS.lg,
+      borderWidth: 1.5,
+      borderColor: COLORS.glass.border,
+      overflow: "hidden" as const,
+    },
+    row: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      paddingVertical: 13,
+      paddingHorizontal: SPACING.cardPadding,
+      gap: SPACING.md,
+    },
+    blurIntensity: {
+      dark: 80,
+      light: 60,
+    },
+    backdrop: {
+      dark: "rgba(0,0,0,0.25)",
+      light: "rgba(0,0,0,0.1)",
+    },
+    glass: {
+      dark: "rgba(40, 43, 43, 0.82)",
+      light: "rgba(255, 255, 255, 0.88)",
+    },
+    shadow: {
+      ...SHADOWS.floating,
+    },
+    stagger: {
+      delay: 50,
+      startDelay: 80,
+    },
+  },
 } as const;
 
 // ===========================================

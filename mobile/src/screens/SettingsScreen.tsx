@@ -26,6 +26,7 @@ import { useHaptics } from "../context/HapticsContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import { api } from "../api/client";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
+import { LiquidGlassPopup } from "../components/ui/LiquidGlassPopup";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -41,12 +42,30 @@ export function SettingsScreen() {
   const [showInfoPopup, setShowInfoPopup] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
 
-  // Info popup animation
+  // Info popup
   const infoButtonRef = useRef<View>(null);
   const [infoButtonLayout, setInfoButtonLayout] = useState<LayoutRectangle | null>(null);
-  const popupScale = useRef(new Animated.Value(0)).current;
-  const popupOpacity = useRef(new Animated.Value(0)).current;
-  const popupTranslateY = useRef(new Animated.Value(0)).current;
+
+  // Info button liquid glass press animation
+  const infoButtonScale = useRef(new Animated.Value(1)).current;
+
+  const onInfoPressIn = () => {
+    Animated.spring(infoButtonScale, {
+      toValue: 0.82,
+      tension: 200,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const onInfoPressOut = () => {
+    Animated.spring(infoButtonScale, {
+      toValue: 1,
+      tension: 65,
+      friction: 5,
+      useNativeDriver: true,
+    }).start();
+  };
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -54,53 +73,6 @@ export function SettingsScreen() {
   const [transcribedText, setTranscribedText] = useState("");
   const [voiceCommand, setVoiceCommand] = useState<any>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
-
-  const openInfoPopup = () => {
-    setShowInfoPopup(true);
-    popupScale.setValue(0.3);
-    popupOpacity.setValue(0);
-    popupTranslateY.setValue(-30);
-
-    Animated.parallel([
-      Animated.spring(popupScale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 8,
-        tension: 65,
-      }),
-      Animated.timing(popupOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.spring(popupTranslateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 8,
-        tension: 65,
-      }),
-    ]).start();
-  };
-
-  const closeInfoPopup = () => {
-    Animated.parallel([
-      Animated.timing(popupScale, {
-        toValue: 0.3,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(popupOpacity, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(popupTranslateY, {
-        toValue: -30,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => setShowInfoPopup(false));
-  };
 
   const userName = user?.name || user?.email?.split("@")[0] || "Player";
   
@@ -235,24 +207,27 @@ export function SettingsScreen() {
 
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t.settings.title}</Text>
 
-          <Pressable
-            ref={infoButtonRef}
-            testID="settings-info-button"
-            style={({ pressed }) => [
-              styles.glassButton,
-              { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
-              pressed && styles.glassButtonPressed
-            ]}
-            onPress={() => {
-              triggerHaptic("light");
-              infoButtonRef.current?.measureInWindow((x, y, width, height) => {
-                setInfoButtonLayout({ x, y, width, height });
-                openInfoPopup();
-              });
-            }}
-          >
-            <Ionicons name="information-circle-outline" size={22} color={colors.textPrimary} />
-          </Pressable>
+          <Animated.View style={{ transform: [{ scale: infoButtonScale }] }}>
+            <Pressable
+              ref={infoButtonRef}
+              testID="settings-info-button"
+              style={[
+                styles.glassButton,
+                { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
+              ]}
+              onPressIn={onInfoPressIn}
+              onPressOut={onInfoPressOut}
+              onPress={() => {
+                triggerHaptic("light");
+                infoButtonRef.current?.measureInWindow((x, y, w, h) => {
+                  setInfoButtonLayout({ x, y, width: w, height: h });
+                  setShowInfoPopup(true);
+                });
+              }}
+            >
+              <Ionicons name="information-circle-outline" size={22} color={colors.textPrimary} />
+            </Pressable>
+          </Animated.View>
         </View>
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -562,75 +537,36 @@ export function SettingsScreen() {
         </View>
       </Modal>
 
-      {/* Info Popup - Animated from "i" button */}
-      <Modal
+      {/* Info Popup - Liquid Glass from "i" button */}
+      <LiquidGlassPopup
         visible={showInfoPopup}
-        transparent
-        animationType="none"
-        onRequestClose={closeInfoPopup}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={closeInfoPopup}
-        >
-          <Animated.View
-            style={[
-              styles.infoPopup,
-              { backgroundColor: colors.popupBg },
-              {
-                opacity: popupOpacity,
-                transform: [
-                  { scale: popupScale },
-                  { translateY: popupTranslateY },
-                ],
-              },
-              // Position near the info button
-              infoButtonLayout && {
-                position: "absolute",
-                top: infoButtonLayout.y + infoButtonLayout.height + 8,
-                right: 20,
-              }
-            ]}
-          >
-            <Pressable onPress={(e) => e.stopPropagation()}>
-              <Text style={[styles.versionText, { color: colors.textMuted }]}>Kvitt v1.0.0</Text>
-
-              <TouchableOpacity
-                testID="info-acceptable-use"
-                style={[styles.infoItem, { borderColor: colors.border }]}
-                onPress={() => Linking.openURL("https://kvitt.app/acceptable-use")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="document-text-outline" size={18} color={colors.textPrimary} />
-                <Text style={[styles.infoItemText, { color: colors.textPrimary }]}>Acceptable Use Policy</Text>
-                <Ionicons name="open-outline" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                testID="info-consumer-terms"
-                style={[styles.infoItem, { borderColor: colors.border }]}
-                onPress={() => Linking.openURL("https://kvitt.app/terms")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="document-text-outline" size={18} color={colors.textPrimary} />
-                <Text style={[styles.infoItemText, { color: colors.textPrimary }]}>Consumer Terms</Text>
-                <Ionicons name="open-outline" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                testID="info-privacy-policy"
-                style={[styles.infoItem, { borderColor: colors.border }]}
-                onPress={() => Linking.openURL("https://kvitt.app/privacy")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="shield-outline" size={18} color={colors.textPrimary} />
-                <Text style={[styles.infoItemText, { color: colors.textPrimary }]}>Privacy Policy</Text>
-                <Ionicons name="open-outline" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-            </Pressable>
-          </Animated.View>
-        </Pressable>
-      </Modal>
+        onClose={() => setShowInfoPopup(false)}
+        anchorLayout={infoButtonLayout}
+        anchorSide="right"
+        header={
+          <Text style={[styles.versionText, { color: colors.textMuted }]}>Kvitt v1.0.0</Text>
+        }
+        items={[
+          {
+            icon: "document-text-outline",
+            label: "Acceptable Use Policy",
+            rightIcon: "open-outline",
+            onPress: () => Linking.openURL("https://kvitt.app/acceptable-use"),
+          },
+          {
+            icon: "document-text-outline",
+            label: "Consumer Terms",
+            rightIcon: "open-outline",
+            onPress: () => Linking.openURL("https://kvitt.app/terms"),
+          },
+          {
+            icon: "shield-outline",
+            label: "Privacy Policy",
+            rightIcon: "open-outline",
+            onPress: () => Linking.openURL("https://kvitt.app/privacy"),
+          },
+        ]}
+      />
     </View>
     </BottomSheetScreen>
   );
@@ -759,36 +695,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#EF6E59",
   },
-  infoPopup: {
-    width: 280,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
   versionText: {
     fontSize: 14,
     fontWeight: "500",
     textAlign: "center",
-    marginBottom: 20,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 10,
-    gap: 12,
-  },
-  infoItemText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "500",
+    marginBottom: 4,
   },
   // Voice Modal Styles
   voiceModalContainer: {

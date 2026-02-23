@@ -89,12 +89,16 @@ export function GroupsScreen() {
     jetDark: colors.background,
     jetSurface: colors.surface,
     liquidGlassBg: "rgba(0, 0, 0, 0.04)",
-    liquidGlassBorder: "rgba(0, 0, 0, 0.08)",
-    liquidInnerBg: "rgba(0, 0, 0, 0.02)",
+    liquidGlassBorder: "rgba(0, 0, 0, 0.10)",
+    liquidInnerBg: "rgba(0, 0, 0, 0.03)",
     textPrimary: colors.textPrimary,
     textSecondary: colors.textSecondary,
     textMuted: colors.textMuted,
   };
+
+  // Admin badge color - amber that's readable on both themes
+  const adminColor = isDark ? "#eab308" : "#b45309";
+  const adminBgColor = isDark ? "rgba(234,179,8,0.15)" : "rgba(180,83,9,0.12)";
 
   useEffect(() => {
     // Staggered entrance animations

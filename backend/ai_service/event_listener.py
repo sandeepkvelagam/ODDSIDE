@@ -64,6 +64,7 @@ class EventListenerService:
         self.register_handler("group_message", self._handle_group_message)
         self.register_handler("game_ended", self._handle_post_game_engagement)
         self.register_handler("settlement_generated", self._handle_post_game_engagement)
+        self.register_handler("game_started", self._handle_engagement_outcome_tracking)
 
     def set_orchestrator(self, orchestrator):
         """Set the AI orchestrator and get agents"""
@@ -364,6 +365,44 @@ class EventListenerService:
             )
         except Exception as e:
             logger.error(f"Post-game engagement error: {e}")
+
+    async def _handle_engagement_outcome_tracking(self, data: Dict):
+        """
+        Track engagement outcomes: when a game starts, check if there was
+        a recent nudge for that group and record the conversion.
+        """
+        if not self.db or not self.engagement_agent:
+            return
+
+        group_id = data.get("group_id")
+        if not group_id:
+            return
+
+        try:
+            # Find recent nudges for this group (within last 7 days)
+            from datetime import timedelta
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            recent_nudges = await self.db.engagement_events.find(
+                {
+                    "group_id": group_id,
+                    "event_type": "nudge_sent",
+                    "category": {"$in": ["inactive_group", "inactive_user"]},
+                    "created_at": {"$gte": cutoff},
+                    "game_started_within_7d": None,  # Not yet tracked
+                }
+            ).to_list(10)
+
+            for nudge in recent_nudges:
+                plan_id = nudge.get("plan_id")
+                if plan_id:
+                    await self.engagement_agent.record_outcome(
+                        plan_id=plan_id,
+                        outcome_type="game_started",
+                        data={"group_id": group_id, "game_id": data.get("game_id")}
+                    )
+                    logger.info(f"Recorded engagement conversion: nudge {plan_id} → game started")
+        except Exception as e:
+            logger.error(f"Engagement outcome tracking error: {e}")
 
     # ==================== Group Chat Handlers ====================
 

@@ -149,6 +149,16 @@ class EngagementScorerTool(BaseTool):
                         "total_games": 0,
                         "days_since_last_game": None,
                         "games_per_month": 0,
+                        "components": {
+                            "recency": {"score": 0, "max": 30, "weight": 0.30},
+                            "frequency": {"score": 0, "max": 30, "weight": 0.30},
+                            "consistency": {"score": 0, "max": 20, "weight": 0.20},
+                            "social": {"score": 0, "max": 20, "weight": 0.20}
+                        },
+                        "reasons": ["No games played yet"],
+                        "recommendations": [
+                            {"action": "nudge_user", "reason": "New user with no games — invite to first game"}
+                        ],
                         "factors": {
                             "recency": 0,
                             "frequency": 0,
@@ -207,6 +217,48 @@ class EngagementScorerTool(BaseTool):
             else:
                 level = "inactive"
 
+            # Build explainable reasons
+            reasons = []
+            if days_since_last > 30:
+                reasons.append(f"Last game {days_since_last} days ago")
+            elif days_since_last > 14:
+                reasons.append(f"No games in {days_since_last} days")
+            if games_per_month == 0:
+                reasons.append("No games in the last 30 days")
+            elif games_per_month <= 1:
+                reasons.append(f"Only {games_per_month} game in the last month")
+            if consistency_score < 5 and total_games >= 3:
+                reasons.append("Irregular play schedule")
+            if unique_groups <= 1:
+                reasons.append("Only active in 1 group")
+            if total_score >= 60 and games_per_month >= 3:
+                reasons.append(f"Strong activity: {games_per_month} games this month")
+            if not reasons:
+                reasons.append(f"Score {total_score}/100 — {level} engagement")
+
+            # Build recommendations
+            recommendations = []
+            if days_since_last > 30:
+                recommendations.append({
+                    "action": "nudge_user",
+                    "reason": f"Inactive for {days_since_last} days — send re-engagement nudge"
+                })
+            elif days_since_last > 14:
+                recommendations.append({
+                    "action": "nudge_user",
+                    "reason": "Approaching inactivity threshold — light reminder"
+                })
+            if games_per_month == 0 and total_games > 0:
+                recommendations.append({
+                    "action": "fomo_nudge",
+                    "reason": "Lapsed player — show group activity they missed"
+                })
+            if total_score >= 80:
+                recommendations.append({
+                    "action": "milestone_check",
+                    "reason": "Highly active — check for upcoming milestones"
+                })
+
             return ToolResult(
                 success=True,
                 data={
@@ -216,6 +268,14 @@ class EngagementScorerTool(BaseTool):
                     "total_games": total_games,
                     "days_since_last_game": days_since_last,
                     "games_per_month": games_per_month,
+                    "components": {
+                        "recency": {"score": recency_score, "max": 30, "weight": 0.30},
+                        "frequency": {"score": frequency_score, "max": 30, "weight": 0.30},
+                        "consistency": {"score": consistency_score, "max": 20, "weight": 0.20},
+                        "social": {"score": social_score, "max": 20, "weight": 0.20}
+                    },
+                    "reasons": reasons,
+                    "recommendations": recommendations,
                     "factors": {
                         "recency": recency_score,
                         "frequency": frequency_score,
@@ -259,6 +319,13 @@ class EngagementScorerTool(BaseTool):
             })
 
             if total_games == 0:
+                reasons = ["No games played yet"]
+                recs = []
+                if member_count >= 3:
+                    reasons.append(f"{member_count} members ready to play")
+                    recs.append({"action": "nudge_group", "reason": "Group has members but no games — prompt host to schedule"})
+                elif member_count > 0:
+                    recs.append({"action": "grow_group", "reason": "Need more members before first game"})
                 return ToolResult(
                     success=True,
                     data={
@@ -270,6 +337,14 @@ class EngagementScorerTool(BaseTool):
                         "days_since_last_game": None,
                         "games_per_month": 0,
                         "avg_players_per_game": 0,
+                        "components": {
+                            "recency": {"score": 0, "max": 30, "weight": 0.30},
+                            "frequency": {"score": 0, "max": 30, "weight": 0.30},
+                            "participation": {"score": 5 if member_count > 0 else 0, "max": 20, "weight": 0.20},
+                            "growth": {"score": 0, "max": 20, "weight": 0.20}
+                        },
+                        "reasons": reasons,
+                        "recommendations": recs,
                         "factors": {
                             "recency": 0,
                             "frequency": 0,
@@ -320,6 +395,49 @@ class EngagementScorerTool(BaseTool):
             else:
                 level = "dormant"
 
+            # Build explainable reasons
+            reasons = []
+            if days_since_last > 30:
+                reasons.append(f"No games in {days_since_last} days")
+            elif days_since_last > 14:
+                reasons.append(f"Last game {days_since_last} days ago")
+            if games_per_month == 0:
+                reasons.append("Zero games this month")
+            elif games_per_month <= 1:
+                reasons.append(f"Only {games_per_month} game this month")
+            if avg_players < 3 and total_games > 0:
+                reasons.append(f"Low turnout: avg {avg_players:.1f} players/game")
+            if member_count > 0 and avg_players > 0 and avg_players / member_count < 0.5:
+                active_pct = int((avg_players / member_count) * 100)
+                reasons.append(f"Only {active_pct}% of {member_count} members playing")
+            if total_score >= 60:
+                reasons.append(f"Healthy group activity: {games_per_month} games/month")
+            if not reasons:
+                reasons.append(f"Score {total_score}/100 — {level}")
+
+            # Build recommendations
+            recommendations = []
+            if days_since_last > 21:
+                recommendations.append({
+                    "action": "nudge_group",
+                    "reason": f"Inactive for {days_since_last} days — propose a date"
+                })
+            elif days_since_last > 14:
+                recommendations.append({
+                    "action": "nudge_admin",
+                    "reason": "Approaching inactivity — remind host to schedule"
+                })
+            if avg_players < 3 and member_count >= 4:
+                recommendations.append({
+                    "action": "boost_participation",
+                    "reason": "Low participation rate — encourage more members to join"
+                })
+            if growth_score == 0 and member_count < 6:
+                recommendations.append({
+                    "action": "grow_group",
+                    "reason": "No new members recently — suggest inviting friends"
+                })
+
             return ToolResult(
                 success=True,
                 data={
@@ -331,6 +449,14 @@ class EngagementScorerTool(BaseTool):
                     "days_since_last_game": days_since_last,
                     "games_per_month": games_per_month,
                     "avg_players_per_game": round(avg_players, 1),
+                    "components": {
+                        "recency": {"score": recency_score, "max": 30, "weight": 0.30},
+                        "frequency": {"score": frequency_score, "max": 30, "weight": 0.30},
+                        "participation": {"score": participation_score, "max": 20, "weight": 0.20},
+                        "growth": {"score": growth_score, "max": 20, "weight": 0.20}
+                    },
+                    "reasons": reasons,
+                    "recommendations": recommendations,
                     "factors": {
                         "recency": recency_score,
                         "frequency": frequency_score,
@@ -669,11 +795,15 @@ class EngagementScorerTool(BaseTool):
     async def _get_engagement_report(self, group_id: str = None) -> ToolResult:
         """
         Generate a comprehensive engagement report for a group or globally.
+        Includes nudge effectiveness outcomes from engagement_events.
         """
         if not self.db:
             return ToolResult(success=False, error="Database not available")
 
         try:
+            now = datetime.now(timezone.utc)
+            seven_days_ago = now - timedelta(days=7)
+            thirty_days_ago = now - timedelta(days=30)
             report = {}
 
             if group_id:
@@ -681,17 +811,64 @@ class EngagementScorerTool(BaseTool):
                 group_score = await self._score_group(group_id)
                 inactive_users = await self._find_inactive_users(group_id, inactive_days=30)
 
+                # Outcome tracking: nudges sent vs games started within 7 days
+                nudges_sent_30d = await self.db.engagement_events.count_documents({
+                    "group_id": group_id,
+                    "event_type": "nudge_sent",
+                    "created_at": {"$gte": thirty_days_ago.isoformat()}
+                })
+                games_after_nudge = await self.db.engagement_events.count_documents({
+                    "group_id": group_id,
+                    "event_type": "game_started_after_nudge",
+                    "created_at": {"$gte": thirty_days_ago.isoformat()}
+                })
+                mutes_30d = await self.db.engagement_events.count_documents({
+                    "group_id": group_id,
+                    "event_type": "nudge_muted",
+                    "created_at": {"$gte": thirty_days_ago.isoformat()}
+                })
+
                 report = {
                     "group_id": group_id,
                     "group_score": group_score.data if group_score.success else None,
                     "inactive_users": inactive_users.data if inactive_users.success else None,
+                    "outcomes": {
+                        "period_days": 30,
+                        "nudges_sent": nudges_sent_30d,
+                        "games_after_nudge": games_after_nudge,
+                        "conversion_rate": round(games_after_nudge / nudges_sent_30d, 2) if nudges_sent_30d > 0 else None,
+                        "mutes": mutes_30d,
+                        "mute_rate": round(mutes_30d / nudges_sent_30d, 2) if nudges_sent_30d > 0 else None,
+                    }
                 }
             else:
                 # Global report
                 inactive_groups = await self._find_inactive_groups(inactive_days=14)
 
+                # Global outcomes
+                total_nudges = await self.db.engagement_events.count_documents({
+                    "event_type": "nudge_sent",
+                    "created_at": {"$gte": thirty_days_ago.isoformat()}
+                })
+                total_conversions = await self.db.engagement_events.count_documents({
+                    "event_type": "game_started_after_nudge",
+                    "created_at": {"$gte": thirty_days_ago.isoformat()}
+                })
+                total_mutes = await self.db.engagement_events.count_documents({
+                    "event_type": "nudge_muted",
+                    "created_at": {"$gte": thirty_days_ago.isoformat()}
+                })
+
                 report = {
                     "inactive_groups": inactive_groups.data if inactive_groups.success else None,
+                    "outcomes": {
+                        "period_days": 30,
+                        "nudges_sent": total_nudges,
+                        "games_after_nudge": total_conversions,
+                        "conversion_rate": round(total_conversions / total_nudges, 2) if total_nudges > 0 else None,
+                        "mutes": total_mutes,
+                        "mute_rate": round(total_mutes / total_nudges, 2) if total_nudges > 0 else None,
+                    }
                 }
 
             return ToolResult(

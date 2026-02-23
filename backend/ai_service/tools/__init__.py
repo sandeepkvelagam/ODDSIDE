@@ -22,6 +22,8 @@ from .scheduler import SchedulerTool
 from .report_generator import ReportGeneratorTool
 from .email_sender import EmailSenderTool
 from .engagement_scorer import EngagementScorerTool
+from .engagement_policy import EngagementPolicyTool
+from .engagement_planner import EngagementPlannerTool
 
 __all__ = [
     'ToolRegistry',
@@ -33,4 +35,6 @@ __all__ = [
     'ReportGeneratorTool',
     'EmailSenderTool',
     'EngagementScorerTool',
+    'EngagementPolicyTool',
+    'EngagementPlannerTool',
 ]

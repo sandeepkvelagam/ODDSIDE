@@ -58,6 +58,8 @@ class AIOrchestrator:
         from .tools.smart_config import SmartConfigTool
         from .tools.payment_tracker import PaymentTrackerTool
         from .tools.engagement_scorer import EngagementScorerTool
+        from .tools.engagement_policy import EngagementPolicyTool
+        from .tools.engagement_planner import EngagementPlannerTool
 
         self.tool_registry.register(PokerEvaluatorTool())
         self.tool_registry.register(NotificationSenderTool(db=self.db))
@@ -69,6 +71,8 @@ class AIOrchestrator:
         self.tool_registry.register(SmartConfigTool(db=self.db))
         self.tool_registry.register(PaymentTrackerTool(db=self.db))
         self.tool_registry.register(EngagementScorerTool(db=self.db))
+        self.tool_registry.register(EngagementPolicyTool(db=self.db))
+        self.tool_registry.register(EngagementPlannerTool(db=self.db))
 
     def _setup_agents(self):
         """Register all available agents"""

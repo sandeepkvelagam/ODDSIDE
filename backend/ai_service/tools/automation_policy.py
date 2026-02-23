@@ -40,7 +40,7 @@ class AutomationPolicyTool(BaseTool):
     MAX_EXECUTIONS_PER_AUTOMATION_PER_DAY = 10
     MIN_COOLDOWN_SECONDS = 60  # Minimum 1 minute between same automation runs
 
-    # Action-specific daily limits
+    # Action-specific daily limits (kept for backwards compat, see also cost points)
     ACTION_DAILY_LIMITS = {
         "send_notification": 10,
         "send_email": 5,
@@ -49,6 +49,20 @@ class AutomationPolicyTool(BaseTool):
         "auto_rsvp": 10,
         "generate_summary": 5,
     }
+
+    # ==================== Action Cost Weighting ====================
+    # Point-based budget system — not all actions are equal.
+    # Lightweight actions cost 1 pt, AI/heavy actions cost more.
+    ACTION_COST_POINTS = {
+        "send_notification": 1,
+        "send_email": 2,
+        "send_payment_reminder": 2,
+        "auto_rsvp": 1,
+        "create_game": 3,
+        "generate_summary": 5,
+    }
+    DEFAULT_ACTION_COST = 1
+    MAX_DAILY_COST_POINTS_PER_USER = 100
 
     # Default quiet hours (in user's local time)
     DEFAULT_QUIET_START = 22  # 10pm
@@ -292,6 +306,24 @@ class AutomationPolicyTool(BaseTool):
             else:
                 checks_passed.append("action_permissions")
 
+        # Check 9: Action cost budget
+        if action_types:
+            run_cost = sum(
+                self.ACTION_COST_POINTS.get(at, self.DEFAULT_ACTION_COST)
+                for at in action_types
+            )
+            daily_cost = await self._get_user_daily_cost(user_id)
+            if daily_cost + run_cost > self.MAX_DAILY_COST_POINTS_PER_USER:
+                checks_failed.append({
+                    "check": "policy_cost_budget_exceeded",
+                    "reason": (
+                        f"Daily cost budget exceeded "
+                        f"({daily_cost}+{run_cost}/{self.MAX_DAILY_COST_POINTS_PER_USER} pts)"
+                    ),
+                })
+            else:
+                checks_passed.append("cost_budget")
+
         allowed = len(checks_failed) == 0
 
         return ToolResult(
@@ -450,6 +482,8 @@ class AutomationPolicyTool(BaseTool):
         for a in automations:
             total_runs += a.get("run_count", 0)
 
+        daily_cost = await self._get_user_daily_cost(user_id)
+
         return ToolResult(
             success=True,
             data={
@@ -461,6 +495,10 @@ class AutomationPolicyTool(BaseTool):
                 "today_executions": daily_executions,
                 "max_daily_executions": self.MAX_EXECUTIONS_PER_USER_PER_DAY,
                 "total_runs_all_time": total_runs,
+                "today_cost_points": daily_cost,
+                "max_daily_cost_points": self.MAX_DAILY_COST_POINTS_PER_USER,
+                "cost_budget_remaining": max(0, self.MAX_DAILY_COST_POINTS_PER_USER - daily_cost),
+                "action_cost_table": self.ACTION_COST_POINTS,
             }
         )
 
@@ -773,6 +811,43 @@ class AutomationPolicyTool(BaseTool):
         if isinstance(last_run, str):
             return datetime.fromisoformat(last_run.replace("Z", "+00:00"))
         return last_run
+
+    async def _get_user_daily_cost(self, user_id: str) -> int:
+        """Get total action cost points consumed by a user today."""
+        if not self.db:
+            return 0
+
+        today_start = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).isoformat()
+
+        user_auto_ids = await self.db.user_automations.distinct(
+            "automation_id",
+            {"user_id": user_id}
+        )
+        if not user_auto_ids:
+            return 0
+
+        # Fetch today's successful runs with action_results
+        runs = await self.db.automation_runs.find(
+            {
+                "automation_id": {"$in": user_auto_ids},
+                "created_at": {"$gte": today_start},
+                "status": {"$in": ["success", "partial_failure"]},
+            },
+            {"_id": 0, "action_results": 1}
+        ).to_list(200)
+
+        total_cost = 0
+        for run in runs:
+            for action_result in (run.get("action_results") or []):
+                if action_result.get("success"):
+                    action_type = action_result.get("type", "")
+                    total_cost += self.ACTION_COST_POINTS.get(
+                        action_type, self.DEFAULT_ACTION_COST
+                    )
+
+        return total_cost
 
     async def _check_group_membership(
         self, user_id: str, group_id: str

@@ -118,6 +118,9 @@ MAX_ACTIONS_PER_AUTOMATION = 5
 MAX_NAME_LENGTH = 100
 MAX_DESCRIPTION_LENGTH = 500
 
+# Engine version — stamped on every automation doc for future migration safety
+AUTOMATION_ENGINE_VERSION = "v1"
+
 # Valid cron pattern (basic validation)
 CRON_PATTERN = re.compile(
     r'^(\*|[0-9,\-\/]+)\s+'   # minute
@@ -333,6 +336,7 @@ class AutomationBuilderTool(BaseTool):
             "auto_disabled": False,
             "auto_disabled_reason": None,
             "timezone": user_tz,
+            "engine_version": AUTOMATION_ENGINE_VERSION,
             "created_from_template_id": kwargs.get("template_id"),
             "created_at": now,
             "updated_at": now,
@@ -525,6 +529,9 @@ class AutomationBuilderTool(BaseTool):
         if not doc:
             return ToolResult(success=False, error="Automation not found")
 
+        # Compute health score
+        doc["health"] = self._compute_health_score(doc)
+
         return ToolResult(success=True, data=doc)
 
     # ==================== List Automations ====================
@@ -554,13 +561,21 @@ class AutomationBuilderTool(BaseTool):
                 "auto_disabled": 1,
                 "auto_disabled_reason": 1,
                 "run_count": 1,
+                "error_count": 1,
                 "skip_count": 1,
+                "consecutive_errors": 1,
+                "consecutive_skips": 1,
                 "last_run": 1,
                 "last_run_result": 1,
                 "group_id": 1,
                 "created_at": 1,
+                "engine_version": 1,
             }
         ).sort("created_at", -1).to_list(MAX_AUTOMATIONS_PER_USER)
+
+        # Compute health score for each automation
+        for doc in docs:
+            doc["health"] = self._compute_health_score(doc)
 
         return ToolResult(
             success=True,
@@ -988,3 +1003,110 @@ class AutomationBuilderTool(BaseTool):
                 }
 
         return {"valid": True, "error": None}
+
+    # ==================== Health Score ====================
+
+    def _compute_health_score(self, automation: Dict) -> Dict:
+        """
+        Compute a health score for an automation based on its run stats.
+
+        Returns:
+            status: "healthy" | "warning" | "critical" | "disabled" | "new"
+            score: 0-100
+            reasons: list of human-readable reasons for the status
+        """
+        # Auto-disabled → always critical
+        if automation.get("auto_disabled"):
+            return {
+                "status": "disabled",
+                "score": 0,
+                "reasons": [automation.get("auto_disabled_reason", "Auto-disabled")],
+            }
+
+        # Manually disabled
+        if not automation.get("enabled"):
+            return {
+                "status": "disabled",
+                "score": 0,
+                "reasons": ["Manually disabled"],
+            }
+
+        run_count = automation.get("run_count", 0)
+        error_count = automation.get("error_count", 0)
+        skip_count = automation.get("skip_count", 0)
+        consecutive_errors = automation.get("consecutive_errors", 0)
+        consecutive_skips = automation.get("consecutive_skips", 0)
+
+        # Brand new — no runs yet
+        if run_count == 0:
+            return {
+                "status": "new",
+                "score": 100,
+                "reasons": ["No runs yet"],
+            }
+
+        reasons = []
+        score = 100
+
+        # Error rate penalty
+        if run_count > 0:
+            error_rate = error_count / run_count
+            if error_rate > 0.5:
+                score -= 40
+                reasons.append(f"High error rate ({error_rate:.0%})")
+            elif error_rate > 0.2:
+                score -= 20
+                reasons.append(f"Elevated error rate ({error_rate:.0%})")
+
+        # Skip rate penalty (only if significant runs)
+        total_attempts = run_count + skip_count
+        if total_attempts > 5:
+            skip_rate = skip_count / total_attempts
+            if skip_rate > 0.8:
+                score -= 25
+                reasons.append(f"High skip rate ({skip_rate:.0%})")
+            elif skip_rate > 0.5:
+                score -= 10
+                reasons.append(f"Moderate skip rate ({skip_rate:.0%})")
+
+        # Consecutive error penalty (recent trouble)
+        if consecutive_errors >= 3:
+            score -= 30
+            reasons.append(f"{consecutive_errors} consecutive errors")
+        elif consecutive_errors >= 1:
+            score -= 10
+            reasons.append(f"{consecutive_errors} recent error(s)")
+
+        # Consecutive skip penalty
+        if consecutive_skips >= 20:
+            score -= 20
+            reasons.append(f"{consecutive_skips} consecutive skips")
+        elif consecutive_skips >= 10:
+            score -= 10
+            reasons.append(f"{consecutive_skips} consecutive skips")
+
+        # Last run result
+        if automation.get("last_run_result") == "failed":
+            score -= 10
+            if "recent error" not in " ".join(reasons):
+                reasons.append("Last run failed")
+
+        # Clamp score
+        score = max(0, min(100, score))
+
+        # Determine status
+        if score >= 80:
+            status = "healthy"
+        elif score >= 50:
+            status = "warning"
+        else:
+            status = "critical"
+
+        if not reasons:
+            reasons.append("Running normally")
+
+        return {
+            "status": status,
+            "score": score,
+            "reasons": reasons,
+        }

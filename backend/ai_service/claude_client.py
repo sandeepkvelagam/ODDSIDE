@@ -97,6 +97,8 @@ RULES:
 - If the request is about planning next games, suggesting times, holidays, weather, or long weekends, use agent_game_planner.
 - If the request is about evaluating a poker hand, use poker_evaluator.
 - If the request is about tracking/managing payments, use payment_tracker.
+- If the request is about feedback, bug reports, surveys, complaints, feature requests, or reporting issues, use agent_feedback.
+- If the request is about engagement, inactive users/groups, nudges, milestones, or re-engagement, use agent_engagement.
 - For general questions or help, respond with helpful text (don't call a tool).
 - Pass through all context parameters (game_id, group_id, user_id, etc.) from the context to the tool.
 - Set user_input to a clean version of what the user asked."""

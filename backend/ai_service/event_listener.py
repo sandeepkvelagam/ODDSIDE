@@ -41,6 +41,7 @@ class EventListenerService:
         self.group_chat_agent = None
         self.game_planner = None
         self.engagement_agent = None
+        self.feedback_agent = None
         self.chat_watcher = None
         self.host_update_service = None
         self._event_handlers: Dict[str, List[Callable]] = {}
@@ -65,6 +66,8 @@ class EventListenerService:
         self.register_handler("game_ended", self._handle_post_game_engagement)
         self.register_handler("settlement_generated", self._handle_post_game_engagement)
         self.register_handler("game_started", self._handle_engagement_outcome_tracking)
+        self.register_handler("game_ended", self._handle_post_game_survey)
+        self.register_handler("feedback_submitted", self._handle_feedback_submitted)
 
     def set_orchestrator(self, orchestrator):
         """Set the AI orchestrator and get agents"""
@@ -74,6 +77,7 @@ class EventListenerService:
             self.group_chat_agent = orchestrator.agent_registry.get("group_chat")
             self.game_planner = orchestrator.agent_registry.get("game_planner")
             self.engagement_agent = orchestrator.agent_registry.get("engagement")
+            self.feedback_agent = orchestrator.agent_registry.get("feedback")
 
         # Initialize ChatWatcher
         from .chat_watcher import ChatWatcherService
@@ -403,6 +407,89 @@ class EventListenerService:
                     logger.info(f"Recorded engagement conversion: nudge {plan_id} → game started")
         except Exception as e:
             logger.error(f"Engagement outcome tracking error: {e}")
+
+    # ==================== Feedback Handlers ====================
+
+    async def _handle_post_game_survey(self, data: Dict):
+        """
+        Trigger post-game survey prompts when a game ends.
+        Sends a notification to all players asking them to rate the game.
+        """
+        if not self.feedback_agent:
+            logger.debug("FeedbackAgent not available, skipping post-game survey")
+            return
+
+        game_id = data.get("game_id")
+        group_id = data.get("group_id")
+        player_ids = data.get("player_ids", [])
+
+        # If player_ids not provided, fetch from game
+        if not player_ids and game_id and self.db:
+            game = await self.db.game_nights.find_one(
+                {"game_id": game_id},
+                {"_id": 0, "players": 1, "group_id": 1}
+            )
+            if game:
+                player_ids = [
+                    p.get("user_id") for p in game.get("players", [])
+                    if p.get("user_id")
+                ]
+                if not group_id:
+                    group_id = game.get("group_id")
+
+        # Check if feedback surveys are enabled for this group
+        if group_id and self.db:
+            settings = await self.db.engagement_settings.find_one(
+                {"group_id": group_id}, {"_id": 0}
+            )
+            if settings and not settings.get("post_game_surveys", True):
+                logger.debug(f"Post-game surveys disabled for group {group_id}")
+                return
+
+        try:
+            result = await self.feedback_agent.execute(
+                "Trigger post-game survey",
+                context={
+                    "action": "trigger_post_game_survey",
+                    "game_id": game_id,
+                    "group_id": group_id,
+                    "player_ids": player_ids
+                }
+            )
+            logger.info(
+                f"Post-game survey for game {game_id}: "
+                f"{result.message if result.success else result.error}"
+            )
+        except Exception as e:
+            logger.error(f"Post-game survey trigger error: {e}")
+
+    async def _handle_feedback_submitted(self, data: Dict):
+        """
+        Handle new feedback submission event.
+        Classifies and attempts auto-fix through the FeedbackAgent pipeline.
+        """
+        if not self.feedback_agent:
+            logger.debug("FeedbackAgent not available, skipping feedback processing")
+            return
+
+        feedback_id = data.get("feedback_id")
+        if not feedback_id:
+            return
+
+        try:
+            result = await self.feedback_agent.execute(
+                "Process feedback",
+                context={
+                    "action": "process_feedback",
+                    "feedback_id": feedback_id
+                }
+            )
+            logger.info(
+                f"Feedback {feedback_id} processed: "
+                f"{result.message if result.success else result.error}"
+            )
+        except Exception as e:
+            logger.error(f"Feedback processing error: {e}")
 
     # ==================== Group Chat Handlers ====================
 

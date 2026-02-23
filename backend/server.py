@@ -7288,6 +7288,158 @@ async def get_engagement_report(group_id: str, current_user: User = Depends(get_
     return result.data
 
 
+# ==================== Feedback Endpoints ====================
+
+class FeedbackSubmit(BaseModel):
+    feedback_type: str = "other"  # bug, feature_request, ux_issue, complaint, praise, other
+    content: str
+    group_id: Optional[str] = None
+    game_id: Optional[str] = None
+    tags: List[str] = []
+    context: Dict[str, Any] = {}
+
+class SurveySubmit(BaseModel):
+    game_id: str
+    rating: int  # 1-5
+    comment: str = ""
+    group_id: Optional[str] = None
+
+
+@api_router.post("/feedback")
+async def submit_feedback(data: FeedbackSubmit, current_user: User = Depends(get_current_user)):
+    """Submit user feedback (bug report, feature request, complaint, etc.)."""
+    from ai_service.agents.feedback_agent import FeedbackAgent
+    from ai_service.tools.registry import ToolRegistry
+    agent = FeedbackAgent(
+        tool_registry=ToolRegistry(),
+        db=db,
+        llm_client=None
+    )
+    # Try to use the global orchestrator's agent if available
+    try:
+        from ai_service.orchestrator import AIOrchestrator
+        orchestrator = AIOrchestrator(db=db)
+        agent = orchestrator.agent_registry.get("feedback")
+    except Exception:
+        pass
+
+    result = await agent.execute(
+        "Submit feedback",
+        context={
+            "action": "submit_feedback",
+            "user_id": current_user.user_id,
+            "feedback_type": data.feedback_type,
+            "content": data.content,
+            "group_id": data.group_id,
+            "game_id": data.game_id,
+            "tags": data.tags,
+            "context": data.context
+        }
+    )
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return {"success": True, "data": result.data, "message": result.message}
+
+
+@api_router.post("/feedback/survey")
+async def submit_survey(data: SurveySubmit, current_user: User = Depends(get_current_user)):
+    """Submit a post-game survey (star rating + optional comment)."""
+    if not (1 <= data.rating <= 5):
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.execute(
+        action="submit_survey",
+        user_id=current_user.user_id,
+        game_id=data.game_id,
+        group_id=data.group_id,
+        rating=data.rating,
+        content=data.comment
+    )
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return {"success": True, "data": result.data}
+
+
+@api_router.get("/feedback")
+async def get_feedback(
+    group_id: Optional[str] = None,
+    feedback_type: Optional[str] = None,
+    days: int = 30,
+    current_user: User = Depends(get_current_user)
+):
+    """Get feedback entries with optional filters."""
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.execute(
+        action="get_feedback",
+        user_id=current_user.user_id,
+        group_id=group_id,
+        feedback_type=feedback_type,
+        days=days
+    )
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+
+@api_router.get("/feedback/surveys/{game_id}")
+async def get_game_surveys(game_id: str, current_user: User = Depends(get_current_user)):
+    """Get survey responses for a specific game."""
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.execute(action="get_surveys", game_id=game_id)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+
+@api_router.get("/feedback/trends")
+async def get_feedback_trends(
+    group_id: Optional[str] = None,
+    days: int = 30,
+    current_user: User = Depends(get_current_user)
+):
+    """Get feedback trends and aggregates."""
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.execute(action="get_trends", group_id=group_id, days=days)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+
+@api_router.get("/feedback/unresolved")
+async def get_unresolved_feedback(
+    group_id: Optional[str] = None,
+    feedback_type: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Get all unresolved feedback entries."""
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.execute(
+        action="get_unresolved",
+        group_id=group_id,
+        feedback_type=feedback_type
+    )
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+
+@api_router.put("/feedback/{feedback_id}/resolve")
+async def resolve_feedback(feedback_id: str, current_user: User = Depends(get_current_user)):
+    """Mark a feedback entry as resolved."""
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.execute(action="mark_resolved", feedback_id=feedback_id)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return {"success": True, "data": result.data}
+
+
 # Include the router
 app.include_router(api_router)
 
@@ -7330,6 +7482,15 @@ async def create_indexes():
     await db.engagement_nudges_log.create_index([("group_id", 1), ("sent_at", -1)])
     await db.engagement_settings.create_index("group_id", unique=True)
     logger.info("Database indexes ensured for engagement collections")
+
+    # Create indexes for feedback collections
+    await db.feedback.create_index([("user_id", 1), ("created_at", -1)])
+    await db.feedback.create_index([("group_id", 1), ("status", 1)])
+    await db.feedback.create_index("feedback_id", unique=True)
+    await db.feedback_surveys.create_index([("game_id", 1), ("user_id", 1)])
+    await db.feedback_surveys.create_index("survey_id", unique=True)
+    await db.auto_fix_log.create_index([("feedback_id", 1), ("created_at", -1)])
+    logger.info("Database indexes ensured for feedback collections")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

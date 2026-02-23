@@ -81,6 +81,12 @@ class AgentRegistry:
             "payment report", "settle up", "who owes"
         ]):
             return self.get("payment_reconciliation")
+        elif any(kw in task_lower for kw in [
+            "automation", "automate", "ifttt", "auto-rsvp", "auto rsvp",
+            "when game", "when payment", "when someone", "auto remind",
+            "set up rule", "create rule", "my rules", "triggers",
+        ]):
+            return self.get("user_automation")
 
         # Default to None, let orchestrator handle
         return None

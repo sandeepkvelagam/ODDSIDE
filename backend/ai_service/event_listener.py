@@ -43,6 +43,7 @@ class EventListenerService:
         self.engagement_agent = None
         self.feedback_agent = None
         self.payment_reconciliation_agent = None
+        self.user_automation_agent = None
         self.chat_watcher = None
         self.host_update_service = None
         self._event_handlers: Dict[str, List[Callable]] = {}
@@ -73,6 +74,13 @@ class EventListenerService:
         self.register_handler("settlement_generated", self._handle_post_settlement_reminders)
         self.register_handler("stripe_payment_received", self._handle_stripe_payment)
         self.register_handler("payment_received", self._handle_payment_reconciliation)
+        # User automation handlers — fan-out events to user-defined automations
+        self.register_handler("game_ended", self._handle_user_automations)
+        self.register_handler("game_created", self._handle_user_automations)
+        self.register_handler("game_started", self._handle_user_automations)
+        self.register_handler("settlement_generated", self._handle_user_automations)
+        self.register_handler("payment_received", self._handle_user_automations)
+        self.register_handler("rsvp_response", self._handle_user_automations)
 
     def set_orchestrator(self, orchestrator):
         """Set the AI orchestrator and get agents"""
@@ -84,6 +92,7 @@ class EventListenerService:
             self.engagement_agent = orchestrator.agent_registry.get("engagement")
             self.feedback_agent = orchestrator.agent_registry.get("feedback")
             self.payment_reconciliation_agent = orchestrator.agent_registry.get("payment_reconciliation")
+            self.user_automation_agent = orchestrator.agent_registry.get("user_automation")
 
         # Initialize ChatWatcher
         from .chat_watcher import ChatWatcherService
@@ -115,6 +124,9 @@ class EventListenerService:
             data: Event data including game_id, player_id, host_id, etc.
         """
         logger.info(f"Event received: {event_type} - {data.get('game_id', 'no game')}")
+
+        # Tag event_type into data for downstream handlers
+        data["event_type"] = event_type
 
         # Log the event
         if self.db:
@@ -678,6 +690,66 @@ class EventListenerService:
                 )
         except Exception as e:
             logger.error(f"Payment reconciliation check error: {e}")
+
+    # ==================== User Automation Handlers ====================
+
+    async def _handle_user_automations(self, data: Dict):
+        """
+        Fan-out handler: route events to UserAutomationAgent so user-defined
+        automations can fire. The agent handles matching, policy checks,
+        and execution internally.
+        """
+        if not self.user_automation_agent:
+            return
+
+        # Determine trigger type from the event
+        # The event_type isn't passed directly; we infer it from the handler
+        # registration. We'll tag it in the data.
+        event_type = data.get("event_type")
+        if not event_type:
+            # Try to infer from data shape
+            if data.get("stripe_event"):
+                event_type = "stripe_payment_received"
+            elif data.get("response") in ("confirmed", "declined"):
+                event_type = "player_confirmed"
+            elif "settlement" in str(data.get("action", "")):
+                event_type = "settlement_generated"
+            else:
+                # Generic — let the agent figure it out
+                event_type = "unknown"
+
+        group_id = data.get("group_id")
+
+        # If no group_id, try to get from game
+        if not group_id and data.get("game_id") and self.db:
+            game = await self.db.game_nights.find_one(
+                {"game_id": data["game_id"]},
+                {"_id": 0, "group_id": 1}
+            )
+            if game:
+                group_id = game.get("group_id")
+
+        try:
+            result = await self.user_automation_agent.execute(
+                "Trigger user automations",
+                context={
+                    "action": "trigger_automations",
+                    "trigger_type": event_type,
+                    "event_data": data,
+                    "group_id": group_id,
+                }
+            )
+            if result.data and result.data.get("executed", 0) > 0:
+                logger.info(
+                    f"User automations for '{event_type}': "
+                    f"{result.message}"
+                )
+            else:
+                logger.debug(
+                    f"User automations for '{event_type}': no matches"
+                )
+        except Exception as e:
+            logger.error(f"User automation trigger error: {e}")
 
     # ==================== Group Chat Handlers ====================
 

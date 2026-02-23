@@ -7123,6 +7123,17 @@ class EngagementSettingsUpdate(BaseModel):
     milestone_celebrations: Optional[bool] = None
     big_winner_celebrations: Optional[bool] = None
     weekly_digest: Optional[bool] = None
+    show_amounts_in_celebrations: Optional[bool] = None
+
+class EngagementPreferencesUpdate(BaseModel):
+    """User-level engagement preferences."""
+    muted_all: Optional[bool] = None
+    muted_categories: Optional[list] = None
+    preferred_channels: Optional[list] = None
+    preferred_tone: Optional[str] = None
+    timezone_offset_hours: Optional[int] = None
+    quiet_start: Optional[int] = None
+    quiet_end: Optional[int] = None
 
 @api_router.get("/engagement/scores/group/{group_id}")
 async def get_group_engagement_score(group_id: str, current_user: User = Depends(get_current_user)):
@@ -7283,6 +7294,61 @@ async def get_engagement_report(group_id: str, current_user: User = Depends(get_
     from ai_service.tools.engagement_scorer import EngagementScorerTool
     scorer = EngagementScorerTool(db=db)
     result = await scorer.execute(action="get_engagement_report", group_id=group_id)
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+@api_router.get("/engagement/preferences")
+async def get_engagement_preferences(current_user: User = Depends(get_current_user)):
+    """Get engagement preferences for the current user."""
+    prefs = await db.engagement_preferences.find_one(
+        {"user_id": current_user.user_id},
+        {"_id": 0}
+    )
+    if not prefs:
+        prefs = {
+            "user_id": current_user.user_id,
+            "muted_all": False,
+            "muted_categories": [],
+            "preferred_channels": ["push", "in_app"],
+            "preferred_tone": None,
+            "timezone_offset_hours": 0,
+            "quiet_start": 22,
+            "quiet_end": 8,
+        }
+    return prefs
+
+@api_router.put("/engagement/preferences")
+async def update_engagement_preferences(
+    updates: EngagementPreferencesUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """Update engagement preferences for the current user."""
+    update_data = {k: v for k, v in updates.model_dump().items() if v is not None}
+    update_data["user_id"] = current_user.user_id
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    await db.engagement_preferences.update_one(
+        {"user_id": current_user.user_id},
+        {"$set": update_data},
+        upsert=True
+    )
+
+    return {"status": "updated", "preferences": update_data}
+
+@api_router.post("/engagement/mute")
+async def mute_engagement(
+    category: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Mute engagement notifications (all or specific category)."""
+    from ai_service.tools.engagement_policy import EngagementPolicyTool
+    policy = EngagementPolicyTool(db=db)
+    result = await policy.execute(
+        action="record_mute",
+        recipient_id=current_user.user_id,
+        category=category
+    )
     if not result.success:
         raise HTTPException(status_code=500, detail=result.error)
     return result.data

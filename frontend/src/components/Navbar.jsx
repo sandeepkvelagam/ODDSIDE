@@ -22,7 +22,7 @@ import Logo from "@/components/Logo";
 import { Alert, AlertTitle, AlertDescription, AlertAction } from "@/components/reui/alert";
 import { Frame, FramePanel } from "@/components/reui/frame";
 import { toast } from "sonner";
-import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight, Wallet, MessageSquare, Zap } from "lucide-react";
+import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight, Wallet, MessageSquare, Zap, Trophy, Flame, Calendar, BarChart3 } from "lucide-react";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -299,6 +299,94 @@ export default function Navbar() {
                   </Button>
                 </AlertAction>
                 <AlertDescription className="line-clamp-1">
+                  {notif.message}
+                </AlertDescription>
+              </Alert>
+            </FramePanel>
+          </Frame>
+        </div>
+      );
+    }
+
+    // Engagement notifications — styled by category
+    if (notif.type === "engagement" && notif.data?.nudge_type) {
+      const nudgeType = notif.data.nudge_type;
+      const isMilestone = nudgeType === "milestone";
+      const isWinner = nudgeType === "big_winner" || nudgeType === "closest_finish" || nudgeType === "comeback";
+      const isInactive = nudgeType === "inactive_group" || nudgeType === "inactive_user";
+      const isDigest = nudgeType === "digest";
+
+      // Pick icon and accent color by category
+      const icon = isMilestone ? <Trophy className="w-4 h-4" /> :
+                   isWinner ? <Flame className="w-4 h-4" /> :
+                   isInactive ? <Calendar className="w-4 h-4" /> :
+                   isDigest ? <BarChart3 className="w-4 h-4" /> :
+                   <Bell className="w-4 h-4" />;
+
+      const accentClass = isMilestone ? "bg-yellow-500/10 text-yellow-500" :
+                          isWinner ? "bg-orange-500/10 text-orange-500" :
+                          isInactive ? "bg-blue-500/10 text-blue-500" :
+                          isDigest ? "bg-purple-500/10 text-purple-500" :
+                          "bg-primary/10 text-primary";
+
+      const iconBgClass = isMilestone ? "bg-yellow-500/20" :
+                          isWinner ? "bg-orange-500/20" :
+                          isInactive ? "bg-blue-500/20" :
+                          isDigest ? "bg-purple-500/20" :
+                          "bg-primary/20";
+
+      // Contextual CTA based on nudge type
+      const ctaLabel = isInactive ? "Schedule Game" :
+                       isWinner || isMilestone ? "View Group" :
+                       isDigest ? "View Report" :
+                       notif.data?.game_id ? "View Game" : "View Group";
+
+      const ctaAction = () => {
+        handleMarkRead(notif.notification_id);
+        if (isInactive && notif.data?.group_id) {
+          navigate(`/groups/${notif.data.group_id}`);
+        } else if (notif.data?.game_id) {
+          navigate(`/games/${notif.data.game_id}`);
+        } else if (notif.data?.group_id) {
+          navigate(`/groups/${notif.data.group_id}`);
+        }
+        setNotifSheetOpen(false);
+      };
+
+      return (
+        <div key={notif.notification_id} className="p-2">
+          <Frame>
+            <FramePanel className="overflow-hidden p-0">
+              <Alert className="grid-cols-[32px_1fr] gap-x-3 border-0 shadow-none bg-secondary/30">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${iconBgClass}`}>
+                  {icon}
+                </div>
+                <AlertTitle className="flex items-center gap-2">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${accentClass}`}>
+                    {isMilestone ? "Milestone" : isWinner ? "Celebration" : isInactive ? "Nudge" : isDigest ? "Report" : "Engagement"}
+                  </span>
+                  <span className="truncate font-medium text-sm">{notif.title}</span>
+                </AlertTitle>
+                <AlertAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => handleMarkRead(notif.notification_id)}
+                  >
+                    Dismiss
+                  </Button>
+                  {(notif.data?.group_id || notif.data?.game_id) && (
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={ctaAction}
+                    >
+                      {ctaLabel} <ChevronRight className="w-3 h-3 ml-1" />
+                    </Button>
+                  )}
+                </AlertAction>
+                <AlertDescription className="line-clamp-2">
                   {notif.message}
                 </AlertDescription>
               </Alert>

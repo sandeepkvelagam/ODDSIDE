@@ -64,6 +64,8 @@ class AIOrchestrator:
         from .tools.feedback_classifier import FeedbackClassifierTool
         from .tools.feedback_policy import FeedbackPolicyTool
         from .tools.auto_fixer import AutoFixerTool
+        from .tools.ledger_reconciler import LedgerReconcilerTool
+        from .tools.payment_policy import PaymentPolicyTool
 
         self.tool_registry.register(PokerEvaluatorTool())
         self.tool_registry.register(NotificationSenderTool(db=self.db))
@@ -85,6 +87,8 @@ class AIOrchestrator:
         self.tool_registry.register(AutoFixerTool(
             db=self.db, tool_registry=self.tool_registry
         ))
+        self.tool_registry.register(LedgerReconcilerTool(db=self.db))
+        self.tool_registry.register(PaymentPolicyTool(db=self.db))
 
     def _setup_agents(self):
         """Register all available agents"""
@@ -96,6 +100,7 @@ class AIOrchestrator:
         from .agents.game_planner_agent import GamePlannerAgent
         from .agents.engagement_agent import EngagementAgent
         from .agents.feedback_agent import FeedbackAgent
+        from .agents.payment_reconciliation_agent import PaymentReconciliationAgent
 
         self.agent_registry.register(
             GameSetupAgent(
@@ -148,6 +153,13 @@ class AIOrchestrator:
         )
         self.agent_registry.register(
             FeedbackAgent(
+                tool_registry=self.tool_registry,
+                db=self.db,
+                llm_client=self.llm_client
+            )
+        )
+        self.agent_registry.register(
+            PaymentReconciliationAgent(
                 tool_registry=self.tool_registry,
                 db=self.db,
                 llm_client=self.llm_client
@@ -391,6 +403,13 @@ class AIOrchestrator:
         ]):
             return {"type": "agent", "agent": "feedback"}
 
+        if any(kw in input_lower for kw in [
+            "reconcil", "overdue", "unpaid", "outstanding payment",
+            "consolidat", "non-payer", "nonpayer", "payment health",
+            "payment report", "settle up", "who owes"
+        ]):
+            return {"type": "agent", "agent": "payment_reconciliation"}
+
         # Default to general
         return {"type": "general"}
 
@@ -445,6 +464,7 @@ class AIOrchestrator:
                       "- Send notifications\n"
                       "- Check pending decisions\n"
                       "- Send payment reminders\n"
+                      "- Reconcile payments or check who owes what\n"
                       "- Submit feedback or report a bug\n"
                       "- Rate your game experience",
             "type": "help",

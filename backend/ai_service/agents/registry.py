@@ -75,6 +75,12 @@ class AgentRegistry:
             "report issue", "broken", "not working"
         ]):
             return self.get("feedback")
+        elif any(kw in task_lower for kw in [
+            "reconcil", "overdue", "unpaid", "outstanding payment",
+            "consolidat", "non-payer", "nonpayer", "payment health",
+            "payment report", "settle up", "who owes"
+        ]):
+            return self.get("payment_reconciliation")
 
         # Default to None, let orchestrator handle
         return None

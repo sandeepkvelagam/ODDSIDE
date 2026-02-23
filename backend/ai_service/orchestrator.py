@@ -66,6 +66,9 @@ class AIOrchestrator:
         from .tools.auto_fixer import AutoFixerTool
         from .tools.ledger_reconciler import LedgerReconcilerTool
         from .tools.payment_policy import PaymentPolicyTool
+        from .tools.automation_builder import AutomationBuilderTool
+        from .tools.automation_runner import AutomationRunnerTool
+        from .tools.automation_policy import AutomationPolicyTool
 
         self.tool_registry.register(PokerEvaluatorTool())
         self.tool_registry.register(NotificationSenderTool(db=self.db))
@@ -89,6 +92,11 @@ class AIOrchestrator:
         ))
         self.tool_registry.register(LedgerReconcilerTool(db=self.db))
         self.tool_registry.register(PaymentPolicyTool(db=self.db))
+        self.tool_registry.register(AutomationBuilderTool(db=self.db))
+        self.tool_registry.register(AutomationRunnerTool(
+            db=self.db, tool_registry=self.tool_registry
+        ))
+        self.tool_registry.register(AutomationPolicyTool(db=self.db))
 
     def _setup_agents(self):
         """Register all available agents"""
@@ -101,6 +109,7 @@ class AIOrchestrator:
         from .agents.engagement_agent import EngagementAgent
         from .agents.feedback_agent import FeedbackAgent
         from .agents.payment_reconciliation_agent import PaymentReconciliationAgent
+        from .agents.user_automation_agent import UserAutomationAgent
 
         self.agent_registry.register(
             GameSetupAgent(
@@ -160,6 +169,13 @@ class AIOrchestrator:
         )
         self.agent_registry.register(
             PaymentReconciliationAgent(
+                tool_registry=self.tool_registry,
+                db=self.db,
+                llm_client=self.llm_client
+            )
+        )
+        self.agent_registry.register(
+            UserAutomationAgent(
                 tool_registry=self.tool_registry,
                 db=self.db,
                 llm_client=self.llm_client

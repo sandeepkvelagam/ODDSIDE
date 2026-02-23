@@ -22,7 +22,7 @@ import Logo from "@/components/Logo";
 import { Alert, AlertTitle, AlertDescription, AlertAction } from "@/components/reui/alert";
 import { Frame, FramePanel } from "@/components/reui/frame";
 import { toast } from "sonner";
-import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight, Wallet, MessageSquare } from "lucide-react";
+import { Home, Users, Bell, User, LogOut, Menu, X, Check, XIcon, ChevronRight, Wallet, MessageSquare, Zap } from "lucide-react";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -462,6 +462,10 @@ export default function Navbar() {
                 <DropdownMenuItem onClick={() => navigate('/wallet')} className="cursor-pointer text-sm">
                   <Wallet className="w-4 h-4 mr-2" />
                   Wallet
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/automations')} className="cursor-pointer text-sm">
+                  <Zap className="w-4 h-4 mr-2" />
+                  Automations
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setFeedbackOpen(true)} className="cursor-pointer text-sm">
                   <MessageSquare className="w-4 h-4 mr-2" />

@@ -504,17 +504,35 @@ export function GroupHubScreen() {
         )}
 
         {/* Bottom spacing for FAB */}
-        <View style={{ height: 100 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* Start Game FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.orange }]}
-        onPress={() => setShowStartGameSheet(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="play" size={24} color="#fff" />
-      </TouchableOpacity>
+      {/* Bottom Action Buttons - Labeled FABs */}
+      <View style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        {/* AI Chat Button - Labeled */}
+        <TouchableOpacity
+          style={[styles.labeledFab, { backgroundColor: lc.orangeDark }]}
+          onPress={() => navigation.navigate("AIAssistant")}
+          activeOpacity={0.8}
+        >
+          <View style={styles.fabIconContainer}>
+            <Ionicons name="sparkles" size={22} color="#fff" />
+          </View>
+          <Text style={styles.fabLabel}>AI Chat</Text>
+        </TouchableOpacity>
+
+        {/* Start Game Button - Labeled */}
+        <TouchableOpacity
+          style={[styles.labeledFab, styles.primaryFab, { backgroundColor: lc.trustBlue }]}
+          onPress={() => setShowStartGameSheet(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.fabIconContainer}>
+            <Ionicons name="play" size={24} color="#fff" />
+          </View>
+          <Text style={styles.fabLabel}>Start Game</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Start Game Modal */}
       <Modal

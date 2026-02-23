@@ -778,7 +778,7 @@ export function GameNightScreen() {
                             {isCurrentUser && <Text style={{ color: lc.textMuted }}> (You)</Text>}
                           </Text>
                           {isPlayerHost && (
-                            <Ionicons name="shield" size={14} color="#fbbf24" style={{ marginLeft: 6 }} />
+                            <Ionicons name="shield" size={14} color={hostColor} style={{ marginLeft: 6 }} />
                           )}
                         </View>
                         <Text style={[styles.playerChips, { color: lc.textMuted }]}>
@@ -857,7 +857,7 @@ export function GameNightScreen() {
                             {isCurrentUser && <Text style={{ color: lc.textMuted }}> (You)</Text>}
                           </Text>
                           {isPlayerHost && (
-                            <Ionicons name="shield" size={14} color="#fbbf24" style={{ marginLeft: 6 }} />
+                            <Ionicons name="shield" size={14} color={hostColor} style={{ marginLeft: 6 }} />
                           )}
                         </View>
                         <Text style={[styles.playerChips, { color: lc.textMuted }]}>

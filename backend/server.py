@@ -7440,6 +7440,142 @@ async def resolve_feedback(feedback_id: str, current_user: User = Depends(get_cu
     return {"success": True, "data": result.data}
 
 
+class FeedbackStatusUpdate(BaseModel):
+    status: Optional[str] = None
+    owner_type: Optional[str] = None
+    owner_id: Optional[str] = None
+    linked_feedback_id: Optional[str] = None
+
+@api_router.put("/feedback/{feedback_id}/status")
+async def update_feedback_status(
+    feedback_id: str,
+    data: FeedbackStatusUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """Update feedback status, ownership, or link duplicates."""
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.execute(
+        action="update_status",
+        feedback_id=feedback_id,
+        status=data.status,
+        user_id=current_user.user_id,
+        owner_type=data.owner_type,
+        owner_id=data.owner_id,
+        linked_feedback_id=data.linked_feedback_id
+    )
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return {"success": True, "data": result.data}
+
+
+class FeedbackEventAdd(BaseModel):
+    event_type: str = "note"
+    details: Dict[str, Any] = {}
+
+@api_router.post("/feedback/{feedback_id}/events")
+async def add_feedback_event(
+    feedback_id: str,
+    data: FeedbackEventAdd,
+    current_user: User = Depends(get_current_user)
+):
+    """Add an event to a feedback entry's audit trail."""
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    collector = FeedbackCollectorTool(db=db)
+    result = await collector.execute(
+        action="add_event",
+        feedback_id=feedback_id,
+        event_type=data.event_type,
+        user_id=current_user.user_id,
+        event_details=data.details
+    )
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return {"success": True, "data": result.data}
+
+
+class AutoFixRequest(BaseModel):
+    fix_type: str
+    feedback_id: Optional[str] = None
+    group_id: Optional[str] = None
+    game_id: Optional[str] = None
+    confirmed: bool = False
+
+@api_router.post("/feedback/auto-fix")
+async def attempt_auto_fix(
+    data: AutoFixRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Attempt a policy-gated auto-fix for a feedback issue."""
+    from ai_service.tools.feedback_policy import FeedbackPolicyTool
+    from ai_service.tools.auto_fixer import AutoFixerTool
+    from ai_service.tools.registry import ToolRegistry
+
+    # Policy check first
+    policy = FeedbackPolicyTool(db=db)
+    policy_result = await policy.execute(
+        action="check_policy",
+        fix_type=data.fix_type,
+        user_id=current_user.user_id,
+        group_id=data.group_id,
+        feedback_id=data.feedback_id,
+        feedback_owner_id=current_user.user_id
+    )
+
+    if not policy_result.success:
+        raise HTTPException(status_code=500, detail=policy_result.error)
+
+    policy_data = policy_result.data
+    if not policy_data.get("allowed"):
+        raise HTTPException(
+            status_code=403,
+            detail=policy_data.get("blocked_reason", "Fix not allowed by policy")
+        )
+
+    if policy_data.get("requires_confirmation") and not data.confirmed:
+        return {
+            "success": True,
+            "requires_confirmation": True,
+            "tier": policy_data.get("tier"),
+            "message": "This fix requires explicit confirmation. Re-submit with confirmed=true."
+        }
+
+    # Execute fix
+    tool_registry = ToolRegistry()
+    fixer = AutoFixerTool(db=db, tool_registry=tool_registry)
+    fix_result = await fixer.execute(
+        action="auto_fix",
+        fix_type=data.fix_type,
+        user_id=current_user.user_id,
+        group_id=data.group_id,
+        game_id=data.game_id,
+        feedback_id=data.feedback_id,
+        confirmed=data.confirmed
+    )
+    if not fix_result.success:
+        raise HTTPException(status_code=500, detail=fix_result.error)
+    return {"success": True, "data": fix_result.data, "message": fix_result.message}
+
+
+@api_router.get("/feedback/policy/allowed-fixes")
+async def get_allowed_fixes(
+    group_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Get list of auto-fix types allowed for the current user."""
+    from ai_service.tools.feedback_policy import FeedbackPolicyTool
+    policy = FeedbackPolicyTool(db=db)
+    result = await policy.execute(
+        action="get_allowed_fixes",
+        user_id=current_user.user_id,
+        group_id=group_id,
+        feedback_owner_id=current_user.user_id
+    )
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return result.data
+
+
 # Include the router
 app.include_router(api_router)
 
@@ -7487,9 +7623,12 @@ async def create_indexes():
     await db.feedback.create_index([("user_id", 1), ("created_at", -1)])
     await db.feedback.create_index([("group_id", 1), ("status", 1)])
     await db.feedback.create_index("feedback_id", unique=True)
+    await db.feedback.create_index([("content_hash", 1), ("group_id", 1), ("created_at", -1)])
+    await db.feedback.create_index([("status", 1), ("sla_due_at", 1)])
     await db.feedback_surveys.create_index([("game_id", 1), ("user_id", 1)])
     await db.feedback_surveys.create_index("survey_id", unique=True)
     await db.auto_fix_log.create_index([("feedback_id", 1), ("created_at", -1)])
+    await db.auto_fix_log.create_index([("fix_type", 1), ("feedback_id", 1)])
     logger.info("Database indexes ensured for feedback collections")
 
 @app.on_event("shutdown")

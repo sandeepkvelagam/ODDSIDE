@@ -62,6 +62,7 @@ class AIOrchestrator:
         from .tools.engagement_planner import EngagementPlannerTool
         from .tools.feedback_collector import FeedbackCollectorTool
         from .tools.feedback_classifier import FeedbackClassifierTool
+        from .tools.feedback_policy import FeedbackPolicyTool
         from .tools.auto_fixer import AutoFixerTool
 
         self.tool_registry.register(PokerEvaluatorTool())
@@ -80,6 +81,7 @@ class AIOrchestrator:
         self.tool_registry.register(FeedbackClassifierTool(
             db=self.db, llm_client=self.llm_client
         ))
+        self.tool_registry.register(FeedbackPolicyTool(db=self.db))
         self.tool_registry.register(AutoFixerTool(
             db=self.db, tool_registry=self.tool_registry
         ))

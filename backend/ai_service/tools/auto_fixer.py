@@ -1,15 +1,22 @@
 """
-Auto Fixer Tool
+Auto Fixer Tool (v2)
 
-Attempts to automatically resolve known feedback patterns by
-delegating to existing tools (settlement recalculation, notification
-resend, payment reconciliation, permission fixes).
+Two-tier fix system:
+A) Verify-only (safe, default): Read-only diagnostics — always allowed
+   - settlement_recheck: Verify chip totals and ledger consistency
+   - resend_notification: Check delivery logs and resend unread
+   - reconcile_payment_preview: Find matches without writing
+   - fix_permissions_diagnose: Check membership/access without changing
 
-Each fix is logged so the user can be notified of the resolution.
+B) Mutations (requires confirmation + host/admin role):
+   - reconcile_payment_apply: Actually mark ledger entries as paid
+   - fix_permissions_apply: Send invites or modify access
+
+Each operation is logged in auto_fix_log for audit trail.
 """
 
 from typing import Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 
 from .base import BaseTool, ToolResult
@@ -19,13 +26,10 @@ logger = logging.getLogger(__name__)
 
 class AutoFixerTool(BaseTool):
     """
-    Applies known fixes for common user-reported issues.
+    Two-tier auto-fix system: verify (read-only) + mutate (writes data).
 
-    Supported fix types:
-    - settlement_recheck: Re-run settlement calculation for a game
-    - resend_notification: Check delivery status and resend notification
-    - reconcile_payment: Cross-check ledger entries and reconcile
-    - fix_permissions: Check membership/permissions and fix access
+    Verify operations are always safe to run. Mutate operations require
+    explicit confirmation and are gated by FeedbackPolicyTool.
     """
 
     def __init__(self, db=None, tool_registry=None):
@@ -39,8 +43,10 @@ class AutoFixerTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Attempt to automatically fix known issues reported through user feedback: "
-            "settlement rechecks, notification resends, payment reconciliation, and permission fixes"
+            "Two-tier auto-fix system for user-reported issues. "
+            "Verify tier: read-only settlement checks, notification status, payment matching, "
+            "permission diagnosis. Mutate tier: apply payment reconciliation, fix permissions "
+            "(requires confirmation)."
         )
 
     @property
@@ -50,12 +56,14 @@ class AutoFixerTool(BaseTool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "description": "Fix type to attempt",
+                    "description": "Fix operation to perform",
                     "enum": [
                         "settlement_recheck",
                         "resend_notification",
-                        "reconcile_payment",
-                        "fix_permissions",
+                        "reconcile_payment_preview",
+                        "reconcile_payment_apply",
+                        "fix_permissions_diagnose",
+                        "fix_permissions_apply",
                         "auto_fix"
                     ]
                 },
@@ -79,6 +87,14 @@ class AutoFixerTool(BaseTool):
                     "type": "string",
                     "description": "Auto-fix type from classifier"
                 },
+                "confirmed": {
+                    "type": "boolean",
+                    "description": "Explicit confirmation for mutate-tier operations"
+                },
+                "preview_data": {
+                    "type": "object",
+                    "description": "Data from preview step to apply in mutation"
+                },
                 "context": {
                     "type": "object",
                     "description": "Additional context for the fix"
@@ -92,53 +108,90 @@ class AutoFixerTool(BaseTool):
         action = kwargs.get("action")
 
         if action == "auto_fix":
-            # Delegate to the right fix based on fix_type
+            # Smart routing: map legacy fix_type to safe default (verify tier)
             fix_type = kwargs.get("fix_type")
             if not fix_type:
                 return ToolResult(success=False, error="fix_type required for auto_fix")
-            action = fix_type
+            safe_mapping = {
+                "settlement_recheck": "settlement_recheck",
+                "resend_notification": "resend_notification",
+                "reconcile_payment": "reconcile_payment_preview",
+                "fix_permissions": "fix_permissions_diagnose",
+            }
+            action = safe_mapping.get(fix_type, fix_type)
+
+        # ==================== VERIFY TIER (read-only, safe) ====================
 
         if action == "settlement_recheck":
-            return await self._fix_settlement(
+            return await self._verify_settlement(
                 game_id=kwargs.get("game_id"),
                 user_id=kwargs.get("user_id"),
                 feedback_id=kwargs.get("feedback_id")
             )
         elif action == "resend_notification":
-            return await self._fix_notification(
+            return await self._verify_and_resend_notification(
                 user_id=kwargs.get("user_id"),
+                feedback_id=kwargs.get("feedback_id"),
                 context=kwargs.get("context", {})
             )
-        elif action == "reconcile_payment":
-            return await self._fix_payment(
+        elif action == "reconcile_payment_preview":
+            return await self._reconcile_payment_preview(
                 user_id=kwargs.get("user_id"),
                 game_id=kwargs.get("game_id"),
                 group_id=kwargs.get("group_id"),
                 feedback_id=kwargs.get("feedback_id")
             )
-        elif action == "fix_permissions":
-            return await self._fix_permissions(
+        elif action == "fix_permissions_diagnose":
+            return await self._permissions_diagnose(
                 user_id=kwargs.get("user_id"),
                 group_id=kwargs.get("group_id"),
-                game_id=kwargs.get("game_id")
+                game_id=kwargs.get("game_id"),
+                feedback_id=kwargs.get("feedback_id")
+            )
+
+        # ==================== MUTATE TIER (writes data, needs confirmation) ====================
+
+        elif action == "reconcile_payment_apply":
+            if not kwargs.get("confirmed"):
+                return ToolResult(
+                    success=False,
+                    error="reconcile_payment_apply requires confirmed=true. "
+                          "Run reconcile_payment_preview first, then apply with confirmation."
+                )
+            return await self._reconcile_payment_apply(
+                user_id=kwargs.get("user_id"),
+                game_id=kwargs.get("game_id"),
+                group_id=kwargs.get("group_id"),
+                feedback_id=kwargs.get("feedback_id"),
+                preview_data=kwargs.get("preview_data", {})
+            )
+        elif action == "fix_permissions_apply":
+            if not kwargs.get("confirmed"):
+                return ToolResult(
+                    success=False,
+                    error="fix_permissions_apply requires confirmed=true. "
+                          "Run fix_permissions_diagnose first, then apply with confirmation."
+                )
+            return await self._permissions_apply(
+                user_id=kwargs.get("user_id"),
+                group_id=kwargs.get("group_id"),
+                game_id=kwargs.get("game_id"),
+                feedback_id=kwargs.get("feedback_id")
             )
         else:
             return ToolResult(success=False, error=f"Unknown fix type: {action}")
 
-    async def _fix_settlement(
+    # ==================== VERIFY: Settlement Recheck ====================
+
+    async def _verify_settlement(
         self,
         game_id: str = None,
         user_id: str = None,
         feedback_id: str = None
     ) -> ToolResult:
         """
-        Re-check settlement for a game.
-
-        Steps:
-        1. Find the game (by game_id or user's most recent game)
-        2. Verify chip totals match
-        3. Recalculate settlements if mismatch found
-        4. Log the fix attempt
+        VERIFY-ONLY: Re-check settlement for a game without modifying anything.
+        Reports findings to user and host.
         """
         if not self.db:
             return ToolResult(success=False, error="Database not available")
@@ -149,7 +202,6 @@ class AutoFixerTool(BaseTool):
             if game_id:
                 game = await self.db.game_nights.find_one({"game_id": game_id})
             elif user_id:
-                # Find user's most recent settled game
                 game = await self.db.game_nights.find_one(
                     {
                         "players.user_id": user_id,
@@ -162,7 +214,7 @@ class AutoFixerTool(BaseTool):
                 return ToolResult(
                     success=False,
                     error="No game found to recheck",
-                    data={"fix_type": "settlement_recheck", "attempted": True}
+                    data={"fix_type": "settlement_recheck", "tier": "verify"}
                 )
 
             game_id = game.get("game_id")
@@ -180,26 +232,29 @@ class AutoFixerTool(BaseTool):
 
             ledger_total = sum(e.get("amount", 0) for e in ledger_entries)
 
-            fix_result = {
+            result = {
                 "fix_type": "settlement_recheck",
+                "tier": "verify",
                 "game_id": game_id,
+                "game_title": game.get("title", "Poker Night"),
                 "total_buy_in": total_buy_in,
                 "total_cash_out": total_cash_out,
                 "chip_discrepancy": discrepancy,
-                "ledger_entries": len(ledger_entries),
+                "ledger_entries_count": len(ledger_entries),
                 "ledger_total": ledger_total,
                 "issues_found": [],
-                "actions_taken": []
+                "actions_taken": [],
+                "player_breakdown": []
             }
 
-            # Check for issues
+            # Check for chip discrepancy
             if abs(discrepancy) > 0.01:
-                fix_result["issues_found"].append(
-                    f"Chip discrepancy: buy-ins (${total_buy_in}) != cash-outs (${total_cash_out}), "
-                    f"difference: ${discrepancy}"
+                result["issues_found"].append(
+                    f"Chip discrepancy: buy-ins (${total_buy_in}) != "
+                    f"cash-outs (${total_cash_out}), difference: ${discrepancy}"
                 )
 
-            # Check for players with cash_out but no ledger entry
+            # Check each player for ledger coverage
             players_with_results = set()
             for entry in ledger_entries:
                 players_with_results.add(entry.get("from_user_id"))
@@ -207,65 +262,75 @@ class AutoFixerTool(BaseTool):
 
             for player in players:
                 pid = player.get("user_id")
-                net = player.get("cash_out", 0) - player.get("total_buy_in", 0)
+                buy_in = player.get("total_buy_in", 0)
+                cash_out = player.get("cash_out", 0)
+                net = cash_out - buy_in
+
+                result["player_breakdown"].append({
+                    "user_id": pid,
+                    "buy_in": buy_in,
+                    "cash_out": cash_out,
+                    "net": net,
+                    "has_ledger_entry": pid in players_with_results
+                })
+
                 if abs(net) > 0.01 and pid not in players_with_results:
-                    fix_result["issues_found"].append(
+                    result["issues_found"].append(
                         f"Player {pid} has net ${net} but no ledger entry"
                     )
 
-            # Log the recheck
+            # Log the verification
             await self._log_fix_attempt(
                 fix_type="settlement_recheck",
                 game_id=game_id,
                 user_id=user_id,
                 feedback_id=feedback_id,
-                result=fix_result
+                result=result
             )
 
-            if not fix_result["issues_found"]:
-                fix_result["actions_taken"].append("Settlement verified — no issues found")
-                # Notify user that settlement was correct
-                await self._notify_user(
-                    user_id=user_id,
-                    title="Settlement Verified",
-                    message="We rechecked your settlement and everything looks correct. "
-                           "If you still have concerns, please provide more details."
-                )
+            # Notify based on findings
+            if not result["issues_found"]:
+                result["actions_taken"].append("Settlement verified — no issues found")
+                if user_id:
+                    await self._notify_user(
+                        user_id=user_id,
+                        title="Settlement Verified",
+                        message="We checked your settlement and everything looks correct. "
+                               "If you still have concerns, please provide more details."
+                    )
             else:
-                fix_result["actions_taken"].append("Issues detected — flagged for host review")
-                # Notify host about the discrepancy
+                result["actions_taken"].append("Issues detected — flagged for host review")
                 host_id = game.get("host_id")
                 if host_id:
-                    issues_text = "; ".join(fix_result["issues_found"][:2])
+                    issues_text = "; ".join(result["issues_found"][:2])
                     await self._notify_user(
                         user_id=host_id,
                         title="Settlement Recheck Required",
-                        message=f"A player flagged a settlement issue for {game.get('title', 'a game')}. "
-                               f"Issues: {issues_text}"
+                        message=f"A player flagged a settlement issue for "
+                               f"{game.get('title', 'a game')}. Issues: {issues_text}"
                     )
 
             return ToolResult(
                 success=True,
-                data=fix_result,
-                message=f"Settlement recheck: {len(fix_result['issues_found'])} issue(s) found"
+                data=result,
+                message=f"Settlement recheck: {len(result['issues_found'])} issue(s) found"
             )
 
         except Exception as e:
             logger.error(f"Settlement recheck error: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def _fix_notification(
+    # ==================== VERIFY + LOW-RISK: Resend Notification ====================
+
+    async def _verify_and_resend_notification(
         self,
         user_id: str = None,
+        feedback_id: str = None,
         context: Dict = None
     ) -> ToolResult:
         """
-        Check notification delivery status and resend if needed.
-
-        Steps:
-        1. Find recent undelivered notifications for the user
-        2. Attempt to resend them
-        3. Log the fix
+        Check notification delivery logs and resend the most recent unread.
+        This is a low-risk verify operation (resending doesn't mutate core data).
         """
         if not self.db or not user_id:
             return ToolResult(success=False, error="Database or user_id not available")
@@ -273,8 +338,6 @@ class AutoFixerTool(BaseTool):
         context = context or {}
 
         try:
-            # Find recent notifications for this user
-            from datetime import timedelta
             cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
 
             notifications = await self.db.notifications.find({
@@ -282,32 +345,55 @@ class AutoFixerTool(BaseTool):
                 "created_at": {"$gte": cutoff}
             }).sort("created_at", -1).to_list(20)
 
-            fix_result = {
+            result = {
                 "fix_type": "resend_notification",
+                "tier": "verify",
                 "user_id": user_id,
-                "notifications_found": len(notifications),
+                "delivery_log": {
+                    "total_recent": len(notifications),
+                    "unread": 0,
+                    "read": 0,
+                },
                 "resent": 0,
-                "actions_taken": []
+                "actions_taken": [],
+                "user_message": ""
             }
 
             if not notifications:
-                fix_result["actions_taken"].append("No recent notifications found for user")
-                return ToolResult(
-                    success=True,
-                    data=fix_result,
-                    message="No recent notifications found — may be a delivery issue"
+                result["actions_taken"].append(
+                    "No recent notifications found for user (last 7 days)"
+                )
+                result["user_message"] = (
+                    "We checked delivery logs for the last 7 days and found no "
+                    "notifications for you. This may indicate a delivery issue. "
+                    "Please check your notification settings in the app."
+                )
+                await self._notify_user(
+                    user_id=user_id,
+                    title="Notification Check Complete",
+                    message=result["user_message"]
                 )
 
-            # Find unread notifications and resend
+                await self._log_fix_attempt(
+                    fix_type="resend_notification",
+                    user_id=user_id,
+                    feedback_id=feedback_id,
+                    result=result
+                )
+                return ToolResult(success=True, data=result)
+
+            # Count read vs unread
+            unread = [n for n in notifications if not n.get("read")]
+            read = [n for n in notifications if n.get("read")]
+            result["delivery_log"]["unread"] = len(unread)
+            result["delivery_log"]["read"] = len(read)
+
+            # Resend the most recent unread notification
             notification_tool = None
             if self.tool_registry:
                 notification_tool = self.tool_registry.get("notification_sender")
 
-            unread = [n for n in notifications if not n.get("read")]
-            fix_result["unread_count"] = len(unread)
-
             if notification_tool and unread:
-                # Resend the most recent unread notification
                 latest = unread[0]
                 await notification_tool.execute(
                     user_ids=[user_id],
@@ -316,27 +402,60 @@ class AutoFixerTool(BaseTool):
                     notification_type=latest.get("type", "general"),
                     data={"resent": True, "original_id": str(latest.get("_id", ""))}
                 )
-                fix_result["resent"] = 1
-                fix_result["actions_taken"].append(
+                result["resent"] = 1
+                result["actions_taken"].append(
                     f"Resent notification: {latest.get('title', 'Notification')}"
                 )
-
-            if not unread:
-                fix_result["actions_taken"].append(
-                    "All recent notifications were read — issue may be a timing/delay problem"
+                result["user_message"] = (
+                    f"We checked delivery logs for the last 7 days. "
+                    f"Found {len(notifications)} notifications ({len(unread)} unread). "
+                    f"We resent your most recent unread notification. "
+                    f"If you still don't see it, check your notification settings."
                 )
+            elif not unread:
+                result["actions_taken"].append(
+                    f"All {len(notifications)} recent notifications were read"
+                )
+                result["user_message"] = (
+                    f"We checked delivery logs for the last 7 days. "
+                    f"All {len(notifications)} notifications show as delivered and read. "
+                    f"The issue may have been a temporary delay."
+                )
+            else:
+                result["actions_taken"].append(
+                    f"Found {len(unread)} unread notifications but notification sender unavailable"
+                )
+                result["user_message"] = (
+                    f"We found {len(unread)} unread notifications. "
+                    f"Please check your notification settings in the app."
+                )
+
+            await self._notify_user(
+                user_id=user_id,
+                title="Notification Check Complete",
+                message=result["user_message"]
+            )
+
+            await self._log_fix_attempt(
+                fix_type="resend_notification",
+                user_id=user_id,
+                feedback_id=feedback_id,
+                result=result
+            )
 
             return ToolResult(
                 success=True,
-                data=fix_result,
-                message=f"Notification fix: resent {fix_result['resent']} notification(s)"
+                data=result,
+                message=f"Notification check: {len(notifications)} found, {result['resent']} resent"
             )
 
         except Exception as e:
             logger.error(f"Notification fix error: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def _fix_payment(
+    # ==================== VERIFY: Payment Reconciliation Preview ====================
+
+    async def _reconcile_payment_preview(
         self,
         user_id: str = None,
         game_id: str = None,
@@ -344,18 +463,13 @@ class AutoFixerTool(BaseTool):
         feedback_id: str = None
     ) -> ToolResult:
         """
-        Reconcile payment records for a user.
-
-        Steps:
-        1. Check ledger entries for the user/game
-        2. Look for any matching Stripe payments not yet reconciled
-        3. Flag discrepancies for host review
+        VERIFY-ONLY: Find payment matches without writing anything.
+        Returns what would be reconciled if apply is called.
         """
         if not self.db:
             return ToolResult(success=False, error="Database not available")
 
         try:
-            # Build query for ledger entries
             query = {"status": "pending"}
             if user_id:
                 query["$or"] = [
@@ -369,16 +483,17 @@ class AutoFixerTool(BaseTool):
 
             pending_entries = await self.db.ledger_entries.find(query).to_list(50)
 
-            fix_result = {
-                "fix_type": "reconcile_payment",
+            result = {
+                "fix_type": "reconcile_payment_preview",
+                "tier": "verify",
                 "user_id": user_id,
                 "pending_entries": len(pending_entries),
-                "reconciled": 0,
-                "flagged": 0,
-                "actions_taken": []
+                "matches_found": [],
+                "unmatched_pending": [],
+                "actions_taken": [],
+                "can_apply": False
             }
 
-            # Check for any paid-but-not-recorded entries in payment logs
             if user_id:
                 payment_logs = await self.db.payment_logs.find({
                     "$or": [
@@ -390,93 +505,189 @@ class AutoFixerTool(BaseTool):
                 }).to_list(20)
 
                 for log in payment_logs:
-                    # Try to match with a pending ledger entry
-                    matching_entry = None
                     for entry in pending_entries:
                         if (entry.get("from_user_id") == log.get("payer_id") and
                                 entry.get("to_user_id") == log.get("payee_id") and
                                 abs(entry.get("amount", 0) - log.get("amount", 0)) < 0.01):
-                            matching_entry = entry
+                            result["matches_found"].append({
+                                "ledger_id": str(entry.get("_id", "")),
+                                "payment_log_id": str(log.get("_id", "")),
+                                "from_user": entry.get("from_user_id"),
+                                "to_user": entry.get("to_user_id"),
+                                "amount": entry.get("amount", 0),
+                                "confidence": "high"  # exact amount match
+                            })
                             break
 
-                    if matching_entry:
-                        # Auto-reconcile: mark ledger entry as paid
-                        from bson import ObjectId
-                        await self.db.ledger_entries.update_one(
-                            {"_id": matching_entry["_id"]},
-                            {"$set": {
-                                "status": "paid",
-                                "paid_at": datetime.now(timezone.utc),
-                                "auto_reconciled": True
-                            }}
-                        )
-                        await self.db.payment_logs.update_one(
-                            {"_id": log["_id"]},
-                            {"$set": {"reconciled": True}}
-                        )
-                        fix_result["reconciled"] += 1
-                        fix_result["actions_taken"].append(
-                            f"Auto-reconciled payment of ${log.get('amount', 0)}"
-                        )
+            # Identify unmatched pending entries
+            matched_ledger_ids = {m["ledger_id"] for m in result["matches_found"]}
+            for entry in pending_entries:
+                eid = str(entry.get("_id", ""))
+                if eid not in matched_ledger_ids:
+                    result["unmatched_pending"].append({
+                        "ledger_id": eid,
+                        "from_user": entry.get("from_user_id"),
+                        "to_user": entry.get("to_user_id"),
+                        "amount": entry.get("amount", 0),
+                    })
 
-            if fix_result["reconciled"] == 0 and pending_entries:
-                fix_result["actions_taken"].append(
-                    f"No auto-reconcilable payments found. {len(pending_entries)} pending entries flagged for review."
+            if result["matches_found"]:
+                result["can_apply"] = True
+                total = sum(m["amount"] for m in result["matches_found"])
+                result["actions_taken"].append(
+                    f"Found {len(result['matches_found'])} reconcilable payment(s) "
+                    f"totaling ${total:.2f}. "
+                    f"Use reconcile_payment_apply with confirmed=true to apply."
                 )
-                fix_result["flagged"] = len(pending_entries)
-
-            # Notify user of result
-            if user_id and fix_result["reconciled"] > 0:
-                await self._notify_user(
-                    user_id=user_id,
-                    title="Payment Updated",
-                    message=f"We found and reconciled {fix_result['reconciled']} payment(s) "
-                           "that weren't properly recorded. Your balance has been updated."
+            else:
+                result["actions_taken"].append(
+                    f"No auto-reconcilable payments found. "
+                    f"{len(pending_entries)} pending entries require manual review."
                 )
 
-            # Log the fix
             await self._log_fix_attempt(
-                fix_type="reconcile_payment",
+                fix_type="reconcile_payment_preview",
                 game_id=game_id,
                 user_id=user_id,
                 feedback_id=feedback_id,
-                result=fix_result
+                result=result
             )
 
             return ToolResult(
                 success=True,
-                data=fix_result,
-                message=f"Payment reconciliation: {fix_result['reconciled']} reconciled, {fix_result['flagged']} flagged"
+                data=result,
+                message=f"Payment preview: {len(result['matches_found'])} matches, "
+                       f"{len(result['unmatched_pending'])} unmatched"
             )
 
         except Exception as e:
-            logger.error(f"Payment reconciliation error: {e}")
+            logger.error(f"Payment reconciliation preview error: {e}")
             return ToolResult(success=False, error=str(e))
 
-    async def _fix_permissions(
+    # ==================== MUTATE: Payment Reconciliation Apply ====================
+
+    async def _reconcile_payment_apply(
+        self,
+        user_id: str = None,
+        game_id: str = None,
+        group_id: str = None,
+        feedback_id: str = None,
+        preview_data: Dict = None
+    ) -> ToolResult:
+        """
+        MUTATE: Actually mark matched ledger entries as paid.
+        Requires confirmed=true and host/admin role (enforced by policy).
+        """
+        if not self.db:
+            return ToolResult(success=False, error="Database not available")
+
+        try:
+            # Re-run matching to ensure freshness
+            preview_result = await self._reconcile_payment_preview(
+                user_id=user_id,
+                game_id=game_id,
+                group_id=group_id,
+                feedback_id=feedback_id
+            )
+
+            if not preview_result.success:
+                return preview_result
+
+            matches = preview_result.data.get("matches_found", [])
+            if not matches:
+                return ToolResult(
+                    success=True,
+                    data={"reconciled": 0, "tier": "mutate"},
+                    message="No matches to apply"
+                )
+
+            reconciled = 0
+            now = datetime.now(timezone.utc)
+
+            for match in matches:
+                try:
+                    from bson import ObjectId
+                    ledger_oid = ObjectId(match["ledger_id"])
+                    payment_oid = ObjectId(match["payment_log_id"])
+
+                    await self.db.ledger_entries.update_one(
+                        {"_id": ledger_oid},
+                        {"$set": {
+                            "status": "paid",
+                            "paid_at": now,
+                            "auto_reconciled": True,
+                            "reconciled_by": "feedback_auto_fixer",
+                            "feedback_id": feedback_id
+                        }}
+                    )
+                    await self.db.payment_logs.update_one(
+                        {"_id": payment_oid},
+                        {"$set": {"reconciled": True, "reconciled_at": now.isoformat()}}
+                    )
+                    reconciled += 1
+                except Exception as e:
+                    logger.error(f"Failed to reconcile match: {e}")
+
+            result = {
+                "fix_type": "reconcile_payment_apply",
+                "tier": "mutate",
+                "reconciled": reconciled,
+                "total_matches": len(matches),
+                "actions_taken": [
+                    f"Applied {reconciled}/{len(matches)} payment reconciliation(s)"
+                ]
+            }
+
+            # Notify user
+            if user_id and reconciled > 0:
+                await self._notify_user(
+                    user_id=user_id,
+                    title="Payments Reconciled",
+                    message=f"We found and reconciled {reconciled} payment(s) "
+                           "that weren't properly recorded. Your balance has been updated."
+                )
+
+            await self._log_fix_attempt(
+                fix_type="reconcile_payment_apply",
+                game_id=game_id,
+                user_id=user_id,
+                feedback_id=feedback_id,
+                result=result
+            )
+
+            return ToolResult(
+                success=True,
+                data=result,
+                message=f"Payment reconciliation applied: {reconciled} entry(ies) updated"
+            )
+
+        except Exception as e:
+            logger.error(f"Payment reconciliation apply error: {e}")
+            return ToolResult(success=False, error=str(e))
+
+    # ==================== VERIFY: Permission Diagnosis ====================
+
+    async def _permissions_diagnose(
         self,
         user_id: str = None,
         group_id: str = None,
-        game_id: str = None
+        game_id: str = None,
+        feedback_id: str = None
     ) -> ToolResult:
         """
-        Check and fix user access/permission issues.
-
-        Steps:
-        1. Check if user is a member of the group
-        2. Check if there's a pending invite
-        3. Check game-specific permissions
-        4. Attempt to fix or provide clear guidance
+        VERIFY-ONLY: Diagnose permission/access issues without changing anything.
         """
         if not self.db or not user_id:
             return ToolResult(success=False, error="Database or user_id not available")
 
         try:
-            fix_result = {
-                "fix_type": "fix_permissions",
+            result = {
+                "fix_type": "fix_permissions_diagnose",
+                "tier": "verify",
                 "user_id": user_id,
                 "issues_found": [],
-                "actions_taken": []
+                "actions_available": [],
+                "diagnosis": {}
             }
 
             # Check group membership
@@ -487,7 +698,6 @@ class AutoFixerTool(BaseTool):
                 })
 
                 if not membership:
-                    # Check for pending invite
                     invite = await self.db.group_invites.find_one({
                         "group_id": group_id,
                         "invitee_id": user_id,
@@ -495,20 +705,16 @@ class AutoFixerTool(BaseTool):
                     })
 
                     if invite:
-                        fix_result["issues_found"].append("Pending invite exists but not accepted")
-                        fix_result["actions_taken"].append("Resending invite notification")
-                        await self._notify_user(
-                            user_id=user_id,
-                            title="Group Invite Reminder",
-                            message="You have a pending group invite. Accept it to join the group."
-                        )
+                        result["issues_found"].append("Pending invite exists but not accepted")
+                        result["actions_available"].append("resend_invite")
+                        result["diagnosis"]["group_membership"] = "pending_invite"
                     else:
-                        fix_result["issues_found"].append("Not a member of this group")
-                        fix_result["actions_taken"].append(
-                            "User needs to be invited by a group admin"
-                        )
+                        result["issues_found"].append("Not a member of this group")
+                        result["actions_available"].append("needs_admin_invite")
+                        result["diagnosis"]["group_membership"] = "not_member"
                 else:
-                    fix_result["actions_taken"].append("Group membership confirmed")
+                    result["diagnosis"]["group_membership"] = "confirmed"
+                    result["diagnosis"]["group_role"] = membership.get("role", "member")
 
             # Check game access
             if game_id:
@@ -521,33 +727,131 @@ class AutoFixerTool(BaseTool):
                             "user_id": user_id
                         })
                         if not member:
-                            fix_result["issues_found"].append(
+                            result["issues_found"].append(
                                 f"Not a member of the game's group ({game_group_id})"
                             )
+                            result["diagnosis"]["game_group_membership"] = "not_member"
                         else:
-                            fix_result["actions_taken"].append("Game group membership confirmed")
+                            result["diagnosis"]["game_group_membership"] = "confirmed"
 
-                    # Check if player is in the game
                     player_in_game = any(
                         p.get("user_id") == user_id for p in game.get("players", [])
                     )
                     if not player_in_game:
-                        fix_result["issues_found"].append("Not a player in this game")
-                        fix_result["actions_taken"].append(
-                            "User may need to be added to the game by the host"
-                        )
+                        result["issues_found"].append("Not a player in this game")
+                        result["actions_available"].append("needs_host_add")
+                        result["diagnosis"]["game_player"] = "not_in_game"
                     else:
-                        fix_result["actions_taken"].append("Player in game confirmed")
+                        result["diagnosis"]["game_player"] = "confirmed"
 
-            has_issues = len(fix_result["issues_found"]) > 0
+            await self._log_fix_attempt(
+                fix_type="fix_permissions_diagnose",
+                game_id=game_id,
+                user_id=user_id,
+                feedback_id=feedback_id,
+                result=result
+            )
+
             return ToolResult(
                 success=True,
-                data=fix_result,
-                message=f"Permission check: {len(fix_result['issues_found'])} issue(s) found"
+                data=result,
+                message=f"Permission diagnosis: {len(result['issues_found'])} issue(s), "
+                       f"{len(result['actions_available'])} action(s) available"
             )
 
         except Exception as e:
-            logger.error(f"Permission fix error: {e}")
+            logger.error(f"Permission diagnosis error: {e}")
+            return ToolResult(success=False, error=str(e))
+
+    # ==================== MUTATE: Permission Fix Apply ====================
+
+    async def _permissions_apply(
+        self,
+        user_id: str = None,
+        group_id: str = None,
+        game_id: str = None,
+        feedback_id: str = None
+    ) -> ToolResult:
+        """
+        MUTATE: Apply permission fixes (resend invites, notify admins).
+        Requires confirmed=true and host/admin role.
+        """
+        if not self.db or not user_id:
+            return ToolResult(success=False, error="Database or user_id not available")
+
+        try:
+            # First run diagnosis to see what's fixable
+            diag = await self._permissions_diagnose(
+                user_id=user_id,
+                group_id=group_id,
+                game_id=game_id
+            )
+
+            if not diag.success:
+                return diag
+
+            actions_available = diag.data.get("actions_available", [])
+            actions_taken = []
+
+            if "resend_invite" in actions_available and group_id:
+                # Resend the invite notification
+                await self._notify_user(
+                    user_id=user_id,
+                    title="Group Invite Reminder",
+                    message="You have a pending group invite. Accept it to join the group and access games."
+                )
+                actions_taken.append("Resent group invite notification")
+
+            if "needs_admin_invite" in actions_available and group_id:
+                # Notify group admins
+                admins = await self.db.group_members.find(
+                    {"group_id": group_id, "role": "admin"},
+                    {"_id": 0, "user_id": 1}
+                ).to_list(5)
+                for admin in admins:
+                    await self._notify_user(
+                        user_id=admin["user_id"],
+                        title="Access Request",
+                        message=f"A user is requesting access to your group. "
+                               "Please check your group settings to invite them."
+                    )
+                actions_taken.append(f"Notified {len(admins)} admin(s) about access request")
+
+            if "needs_host_add" in actions_available and game_id:
+                game = await self.db.game_nights.find_one({"game_id": game_id})
+                if game and game.get("host_id"):
+                    await self._notify_user(
+                        user_id=game["host_id"],
+                        title="Player Access Request",
+                        message=f"A player is reporting they can't access the game "
+                               f"'{game.get('title', 'Poker Night')}'. "
+                               "Please check if they need to be added."
+                    )
+                    actions_taken.append("Notified host about player access issue")
+
+            result = {
+                "fix_type": "fix_permissions_apply",
+                "tier": "mutate",
+                "actions_taken": actions_taken,
+                "issues_found": diag.data.get("issues_found", [])
+            }
+
+            await self._log_fix_attempt(
+                fix_type="fix_permissions_apply",
+                game_id=game_id,
+                user_id=user_id,
+                feedback_id=feedback_id,
+                result=result
+            )
+
+            return ToolResult(
+                success=True,
+                data=result,
+                message=f"Permission fix applied: {len(actions_taken)} action(s) taken"
+            )
+
+        except Exception as e:
+            logger.error(f"Permission apply error: {e}")
             return ToolResult(success=False, error=str(e))
 
     # ==================== Helpers ====================
@@ -585,6 +889,7 @@ class AutoFixerTool(BaseTool):
         try:
             await self.db.auto_fix_log.insert_one({
                 "fix_type": fix_type,
+                "tier": (result or {}).get("tier", "verify"),
                 "game_id": game_id,
                 "user_id": user_id,
                 "feedback_id": feedback_id,

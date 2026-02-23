@@ -1,22 +1,31 @@
 """
-Feedback Agent
+Feedback Agent (v2)
 
 Autonomous agent that collects, classifies, and acts on user feedback.
-Uses the pipeline: Collect → Classify → Auto-Fix → Track → Notify.
+Uses the pipeline: Collect -> Classify -> Policy -> Fix(verify+apply) -> Log -> Notify.
+
+v2 upgrades:
+- Policy gating (FeedbackPolicyTool) before any auto-fix
+- Verify-tier operations by default; mutate only with confirmation + role
+- SLA deadlines set after classification
+- Events audit trail on every state transition
+- Duplicate detection and content_hash awareness
+- Observability-ready trends (auto-fix rates, resolution times, reopen rate)
 
 Trigger Types:
-1. User submits feedback (in-app form, bug report) → classify + auto-fix
-2. Post-game survey (1-5 stars + comment) → collect + flag low ratings
-3. Batch processing → classify unclassified, analyze trends
-4. Auto-fix attempt → try known fix patterns, notify user
-5. Trend analysis → weekly feedback digest for team
+1. User submits feedback (in-app form, bug report) -> classify + policy + fix
+2. Post-game survey (1-5 stars + comment) -> collect + flag low ratings
+3. Batch processing -> classify unclassified, analyze trends
+4. Auto-fix attempt -> policy check -> verify-tier fix -> notify user
+5. Trend analysis -> weekly feedback digest with metrics
 
 Architecture:
-- FeedbackCollectorTool: Store/retrieve feedback and surveys
-- FeedbackClassifierTool: AI classification (Claude Haiku) + keyword fallback
-- AutoFixerTool: Settlement recheck, notification resend, payment reconciliation
+- FeedbackCollectorTool: Store/retrieve feedback, PII redaction, duplicate detection
+- FeedbackClassifierTool: AI classification (Claude Haiku) + keyword fallback + rules
+- FeedbackPolicyTool: Gating layer (role, cooldown, retry limit, group settings)
+- AutoFixerTool: Two-tier: verify (read-only) + mutate (writes, needs confirmation)
 - NotificationSenderTool: Notify users of resolutions
-- feedback collection: MongoDB feedback entries
+- feedback collection: MongoDB feedback entries with events audit trail
 - feedback_surveys collection: Post-game survey ratings
 """
 
@@ -28,13 +37,21 @@ from .base import BaseAgent, AgentResult
 
 logger = logging.getLogger(__name__)
 
+# SLA durations by severity (mirrors feedback_collector.py)
+SLA_DURATIONS = {
+    "critical": timedelta(hours=24),
+    "high": timedelta(days=3),
+    "medium": timedelta(days=7),
+    "low": timedelta(days=14),
+}
+
 
 class FeedbackAgent(BaseAgent):
     """
-    Agent for collecting, classifying, and acting on user feedback.
+    Agent for collecting, classifying, and acting on user feedback (v2).
 
-    Uses the Collect → Classify → Auto-Fix → Track → Notify pipeline
-    to handle feedback autonomously.
+    Uses the Collect -> Classify -> Policy -> Fix(verify+apply) -> Log -> Notify
+    pipeline to handle feedback autonomously.
     """
 
     @property
@@ -46,23 +63,26 @@ class FeedbackAgent(BaseAgent):
         return (
             "collecting, classifying, and acting on user feedback including "
             "bug reports, post-game surveys, feature requests, and auto-fixing "
-            "known issues like settlement errors and missing notifications"
+            "known issues like settlement errors and missing notifications. "
+            "Policy-gated auto-fixes with verify/mutate tiers."
         )
 
     @property
     def capabilities(self) -> List[str]:
         return [
-            "Accept and store user feedback (bugs, features, complaints, praise)",
-            "Collect post-game survey responses (1-5 star rating + comment)",
-            "Classify feedback with AI (category, severity, sentiment, tags)",
-            "Detect and attempt auto-fixes for known patterns",
-            "Auto-fix: settlement recheck when users report wrong amounts",
-            "Auto-fix: resend missing notifications",
-            "Auto-fix: reconcile untracked payments",
-            "Auto-fix: check and resolve permission/access issues",
-            "Generate feedback trend reports (top issues, avg rating, volume)",
+            "Accept and store user feedback with PII redaction and duplicate detection",
+            "Collect post-game survey responses (1-5 star rating + comment) with anti-spam",
+            "Classify feedback with AI (category, severity, sentiment, confidence, evidence)",
+            "Apply rules-based severity minimums after classification",
+            "Check auto-fix policy (role, cooldown, retry limit) before any fix",
+            "Auto-fix (verify tier): settlement recheck, notification resend",
+            "Auto-fix (verify tier): payment reconciliation preview, permission diagnosis",
+            "Auto-fix (mutate tier): payment reconciliation apply, permission fix apply",
+            "Set SLA deadlines based on severity after classification",
+            "Track events audit trail on every state transition",
+            "Generate feedback trend reports with observability metrics",
             "Notify users when their feedback has been addressed",
-            "Batch classify unprocessed feedback entries",
+            "Batch classify unprocessed feedback entries with policy-gated auto-fix",
         ]
 
     @property
@@ -70,6 +90,7 @@ class FeedbackAgent(BaseAgent):
         return [
             "feedback_collector",
             "feedback_classifier",
+            "feedback_policy",
             "auto_fixer",
             "notification_sender",
         ]
@@ -131,7 +152,7 @@ class FeedbackAgent(BaseAgent):
         }
 
     async def execute(self, user_input: str, context: Dict = None) -> AgentResult:
-        """Execute feedback tasks through the full pipeline."""
+        """Execute feedback tasks through the v2 pipeline."""
         context = context or {}
         steps_taken = []
 
@@ -204,11 +225,11 @@ class FeedbackAgent(BaseAgent):
 
         return "get_trends"
 
-    # ==================== Submit Feedback (Full Pipeline) ====================
+    # ==================== Submit Feedback (Full v2 Pipeline) ====================
 
     async def _handle_submit_feedback(self, context: Dict, steps: List) -> AgentResult:
         """
-        Full pipeline: Collect → Classify → Auto-Fix (if applicable) → Notify.
+        Full v2 pipeline: Collect -> Classify -> Policy -> Fix(verify) -> Log -> Notify.
         """
         user_id = context.get("user_id")
         content = context.get("content", "")
@@ -224,7 +245,7 @@ class FeedbackAgent(BaseAgent):
                 steps_taken=steps
             )
 
-        # Step 1: COLLECT — store the feedback
+        # Step 1: COLLECT — store the feedback (PII redacted, dedup checked)
         collect_result = await self.call_tool(
             "feedback_collector",
             action="submit_feedback",
@@ -233,7 +254,8 @@ class FeedbackAgent(BaseAgent):
             content=content,
             group_id=group_id,
             game_id=game_id,
-            context=extra_context
+            context=extra_context,
+            context_refs={"group_id": group_id, "game_id": game_id}
         )
         steps.append({"step": "collect", "result": collect_result})
 
@@ -244,9 +266,23 @@ class FeedbackAgent(BaseAgent):
                 steps_taken=steps
             )
 
-        feedback_id = collect_result.get("data", {}).get("feedback_id")
+        collect_data = collect_result.get("data", {})
+        feedback_id = collect_data.get("feedback_id")
 
-        # Step 2: CLASSIFY — categorize with AI
+        # If duplicate detected, skip further processing
+        if collect_data.get("duplicate"):
+            return AgentResult(
+                success=True,
+                data={
+                    "feedback_id": feedback_id,
+                    "duplicate": True,
+                    "original_feedback_id": collect_data.get("original_feedback_id"),
+                },
+                message="Duplicate feedback detected — linked to existing entry",
+                steps_taken=steps
+            )
+
+        # Step 2: CLASSIFY — categorize with AI (confidence, evidence, severity rules)
         classify_result = await self.call_tool(
             "feedback_classifier",
             action="classify",
@@ -258,67 +294,124 @@ class FeedbackAgent(BaseAgent):
 
         classification = classify_result.get("data", {})
 
-        # Update feedback entry with classification
+        # Step 3: UPDATE — persist classification + set SLA
         if self.db and feedback_id and classification:
+            severity = classification.get("severity", "medium")
+            sla_duration = SLA_DURATIONS.get(severity, timedelta(days=7))
+            sla_due_at = (datetime.now(timezone.utc) + sla_duration).isoformat()
+
             await self.db.feedback.update_one(
                 {"feedback_id": feedback_id},
-                {"$set": {
-                    "classification": classification,
-                    "priority": classification.get("severity"),
-                    "tags": list(set(
-                        context.get("tags", []) + classification.get("tags", [])
-                    )),
-                    "status": "classified",
-                    "classified_at": datetime.now(timezone.utc).isoformat()
-                }}
+                {
+                    "$set": {
+                        "classification": classification,
+                        "priority": severity,
+                        "tags": list(set(
+                            context.get("tags", []) + classification.get("tags", [])
+                        )),
+                        "status": "classified",
+                        "classified_at": datetime.now(timezone.utc).isoformat(),
+                        "sla_due_at": sla_due_at,
+                    },
+                    "$push": {"events": {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "actor": "system",
+                        "action": "classified",
+                        "details": {
+                            "category": classification.get("category"),
+                            "severity": severity,
+                            "confidence": classification.get("confidence"),
+                            "method": classification.get("classification_method"),
+                            "sla_due_at": sla_due_at,
+                        }
+                    }}
+                }
             )
 
-        # Step 3: AUTO-FIX — if the classifier found a fixable pattern
+        # Step 4: POLICY + FIX — if classifier found a fixable pattern
         auto_fix_result = None
+        policy_decision = None
         if classification.get("auto_fixable") and classification.get("auto_fix_type"):
-            auto_fix_result = await self.call_tool(
-                "auto_fixer",
-                action="auto_fix",
-                fix_type=classification["auto_fix_type"],
+            fix_type = classification["auto_fix_type"]
+
+            # Step 4a: POLICY CHECK — is this fix allowed?
+            policy_result = await self.call_tool(
+                "feedback_policy",
+                action="check_policy",
+                fix_type=fix_type,
                 user_id=user_id,
                 group_id=group_id,
-                game_id=game_id,
                 feedback_id=feedback_id,
-                context=extra_context
+                feedback_owner_id=user_id  # submitter is the owner
             )
-            steps.append({"step": "auto_fix", "result": auto_fix_result})
+            steps.append({"step": "policy_check", "result": policy_result})
+            policy_decision = policy_result.get("data", {})
 
-            # Update feedback with auto-fix result
-            if self.db and feedback_id:
-                fix_success = auto_fix_result.get("success", False)
-                await self.db.feedback.update_one(
-                    {"feedback_id": feedback_id},
-                    {"$set": {
-                        "auto_fix_attempted": True,
-                        "auto_fix_result": auto_fix_result.get("data"),
-                        "status": "auto_fixed" if fix_success else "classified"
-                    }}
+            if policy_decision.get("allowed"):
+                # Step 4b: FIX (verify tier) — safe, read-only operation
+                auto_fix_result = await self.call_tool(
+                    "auto_fixer",
+                    action="auto_fix",
+                    fix_type=fix_type,
+                    user_id=user_id,
+                    group_id=group_id,
+                    game_id=game_id,
+                    feedback_id=feedback_id,
+                    context=extra_context
                 )
+                steps.append({"step": "auto_fix_verify", "result": auto_fix_result})
 
-        # Step 4: ACKNOWLEDGE — send confirmation to user
-        ack_message = "Thanks for your feedback! We've received it"
-        if classification.get("auto_fixable"):
-            if auto_fix_result and auto_fix_result.get("success"):
-                fix_data = auto_fix_result.get("data", {})
-                actions = fix_data.get("actions_taken", [])
-                if actions:
-                    ack_message += f" and automatically checked: {actions[0]}"
-                else:
-                    ack_message += " and attempted an automatic resolution"
+                # Step 4c: LOG — update feedback with fix result
+                if self.db and feedback_id:
+                    fix_success = auto_fix_result.get("success", False)
+                    fix_data = auto_fix_result.get("data", {})
+                    new_status = "auto_fixed" if fix_success else "classified"
+
+                    await self.db.feedback.update_one(
+                        {"feedback_id": feedback_id},
+                        {
+                            "$set": {
+                                "auto_fix_attempted": True,
+                                "auto_fix_result": fix_data,
+                                "status": new_status,
+                            },
+                            "$push": {"events": {
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                                "actor": "system",
+                                "action": "auto_fix_attempted",
+                                "details": {
+                                    "fix_type": fix_type,
+                                    "tier": fix_data.get("tier", "verify"),
+                                    "success": fix_success,
+                                    "policy_decision": {
+                                        "allowed": True,
+                                        "tier": policy_decision.get("tier"),
+                                    }
+                                }
+                            }}
+                        }
+                    )
             else:
-                ack_message += " and we're looking into it"
-        else:
-            severity = classification.get("severity", "medium")
-            if severity in ("critical", "high"):
-                ack_message += " and it's been flagged as high priority"
-            else:
-                ack_message += " and it's been added to our review queue"
-        ack_message += "."
+                # Policy blocked the fix — log the denial
+                if self.db and feedback_id:
+                    await self.db.feedback.update_one(
+                        {"feedback_id": feedback_id},
+                        {"$push": {"events": {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "actor": "system",
+                            "action": "auto_fix_blocked",
+                            "details": {
+                                "fix_type": fix_type,
+                                "blocked_reason": policy_decision.get("blocked_reason"),
+                                "checks_failed": policy_decision.get("checks_failed", []),
+                            }
+                        }}}
+                    )
+
+        # Step 5: NOTIFY — send acknowledgment to user
+        ack_message = self._build_ack_message(
+            classification, auto_fix_result, policy_decision
+        )
 
         await self.call_tool(
             "notification_sender",
@@ -340,17 +433,77 @@ class FeedbackAgent(BaseAgent):
                 "classification": classification,
                 "auto_fix_attempted": classification.get("auto_fixable", False),
                 "auto_fix_result": auto_fix_result.get("data") if auto_fix_result else None,
+                "policy_decision": {
+                    "allowed": policy_decision.get("allowed"),
+                    "tier": policy_decision.get("tier"),
+                } if policy_decision else None,
             },
-            message=f"Feedback processed: {classification.get('category', 'other')} "
-                    f"({classification.get('severity', 'medium')}) "
-                    f"{'— auto-fix attempted' if classification.get('auto_fixable') else ''}",
+            message=self._build_result_message(classification, auto_fix_result, policy_decision),
             steps_taken=steps
         )
+
+    def _build_ack_message(
+        self,
+        classification: Dict,
+        auto_fix_result: Optional[Dict],
+        policy_decision: Optional[Dict]
+    ) -> str:
+        """Build the user acknowledgment message."""
+        msg = "Thanks for your feedback! We've received it"
+
+        if classification.get("auto_fixable"):
+            if policy_decision and not policy_decision.get("allowed"):
+                msg += " and we're looking into it"
+            elif auto_fix_result and auto_fix_result.get("success"):
+                fix_data = auto_fix_result.get("data", {})
+                user_message = fix_data.get("user_message")
+                if user_message:
+                    msg += f". {user_message}"
+                    return msg
+                actions = fix_data.get("actions_taken", [])
+                if actions:
+                    msg += f" and automatically checked: {actions[0]}"
+                else:
+                    msg += " and attempted an automatic resolution"
+            else:
+                msg += " and we're looking into it"
+        else:
+            severity = classification.get("severity", "medium")
+            if severity in ("critical", "high"):
+                msg += " and it's been flagged as high priority"
+            else:
+                msg += " and it's been added to our review queue"
+
+        msg += "."
+        return msg
+
+    def _build_result_message(
+        self,
+        classification: Dict,
+        auto_fix_result: Optional[Dict],
+        policy_decision: Optional[Dict]
+    ) -> str:
+        """Build the pipeline result message."""
+        category = classification.get("category", "other")
+        severity = classification.get("severity", "medium")
+        confidence = classification.get("confidence", 0)
+
+        parts = [f"Feedback processed: {category} ({severity}, conf={confidence:.2f})"]
+
+        if classification.get("auto_fixable"):
+            if policy_decision and not policy_decision.get("allowed"):
+                parts.append(f"fix blocked: {policy_decision.get('blocked_reason', 'policy')}")
+            elif auto_fix_result and auto_fix_result.get("success"):
+                parts.append("auto-fix succeeded")
+            elif auto_fix_result:
+                parts.append("auto-fix attempted")
+
+        return " -- ".join(parts)
 
     # ==================== Submit Survey ====================
 
     async def _handle_submit_survey(self, context: Dict, steps: List) -> AgentResult:
-        """Handle post-game survey submission."""
+        """Handle post-game survey submission (anti-spam handled by collector)."""
         user_id = context.get("user_id")
         game_id = context.get("game_id")
         group_id = context.get("group_id")
@@ -364,7 +517,7 @@ class FeedbackAgent(BaseAgent):
                 steps_taken=steps
             )
 
-        # Store the survey
+        # Store the survey (collector handles dedup, cooldown, PII redaction)
         survey_result = await self.call_tool(
             "feedback_collector",
             action="submit_survey",
@@ -385,8 +538,8 @@ class FeedbackAgent(BaseAgent):
 
         data = survey_result.get("data", {})
 
-        # If low rating with comment, classify the comment
-        if rating <= 2 and comment:
+        # If low rating with comment, classify the comment for routing
+        if rating <= 2 and comment and not data.get("duplicate") and not data.get("skipped"):
             classify_result = await self.call_tool(
                 "feedback_classifier",
                 action="classify",
@@ -401,18 +554,30 @@ class FeedbackAgent(BaseAgent):
             data={
                 "survey_id": data.get("survey_id"),
                 "rating": rating,
-                "low_rating_flagged": data.get("low_rating_flagged", False)
+                "low_rating_flagged": data.get("low_rating_flagged", False),
+                "skipped": data.get("skipped", False),
+                "duplicate": data.get("duplicate", False),
             },
-            message=f"Survey submitted: {rating}/5"
-                    f"{' (low rating flagged)' if rating <= 2 else ''}",
+            message=self._build_survey_message(rating, data),
             steps_taken=steps
         )
+
+    def _build_survey_message(self, rating: int, data: Dict) -> str:
+        """Build survey result message."""
+        if data.get("duplicate"):
+            return "Survey already submitted for this game"
+        if data.get("skipped"):
+            return f"Survey skipped ({data.get('reason', 'cooldown')})"
+        msg = f"Survey submitted: {rating}/5"
+        if rating <= 2:
+            msg += " (low rating flagged)"
+        return msg
 
     # ==================== Process Single Feedback ====================
 
     async def _process_single_feedback(self, context: Dict, steps: List) -> AgentResult:
         """
-        Process an existing feedback entry through classify + auto-fix.
+        Process an existing feedback entry through classify + policy + fix.
         Used for re-processing or manual triggers.
         """
         feedback_id = context.get("feedback_id")
@@ -444,40 +609,84 @@ class FeedbackAgent(BaseAgent):
         steps.append({"step": "classify", "result": classify_result})
 
         classification = classify_result.get("data", {})
+        severity = classification.get("severity", "medium")
+        sla_duration = SLA_DURATIONS.get(severity, timedelta(days=7))
+        sla_due_at = (datetime.now(timezone.utc) + sla_duration).isoformat()
 
-        # Update
+        # Update with classification + SLA
         await self.db.feedback.update_one(
             {"feedback_id": feedback_id},
-            {"$set": {
-                "classification": classification,
-                "priority": classification.get("severity"),
-                "status": "classified",
-                "classified_at": datetime.now(timezone.utc).isoformat()
-            }}
+            {
+                "$set": {
+                    "classification": classification,
+                    "priority": severity,
+                    "status": "classified",
+                    "classified_at": datetime.now(timezone.utc).isoformat(),
+                    "sla_due_at": sla_due_at,
+                },
+                "$push": {"events": {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "actor": "system",
+                    "action": "reclassified",
+                    "details": {
+                        "category": classification.get("category"),
+                        "severity": severity,
+                        "confidence": classification.get("confidence"),
+                    }
+                }}
+            }
         )
 
-        # Auto-fix if applicable
+        # Policy-gated auto-fix
         auto_fix_result = None
         if classification.get("auto_fixable"):
-            auto_fix_result = await self.call_tool(
-                "auto_fixer",
-                action="auto_fix",
-                fix_type=classification["auto_fix_type"],
-                user_id=entry.get("user_id"),
-                group_id=entry.get("group_id"),
-                game_id=entry.get("game_id"),
-                feedback_id=feedback_id
-            )
-            steps.append({"step": "auto_fix", "result": auto_fix_result})
+            fix_type = classification["auto_fix_type"]
+            user_id = entry.get("user_id")
 
-            if auto_fix_result.get("success"):
+            # Policy check
+            policy_result = await self.call_tool(
+                "feedback_policy",
+                action="check_policy",
+                fix_type=fix_type,
+                user_id=user_id,
+                group_id=entry.get("group_id"),
+                feedback_id=feedback_id,
+                feedback_owner_id=user_id
+            )
+            steps.append({"step": "policy_check", "result": policy_result})
+
+            policy_data = policy_result.get("data", {})
+            if policy_data.get("allowed"):
+                auto_fix_result = await self.call_tool(
+                    "auto_fixer",
+                    action="auto_fix",
+                    fix_type=fix_type,
+                    user_id=user_id,
+                    game_id=entry.get("game_id"),
+                    group_id=entry.get("group_id"),
+                    feedback_id=feedback_id
+                )
+                steps.append({"step": "auto_fix", "result": auto_fix_result})
+
+                fix_success = auto_fix_result.get("success", False)
                 await self.db.feedback.update_one(
                     {"feedback_id": feedback_id},
-                    {"$set": {
-                        "auto_fix_attempted": True,
-                        "auto_fix_result": auto_fix_result.get("data"),
-                        "status": "auto_fixed"
-                    }}
+                    {
+                        "$set": {
+                            "auto_fix_attempted": True,
+                            "auto_fix_result": auto_fix_result.get("data"),
+                            "status": "auto_fixed" if fix_success else "classified",
+                        },
+                        "$push": {"events": {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "actor": "system",
+                            "action": "auto_fix_attempted",
+                            "details": {
+                                "fix_type": fix_type,
+                                "success": fix_success,
+                            }
+                        }}
+                    }
                 )
 
         return AgentResult(
@@ -488,19 +697,21 @@ class FeedbackAgent(BaseAgent):
                 "auto_fix_attempted": classification.get("auto_fixable", False),
                 "auto_fix_result": auto_fix_result.get("data") if auto_fix_result else None
             },
-            message=f"Processed: {classification.get('category')} ({classification.get('severity')})",
+            message=f"Processed: {classification.get('category')} ({severity})",
             steps_taken=steps
         )
 
-    # ==================== Auto-Fix Attempt ====================
+    # ==================== Auto-Fix Attempt (Policy-Gated) ====================
 
     async def _attempt_auto_fix(self, context: Dict, steps: List) -> AgentResult:
-        """Attempt an auto-fix for a specific feedback entry or pattern."""
+        """Attempt a policy-gated auto-fix for a specific feedback entry or pattern."""
         feedback_id = context.get("feedback_id")
         fix_type = context.get("fix_type")
         user_id = context.get("user_id")
         game_id = context.get("game_id")
         group_id = context.get("group_id")
+        confirmed = context.get("confirmed", False)
+        feedback_owner_id = user_id
 
         # If feedback_id provided, get the fix type from the classification
         if feedback_id and self.db:
@@ -513,6 +724,7 @@ class FeedbackAgent(BaseAgent):
                 user_id = user_id or entry.get("user_id")
                 game_id = game_id or entry.get("game_id")
                 group_id = group_id or entry.get("group_id")
+                feedback_owner_id = entry.get("user_id")
 
         if not fix_type:
             return AgentResult(
@@ -521,26 +733,82 @@ class FeedbackAgent(BaseAgent):
                 steps_taken=steps
             )
 
-        result = await self.call_tool(
-            "auto_fixer",
-            action="auto_fix",
+        # Step 1: POLICY CHECK
+        policy_result = await self.call_tool(
+            "feedback_policy",
+            action="check_policy",
             fix_type=fix_type,
             user_id=user_id,
-            game_id=game_id,
             group_id=group_id,
-            feedback_id=feedback_id
+            feedback_id=feedback_id,
+            feedback_owner_id=feedback_owner_id
         )
+        steps.append({"step": "policy_check", "result": policy_result})
+
+        policy_data = policy_result.get("data", {})
+        if not policy_data.get("allowed"):
+            return AgentResult(
+                success=False,
+                error=f"Fix blocked by policy: {policy_data.get('blocked_reason')}",
+                data={"policy_decision": policy_data},
+                steps_taken=steps
+            )
+
+        # Step 2: Check if mutation needs confirmation
+        if policy_data.get("requires_confirmation") and not confirmed:
+            return AgentResult(
+                success=True,
+                data={
+                    "requires_confirmation": True,
+                    "tier": policy_data.get("tier"),
+                    "fix_type": fix_type,
+                    "message": "This fix requires explicit confirmation. "
+                               "Re-submit with confirmed=true to proceed."
+                },
+                message=f"Fix '{fix_type}' requires confirmation (mutate tier)",
+                steps_taken=steps
+            )
+
+        # Step 3: EXECUTE FIX
+        fix_kwargs = {
+            "action": fix_type if fix_type in (
+                "settlement_recheck", "resend_notification",
+                "reconcile_payment_preview", "reconcile_payment_apply",
+                "fix_permissions_diagnose", "fix_permissions_apply"
+            ) else "auto_fix",
+            "fix_type": fix_type,
+            "user_id": user_id,
+            "game_id": game_id,
+            "group_id": group_id,
+            "feedback_id": feedback_id,
+        }
+        if confirmed:
+            fix_kwargs["confirmed"] = True
+
+        result = await self.call_tool("auto_fixer", **fix_kwargs)
         steps.append({"step": "auto_fix", "result": result})
 
-        # Update feedback if we have an ID
+        # Step 4: LOG — update feedback
         if feedback_id and self.db and result.get("success"):
             await self.db.feedback.update_one(
                 {"feedback_id": feedback_id},
-                {"$set": {
-                    "auto_fix_attempted": True,
-                    "auto_fix_result": result.get("data"),
-                    "status": "auto_fixed"
-                }}
+                {
+                    "$set": {
+                        "auto_fix_attempted": True,
+                        "auto_fix_result": result.get("data"),
+                        "status": "auto_fixed",
+                    },
+                    "$push": {"events": {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "actor": user_id or "system",
+                        "action": "auto_fix_applied",
+                        "details": {
+                            "fix_type": fix_type,
+                            "tier": policy_data.get("tier"),
+                            "confirmed": confirmed,
+                        }
+                    }}
+                }
             )
 
         return AgentResult(
@@ -553,7 +821,7 @@ class FeedbackAgent(BaseAgent):
     # ==================== Trends Report ====================
 
     async def _get_feedback_trends(self, context: Dict, steps: List) -> AgentResult:
-        """Get feedback trends and generate a summary report."""
+        """Get feedback trends with observability metrics."""
         group_id = context.get("group_id")
         days = context.get("days", 30)
 
@@ -580,13 +848,17 @@ class FeedbackAgent(BaseAgent):
         by_type = data.get("by_type", {})
         by_status = data.get("by_status", {})
         top_tags = data.get("top_tags", [])
+        metrics = data.get("metrics", {})
 
         lines = [f"Feedback Report ({days} days):"]
         lines.append(f"  Total feedback: {total}")
         lines.append(f"  Avg survey rating: {avg_rating}/5")
 
         if by_type:
-            lines.append(f"  By type: {', '.join(f'{k}={v}' for k, v in sorted(by_type.items(), key=lambda x: x[1], reverse=True))}")
+            type_str = ", ".join(
+                f"{k}={v}" for k, v in sorted(by_type.items(), key=lambda x: x[1], reverse=True)
+            )
+            lines.append(f"  By type: {type_str}")
 
         if by_status:
             unresolved = by_status.get("new", 0) + by_status.get("classified", 0)
@@ -594,7 +866,20 @@ class FeedbackAgent(BaseAgent):
             lines.append(f"  Unresolved: {unresolved} | Resolved: {resolved}")
 
         if top_tags:
-            lines.append(f"  Top issues: {', '.join(f'{tag}({count})' for tag, count in top_tags[:5])}")
+            tags_str = ", ".join(f"{tag}({count})" for tag, count in top_tags[:5])
+            lines.append(f"  Top issues: {tags_str}")
+
+        # Observability metrics
+        if metrics:
+            lines.append("  Metrics:")
+            if metrics.get("auto_fix_attempt_rate"):
+                lines.append(f"    Auto-fix rate: {metrics['auto_fix_attempt_rate']}%")
+            if metrics.get("auto_fix_success_rate"):
+                lines.append(f"    Auto-fix success: {metrics['auto_fix_success_rate']}%")
+            if metrics.get("avg_resolution_hours") is not None:
+                lines.append(f"    Avg resolution: {metrics['avg_resolution_hours']}h")
+            if metrics.get("reopen_rate"):
+                lines.append(f"    Reopen rate: {metrics['reopen_rate']}%")
 
         summary = "\n".join(lines)
 
@@ -629,8 +914,9 @@ class FeedbackAgent(BaseAgent):
 
         data = result.get("data", {})
         count = data.get("count", 0)
+        sla_breached = data.get("sla_breached", 0)
 
-        # Summarize by type
+        # Summarize by type and severity
         unresolved = data.get("unresolved", [])
         type_counts = {}
         severity_counts = {}
@@ -640,22 +926,27 @@ class FeedbackAgent(BaseAgent):
             sev = fb.get("priority") or fb.get("classification", {}).get("severity", "unknown")
             severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
+        msg = self._format_unresolved_message(count, type_counts)
+        if sla_breached:
+            msg += f" ({sla_breached} SLA breached)"
+
         return AgentResult(
             success=True,
             data={
                 "unresolved": unresolved,
                 "count": count,
                 "by_type": type_counts,
-                "by_severity": severity_counts
+                "by_severity": severity_counts,
+                "sla_breached": sla_breached,
             },
-            message=self._format_unresolved_message(count, type_counts),
+            message=msg,
             steps_taken=steps
         )
 
-    # ==================== Batch Classify ====================
+    # ==================== Batch Classify (with Policy-Gated Fix) ====================
 
     async def _batch_classify_feedback(self, context: Dict, steps: List) -> AgentResult:
-        """Classify all unclassified feedback entries."""
+        """Classify all unclassified feedback entries with policy-gated auto-fix."""
         if not self.db:
             return AgentResult(
                 success=False,
@@ -686,35 +977,73 @@ class FeedbackAgent(BaseAgent):
         )
         steps.append({"step": "batch_classify", "result": result})
 
-        # Now try auto-fix on any that are auto-fixable
+        # Now try policy-gated auto-fix on any that are auto-fixable
         auto_fixes = 0
+        policy_blocked = 0
         if result.get("success"):
             for fid in feedback_ids:
                 entry = await self.db.feedback.find_one(
                     {"feedback_id": fid}, {"_id": 0}
                 )
-                if entry:
-                    classification = entry.get("classification", {})
-                    if classification.get("auto_fixable") and not entry.get("auto_fix_attempted"):
-                        fix_result = await self.call_tool(
-                            "auto_fixer",
-                            action="auto_fix",
-                            fix_type=classification["auto_fix_type"],
-                            user_id=entry.get("user_id"),
-                            game_id=entry.get("game_id"),
-                            group_id=entry.get("group_id"),
-                            feedback_id=fid
-                        )
-                        if fix_result.get("success"):
-                            auto_fixes += 1
-                            await self.db.feedback.update_one(
-                                {"feedback_id": fid},
-                                {"$set": {
-                                    "auto_fix_attempted": True,
-                                    "auto_fix_result": fix_result.get("data"),
-                                    "status": "auto_fixed"
-                                }}
-                            )
+                if not entry:
+                    continue
+
+                classification = entry.get("classification", {})
+                if not classification.get("auto_fixable") or entry.get("auto_fix_attempted"):
+                    continue
+
+                fix_type = classification.get("auto_fix_type")
+                user_id = entry.get("user_id")
+
+                # Policy check before fix
+                policy_result = await self.call_tool(
+                    "feedback_policy",
+                    action="check_policy",
+                    fix_type=fix_type,
+                    user_id=user_id,
+                    group_id=entry.get("group_id"),
+                    feedback_id=fid,
+                    feedback_owner_id=user_id
+                )
+
+                policy_data = policy_result.get("data", {})
+                if not policy_data.get("allowed"):
+                    policy_blocked += 1
+                    continue
+
+                # Only verify-tier in batch (no confirmation)
+                if policy_data.get("requires_confirmation"):
+                    policy_blocked += 1
+                    continue
+
+                fix_result = await self.call_tool(
+                    "auto_fixer",
+                    action="auto_fix",
+                    fix_type=fix_type,
+                    user_id=user_id,
+                    game_id=entry.get("game_id"),
+                    group_id=entry.get("group_id"),
+                    feedback_id=fid
+                )
+
+                if fix_result.get("success"):
+                    auto_fixes += 1
+                    await self.db.feedback.update_one(
+                        {"feedback_id": fid},
+                        {
+                            "$set": {
+                                "auto_fix_attempted": True,
+                                "auto_fix_result": fix_result.get("data"),
+                                "status": "auto_fixed",
+                            },
+                            "$push": {"events": {
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                                "actor": "system",
+                                "action": "batch_auto_fix",
+                                "details": {"fix_type": fix_type}
+                            }}
+                        }
+                    )
 
         data = result.get("data", {})
         return AgentResult(
@@ -722,9 +1051,11 @@ class FeedbackAgent(BaseAgent):
             data={
                 "classified": data.get("classified", 0),
                 "auto_fixed": auto_fixes,
+                "policy_blocked": policy_blocked,
                 "total": len(feedback_ids)
             },
-            message=f"Batch processed: {data.get('classified', 0)} classified, {auto_fixes} auto-fixed",
+            message=f"Batch processed: {data.get('classified', 0)} classified, "
+                    f"{auto_fixes} auto-fixed, {policy_blocked} policy-blocked",
             steps_taken=steps
         )
 

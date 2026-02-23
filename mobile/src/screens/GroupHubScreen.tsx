@@ -1476,6 +1476,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  // New modal styles for liquid glass
+  inputSection: {
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  inputInner: {
+    borderRadius: 12,
+    padding: 12,
+  },
+  optionSection: {
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 1.5,
+    marginBottom: 20,
+  },
+  optionInner: {
+    borderRadius: 12,
+    padding: 16,
+  },
+  continueButton: {
+    flex: 2,
+    padding: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 52,
+  },
+  continueText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   buttonDisabled: {
     opacity: 0.5,
   },

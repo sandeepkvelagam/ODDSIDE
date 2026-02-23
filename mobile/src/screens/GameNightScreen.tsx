@@ -542,9 +542,9 @@ export function GameNightScreen() {
 
         {/* Reconnecting Banner */}
         {reconnecting && (
-          <View style={[styles.reconnectBanner, { backgroundColor: "rgba(234,179,8,0.15)", borderColor: "rgba(234,179,8,0.3)" }]}>
-            <Ionicons name="sync" size={16} color="#fbbf24" />
-            <Text style={[styles.reconnectText, { color: "#fbbf24" }]}>Reconnecting...</Text>
+          <View style={[styles.reconnectBanner, { backgroundColor: hostBgColor, borderColor: hostBorderColor }]}>
+            <Ionicons name="sync" size={16} color={hostColor} />
+            <Text style={[styles.reconnectText, { color: hostColor }]}>Reconnecting...</Text>
           </View>
         )}
 

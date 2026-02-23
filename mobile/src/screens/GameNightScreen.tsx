@@ -215,6 +215,41 @@ export function GameNightScreen() {
     }
   }, [gameId, resyncGameState]);
 
+  // Load game thread
+  const loadThread = useCallback(async () => {
+    setLoadingThread(true);
+    try {
+      const res = await api.get(`/games/${gameId}/thread`);
+      setThread(Array.isArray(res.data) ? res.data : []);
+    } catch (e: any) {
+      console.error("Failed to load thread:", e);
+    } finally {
+      setLoadingThread(false);
+    }
+  }, [gameId]);
+
+  // Send message to thread
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || sendingMessage) return;
+    setSendingMessage(true);
+    try {
+      await api.post(`/games/${gameId}/thread`, { content: newMessage.trim() });
+      setNewMessage("");
+      await loadThread();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || "Failed to send message");
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  // Format message time
+  const formatMessageTime = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
   // Initial load
   useEffect(() => {
     let mounted = true;

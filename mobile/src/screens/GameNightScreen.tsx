@@ -1385,6 +1385,91 @@ export function GameNightScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Game Thread Modal */}
+      <Modal visible={showGameThread} animationType="slide" transparent onRequestClose={() => setShowGameThread(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowGameThread(false)} />
+          <View style={[styles.threadSheet, { backgroundColor: lc.jetSurface }]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.threadHeader}>
+              <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>Game Thread</Text>
+              <TouchableOpacity onPress={() => setShowGameThread(false)}>
+                <Ionicons name="close" size={24} color={lc.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingThread ? (
+              <View style={styles.threadLoading}>
+                <ActivityIndicator size="large" color={lc.trustBlue} />
+              </View>
+            ) : thread.length === 0 ? (
+              <View style={styles.threadEmpty}>
+                <Ionicons name="chatbubbles-outline" size={48} color={lc.textMuted} />
+                <Text style={[styles.threadEmptyTitle, { color: lc.textSecondary }]}>No messages yet</Text>
+                <Text style={[styles.threadEmptySubtext, { color: lc.textMuted }]}>Start the conversation!</Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.threadMessages} showsVerticalScrollIndicator={false}>
+                {thread.map((msg: any, idx: number) => {
+                  const isOwnMessage = msg.user_id === user?.user_id;
+                  return (
+                    <View key={msg.message_id || idx} style={[styles.messageRow, isOwnMessage && styles.messageRowOwn]}>
+                      {!isOwnMessage && (
+                        <View style={[styles.messageAvatar, { backgroundColor: lc.liquidGlowBlue }]}>
+                          <Text style={[styles.messageAvatarText, { color: lc.trustBlue }]}>
+                            {(msg.user?.name || msg.user_name || "?")[0].toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={[
+                        styles.messageBubble,
+                        isOwnMessage ? { backgroundColor: lc.trustBlue } : { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder, borderWidth: 1 }
+                      ]}>
+                        {!isOwnMessage && (
+                          <Text style={[styles.messageSender, { color: lc.trustBlue }]}>
+                            {msg.user?.name || msg.user_name || "Player"}
+                          </Text>
+                        )}
+                        <Text style={[styles.messageText, { color: isOwnMessage ? "#fff" : lc.textPrimary }]}>
+                          {msg.content}
+                        </Text>
+                        <Text style={[styles.messageTime, { color: isOwnMessage ? "rgba(255,255,255,0.7)" : lc.textMuted }]}>
+                          {formatMessageTime(msg.created_at)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* Message Input */}
+            <View style={[styles.threadInputContainer, { backgroundColor: lc.liquidGlassBg, borderTopColor: lc.liquidGlassBorder }]}>
+              <TextInput
+                style={[styles.threadInput, { backgroundColor: lc.liquidInnerBg, color: lc.textPrimary, borderColor: lc.liquidGlassBorder }]}
+                placeholder="Type a message..."
+                placeholderTextColor={lc.textMuted}
+                value={newMessage}
+                onChangeText={setNewMessage}
+                multiline
+                maxLength={500}
+              />
+              <TouchableOpacity
+                style={[styles.sendButton, { backgroundColor: lc.trustBlue }, (!newMessage.trim() || sendingMessage) && styles.buttonDisabled]}
+                onPress={handleSendMessage}
+                disabled={!newMessage.trim() || sendingMessage}
+              >
+                {sendingMessage ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={18} color="#fff" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }

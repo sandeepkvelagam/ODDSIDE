@@ -175,11 +175,7 @@ export default function RootNavigator() {
             <>
               <Stack.Screen name="Dashboard" component={DashboardScreenV2} options={{ headerShown: false }} />
               <Stack.Screen name="Groups" component={GroupsScreen} options={{ headerShown: false }} />
-              <Stack.Screen
-                name="GroupHub"
-                component={GroupHubScreen}
-                options={({ route }) => ({ title: route.params?.groupName || "Group", headerBackTitle: "" })}
-              />
+              <Stack.Screen name="GroupHub" component={GroupHubScreen} options={{ headerShown: false }} />
               <Stack.Screen name="GameNight" component={GameNightScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Settlement" component={SettlementScreen} options={{ title: "Settlement", headerBackTitle: "" }} />
               <Stack.Screen name="PokerAI" component={PokerAIScreen} options={{ title: "Poker AI", headerBackTitle: "" }} />

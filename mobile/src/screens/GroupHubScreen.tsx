@@ -239,7 +239,7 @@ export function GroupHubScreen() {
 
   return (
     <View style={[styles.wrapper, { backgroundColor: lc.jetDark, paddingTop: insets.top }]}>
-      {/* Page Header with Back Button */}
+      {/* Page Header with Back Button - Left Aligned */}
       <View style={[styles.pageHeader, { borderBottomColor: lc.liquidGlassBorder }]}>
         <TouchableOpacity
           style={[styles.backButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
@@ -251,7 +251,6 @@ export function GroupHubScreen() {
         <Text style={[styles.pageTitle, { color: lc.textPrimary }]} numberOfLines={1}>
           {group?.name || "Group"}
         </Text>
-        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
@@ -260,6 +259,7 @@ export function GroupHubScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={lc.orange} />
         }
+        showsVerticalScrollIndicator={false}
       >
         {error && (
           <View style={[styles.errorBanner, { borderColor: "rgba(239,68,68,0.3)" }]}>
@@ -268,56 +268,178 @@ export function GroupHubScreen() {
           </View>
         )}
 
-        {/* Group Header */}
-        <View style={styles.groupHeader}>
-          <View style={styles.groupHeaderRow}>
-            <Text style={[styles.groupTitle, { color: lc.textPrimary }]}>
-              {group?.name || "Group"}
-            </Text>
-            <View style={[
-              styles.headerBadge,
-              { backgroundColor: isAdmin ? adminBgColor : lc.liquidGlassBg }
-            ]}>
-              <Ionicons
-                name={isAdmin ? "shield" : "person"}
-                size={12}
-                color={isAdmin ? adminColor : lc.textMuted}
-              />
-              <Text style={[
-                styles.headerBadgeText,
-                { color: isAdmin ? adminColor : lc.textMuted }
-              ]}>
-                {isAdmin ? "ADMIN" : "Member"}
+        {/* Group Info Card - Liquid Glass */}
+        <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+          <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
+            <View style={styles.groupHeaderRow}>
+              <Text style={[styles.groupTitle, { color: lc.textPrimary }]}>
+                {group?.name || "Group"}
               </Text>
+              <View style={[styles.headerBadge, { backgroundColor: isAdmin ? adminBgColor : lc.liquidGlassBg }]}>
+                <Ionicons name={isAdmin ? "shield" : "person"} size={12} color={isAdmin ? adminColor : lc.textMuted} />
+                <Text style={[styles.headerBadgeText, { color: isAdmin ? adminColor : lc.textMuted }]}>
+                  {isAdmin ? "ADMIN" : "Member"}
+                </Text>
+              </View>
             </View>
+            <Text style={[styles.groupDescription, { color: lc.textMuted }]}>
+              {group?.description || "No description"}
+            </Text>
           </View>
-          <Text style={[styles.groupDescription, { color: lc.textMuted }]}>
-            {group?.description || "No description"}
-          </Text>
         </View>
 
-        {/* Leaderboard Section */}
-        {leaderboard.length > 0 && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="trophy" size={18} color="#FFD700" />
-              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>LEADERBOARD</Text>
+        {/* Members Section - Liquid Glass Card */}
+        <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="people" size={16} color={lc.orange} />
+              <Text style={[styles.cardHeaderTitle, { color: lc.moonstone }]}>MEMBERS ({members.length})</Text>
             </View>
-            <View style={[styles.card, styles.glassCard, { backgroundColor: colors.glassCardBg, borderColor: colors.glassCardBorder }]}>
-              {leaderboard.slice(0, 5).map((entry: any, idx: number) => {
-                const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
-                const medalColor = idx < 3 ? medalColors[idx] : null;
-                const profit = entry.net_profit || 0;
+            {isAdmin && (
+              <TouchableOpacity
+                style={[styles.inviteBtn, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+                onPress={() => { fetchPendingInvites(); setShowInviteSheet(true); }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="person-add" size={14} color={lc.orange} />
+                <Text style={[styles.inviteBtnText, { color: lc.orange }]}>Invite</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
+            {members.length > 0 ? (
+              members.map((m: any, idx: number) => {
+                const memberName = m?.user?.name || m?.name || m?.user?.email || m?.email || "Unknown";
+                const isCurrentUser = m?.user_id === user?.user_id;
+                const isMemberAdmin = m?.role === "admin";
 
                 return (
-                  <View key={entry.user_id || idx}>
-                    <View style={styles.leaderboardRow}>
-                      <View style={styles.leaderboardRank}>
-                        {medalColor ? (
-                          <Ionicons name="medal" size={20} color={medalColor} />
-                        ) : (
-                          <Text style={[styles.rankNumber, { color: colors.textMuted }]}>{idx + 1}</Text>
-                        )}
+                  <View key={m?.user_id || idx}>
+                    <View style={styles.memberRow}>
+                      <View style={[styles.memberAvatar, { backgroundColor: lc.liquidGlowBlue }]}>
+                        <Text style={[styles.memberAvatarText, { color: lc.trustBlue }]}>
+                          {memberName[0].toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.memberInfo}>
+                        <View style={styles.memberNameRow}>
+                          <Text style={[styles.memberName, { color: lc.textPrimary }]}>
+                            {memberName}
+                          </Text>
+                          {isCurrentUser && (
+                            <Text style={[styles.youLabel, { color: lc.textMuted }]}> (you)</Text>
+                          )}
+                        </View>
+                        <View style={styles.memberBadgeRow}>
+                          {isMemberAdmin ? (
+                            <View style={[styles.roleBadge, { backgroundColor: adminBgColor }]}>
+                              <Ionicons name="shield" size={10} color={adminColor} />
+                              <Text style={[styles.roleText, { color: adminColor }]}>Admin</Text>
+                            </View>
+                          ) : (
+                            <View style={[styles.roleBadge, { backgroundColor: lc.liquidGlassBg }]}>
+                              <Ionicons name="person" size={10} color={lc.textMuted} />
+                              <Text style={[styles.roleText, { color: lc.textMuted }]}>Member</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      {isAdmin && !isCurrentUser && !isMemberAdmin && (
+                        <TouchableOpacity
+                          style={styles.memberActionButton}
+                          onPress={() => setShowMemberActions(m?.user_id)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="ellipsis-horizontal" size={18} color={lc.textMuted} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {idx < members.length - 1 && <View style={[styles.divider, { backgroundColor: lc.liquidGlassBorder }]} />}
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={[styles.emptyText, { color: lc.textMuted }]}>No members data</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Live Games Section - Liquid Glass Card */}
+        <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: activeGames.length > 0 ? "rgba(34,197,94,0.3)" : lc.liquidGlassBorder }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <View style={[styles.liveDot, { backgroundColor: lc.success }]} />
+              <Text style={[styles.cardHeaderTitle, { color: lc.moonstone }]}>LIVE GAMES ({activeGames.length})</Text>
+            </View>
+          </View>
+          <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
+            {activeGames.length > 0 ? (
+              activeGames.map((g: any, idx: number) => (
+                <View key={g.game_id || g._id}>
+                  <TouchableOpacity
+                    style={styles.gameRow}
+                    onPress={() => navigation.navigate("GameNight", { gameId: g.game_id || g._id })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.gameInfo}>
+                      <Text style={[styles.gameName, { color: lc.textPrimary }]}>{g.title || "Game Night"}</Text>
+                      <Text style={[styles.gameSubtext, { color: lc.textMuted }]}>
+                        {g.player_count || 0} players{g.total_pot ? ` · $${g.total_pot} pot` : ""}
+                      </Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
+                      <View style={[styles.livePulse, { backgroundColor: lc.success }]} />
+                      <Text style={[styles.statusText, { color: lc.success }]}>Live</Text>
+                    </View>
+                  </TouchableOpacity>
+                  {idx < activeGames.length - 1 && <View style={[styles.divider, { backgroundColor: lc.liquidGlassBorder }]} />}
+                </View>
+              ))
+            ) : (
+              <Text style={[styles.emptyText, { color: lc.textMuted }]}>No active games</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Past Games Section - Liquid Glass Card */}
+        <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="time" size={16} color={lc.textMuted} />
+              <Text style={[styles.cardHeaderTitle, { color: lc.moonstone }]}>PAST GAMES ({pastGames.length})</Text>
+            </View>
+          </View>
+          <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
+            {pastGames.length > 0 ? (
+              pastGames.slice(0, 5).map((g: any, idx: number) => (
+                <View key={g.game_id || g._id}>
+                  <TouchableOpacity
+                    style={styles.gameRow}
+                    onPress={() => navigation.navigate("GameNight", { gameId: g.game_id || g._id })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.gameInfo}>
+                      <Text style={[styles.gameName, { color: lc.textPrimary }]}>{g.title || "Game Night"}</Text>
+                      <Text style={[styles.gameSubtext, { color: lc.textMuted }]}>
+                        {g.player_count || 0} players{g.total_pot ? ` · $${g.total_pot} pot` : ""}
+                      </Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: lc.liquidGlassBg }]}>
+                      <Text style={[styles.statusText, { color: lc.textMuted }]}>Ended</Text>
+                    </View>
+                  </TouchableOpacity>
+                  {idx < Math.min(pastGames.length, 5) - 1 && <View style={[styles.divider, { backgroundColor: lc.liquidGlassBorder }]} />}
+                </View>
+              ))
+            ) : (
+              <Text style={[styles.emptyText, { color: lc.textMuted }]}>No past games yet</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Bottom spacing for FAB */}
+        <View style={{ height: 120 }} />
+      </ScrollView>
                       </View>
                       <View style={styles.leaderboardInfo}>
                         <Text style={[styles.leaderboardName, { color: colors.textPrimary }]}>

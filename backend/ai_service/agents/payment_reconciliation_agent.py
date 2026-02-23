@@ -1,28 +1,26 @@
 """
-Payment Reconciliation Agent (v1)
+Payment Reconciliation Agent (v2)
 
 Autonomous agent that tracks and resolves payment issues.
 Uses the full pipeline: Scan -> Policy -> Escalate -> Execute -> Measure.
 
-Trigger Types:
-1. Daily scan: Find overdue ledger entries, send escalating reminders
-   -> Day 1 (gentle), Day 3 (firm), Day 7 (final), Day 14 (escalate to host)
-2. Stripe webhook: Match incoming payment to ledger entry
-   -> Auto-mark as paid (if confidence >= threshold), notify both parties
-3. Weekly: Payment health report per group
-   -> Flag chronic non-payers to host
-4. Monthly: Consolidate cross-game debts
-   -> "You owe Player X $15 across 3 games" -> single consolidated view
-5. On-demand: Reconcile a specific game or group
-6. Anomaly detection: Find duplicates, orphans, mismatched totals
+v2 improvements:
+1. Single consistent escalation: soft at 7d+2 reminders, hard at 14d unconditional
+2. Two-phase Stripe: verify -> apply (prevents race conditions, duplicate application)
+3. Batch reminders: single notification per user for multiple debts
+4. Consolidation: view-only with oldest-first allocation plan
+5. Group-relative nonpayer flagging (never label users as "chronic nonpayer")
+6. Anti-spam: per-user/day and per-group/day caps
+7. Quiet hours: escalation bypass for hosts only, payers still protected
+8. Observability KPIs: auto-match rate, time-to-pay, conversion, escalation rate
 
 Architecture:
 - PaymentTrackerTool (existing): Get outstanding, send reminders, mark paid
-- LedgerReconcilerTool (new): Cross-check, consolidate, health reports, anomalies
-- PaymentPolicyTool (new): Cooldown, quiet hours, escalation rules, tone
+- LedgerReconcilerTool (v2): Verify, consolidate with allocation, group-relative flagging, KPIs
+- PaymentPolicyTool (v2): Soft/hard escalation, per-user/group caps, host-only bypass
 - NotificationSenderTool (existing): Send reminders and alerts
-- payment_reconciliation_log collection: Audit trail
-- payment_reminders_log collection: Cooldown tracking
+- payment_reconciliation_log: Audit trail + KPI snapshots
+- payment_reminders_log: Per-user cooldown + daily cap tracking
 """
 
 from typing import Dict, List, Optional
@@ -36,10 +34,10 @@ logger = logging.getLogger(__name__)
 
 class PaymentReconciliationAgent(BaseAgent):
     """
-    Agent for autonomously tracking and resolving payment issues.
+    Agent for autonomously tracking and resolving payment issues (v2).
 
-    Uses the Scan -> Policy -> Escalate -> Execute -> Measure pipeline
-    to manage payments with policy-gated reminders and escalations.
+    Pipeline: Scan -> Policy -> Escalate -> Execute -> Measure
+    with batched reminders, two-phase Stripe, and soft/hard escalation.
     """
 
     @property
@@ -50,24 +48,27 @@ class PaymentReconciliationAgent(BaseAgent):
     def description(self) -> str:
         return (
             "autonomously tracking and resolving payment issues including "
-            "overdue payment reminders, Stripe payment matching, cross-game "
-            "debt consolidation, payment health reports, and chronic non-payer flagging"
+            "overdue payment reminders, Stripe payment matching with two-phase "
+            "verification, cross-game debt consolidation, payment health reports, "
+            "and group-relative nonpayer flagging"
         )
 
     @property
     def capabilities(self) -> List[str]:
         return [
             "Scan for overdue payments with urgency classification (gentle/firm/final/escalate)",
-            "Send policy-gated payment reminders with escalating urgency",
-            "Match Stripe webhook payments to pending ledger entries",
-            "Auto-mark matched payments as paid (above confidence threshold)",
-            "Consolidate cross-game debts between player pairs",
+            "Send batched policy-gated payment reminders (single notification per user)",
+            "Match Stripe webhook payments with two-phase verify -> apply reconciliation",
+            "Auto-mark matched payments as paid (metadata match only, not fuzzy)",
+            "Consolidate cross-game debts with oldest-first allocation plan",
             "Generate weekly payment health reports per group",
-            "Flag chronic non-payers to group hosts",
-            "Detect payment anomalies (duplicates, orphans, mismatches)",
-            "Escalate overdue payments to hosts after reminder cap",
-            "Process scheduled payment reconciliation jobs",
-            "Enforce quiet hours, cooldowns, and reminder caps",
+            "Flag payment concerns with group-relative detection (vs group median)",
+            "Detect payment anomalies (duplicates, orphans, duplicate Stripe applications)",
+            "Soft escalate at 7d + 2 reminders (host visibility)",
+            "Hard escalate at 14d unconditional (host action required)",
+            "Enforce per-user/day and per-group/day reminder caps",
+            "Respect quiet hours for payers (hosts bypass on escalation only)",
+            "Compute reconciliation KPIs for observability",
         ]
 
     @property
@@ -102,6 +103,7 @@ class PaymentReconciliationAgent(BaseAgent):
                         "reconcile_group",
                         "run_daily_scan",
                         "run_weekly_report",
+                        "compute_kpis",
                         "process_job",
                     ]
                 },
@@ -133,38 +135,29 @@ class PaymentReconciliationAgent(BaseAgent):
         try:
             action = context.get("action") or self._parse_action(user_input)
 
-            if action == "scan_and_remind":
-                return await self._scan_and_remind(context, steps_taken)
-            elif action == "match_stripe_payment":
-                return await self._match_stripe_payment(context, steps_taken)
-            elif action == "consolidate_debts":
-                return await self._consolidate_debts(context, steps_taken)
-            elif action == "payment_health_report":
-                return await self._payment_health_report(context, steps_taken)
-            elif action == "flag_nonpayers":
-                return await self._flag_nonpayers(context, steps_taken)
-            elif action == "detect_anomalies":
-                return await self._detect_anomalies(context, steps_taken)
-            elif action == "reconcile_game":
-                return await self._reconcile_game(context, steps_taken)
-            elif action == "reconcile_group":
-                return await self._reconcile_group(context, steps_taken)
-            elif action == "run_daily_scan":
-                return await self._run_daily_scan(context, steps_taken)
-            elif action == "run_weekly_report":
-                return await self._run_weekly_report(context, steps_taken)
-            elif action == "process_job":
-                return await self._process_job(context, steps_taken)
+            handlers = {
+                "scan_and_remind": self._scan_and_remind,
+                "match_stripe_payment": self._match_stripe_payment,
+                "consolidate_debts": self._consolidate_debts,
+                "payment_health_report": self._payment_health_report,
+                "flag_nonpayers": self._flag_nonpayers,
+                "detect_anomalies": self._detect_anomalies,
+                "reconcile_game": self._reconcile_game,
+                "reconcile_group": self._reconcile_group,
+                "run_daily_scan": self._run_daily_scan,
+                "run_weekly_report": self._run_weekly_report,
+                "compute_kpis": self._compute_kpis,
+                "process_job": self._process_job,
+            }
+
+            handler = handlers.get(action)
+            if handler:
+                return await handler(context, steps_taken)
             else:
                 return AgentResult(
                     success=False,
                     error="Unknown payment reconciliation action",
-                    message=(
-                        "Available actions: scan_and_remind, match_stripe_payment, "
-                        "consolidate_debts, payment_health_report, flag_nonpayers, "
-                        "detect_anomalies, reconcile_game, reconcile_group, "
-                        "run_daily_scan, run_weekly_report, process_job"
-                    ),
+                    message=f"Available actions: {', '.join(handlers.keys())}",
                     steps_taken=steps_taken
                 )
 
@@ -200,6 +193,8 @@ class PaymentReconciliationAgent(BaseAgent):
             return "run_daily_scan"
         if any(kw in input_lower for kw in ["weekly", "weekly report"]):
             return "run_weekly_report"
+        if any(kw in input_lower for kw in ["kpi", "metrics", "observ"]):
+            return "compute_kpis"
         if any(kw in input_lower for kw in ["process job", "job"]):
             return "process_job"
         if any(kw in input_lower for kw in [
@@ -209,13 +204,15 @@ class PaymentReconciliationAgent(BaseAgent):
 
         return "scan_and_remind"
 
-    # ==================== Scan and Remind (Core Pipeline) ====================
+    # ==================== Scan and Remind (v2: Batched) ====================
 
     async def _scan_and_remind(self, context: Dict, steps: List) -> AgentResult:
         """
-        Full pipeline: Scan overdue -> Policy check each -> Send reminder -> Log.
+        Full pipeline: Scan overdue -> Batch by user -> Policy check -> Send -> Log.
 
-        This is the core reconciliation loop used by daily scans and on-demand triggers.
+        v2: Groups overdue entries by user and sends ONE batched notification
+        per user instead of individual reminders. This is the difference between
+        "helpful" and "annoying".
         """
         group_id = context.get("group_id")
         overdue_days = context.get("overdue_days", 1)
@@ -241,121 +238,119 @@ class PaymentReconciliationAgent(BaseAgent):
         if not overdue_entries:
             return AgentResult(
                 success=True,
-                data={"reminders_sent": 0, "escalated": 0, "blocked": 0},
+                data={"reminders_sent": 0, "escalated": 0, "blocked": 0, "batched": 0},
                 message="No overdue payments found",
                 steps_taken=steps
             )
 
+        # Step 2: GROUP by user for batching
+        user_entries = {}
+        for entry in overdue_entries:
+            user_id = entry.get("from_user_id")
+            if user_id not in user_entries:
+                user_entries[user_id] = []
+            user_entries[user_id].append(entry)
+
         reminders_sent = 0
         escalated = 0
         blocked = 0
+        batched = 0
 
-        for entry in overdue_entries:
-            ledger_id = entry.get("ledger_id")
-            user_id = entry.get("from_user_id")
-            urgency = entry.get("urgency", "gentle")
-
-            # Step 2: POLICY — check if we can remind this user
-            policy_result = await self.call_tool(
+        for user_id, entries in user_entries.items():
+            # Step 3: POLICY — check per-user daily cap
+            batch_policy = await self.call_tool(
                 "payment_policy",
-                action="check_reminder_policy",
+                action="check_batch_reminder_policy",
                 user_id=user_id,
-                group_id=entry.get("group_id") or group_id,
-                ledger_id=ledger_id,
-                urgency=urgency,
+                group_id=group_id,
             )
-            steps.append({
-                "step": f"policy_{ledger_id}",
-                "result": policy_result
-            })
+            remaining_today = batch_policy.get("data", {}).get("remaining_today", 0)
 
-            policy_data = policy_result.get("data", {})
-
-            if not policy_data.get("allowed"):
-                # Check if we should escalate instead
-                if policy_data.get("should_escalate"):
-                    esc_result = await self._escalate_single(
-                        entry, steps
-                    )
-                    if esc_result:
-                        escalated += 1
-                else:
-                    blocked += 1
+            if remaining_today <= 0:
+                blocked += len(entries)
                 continue
 
-            # Step 3: EXECUTE — send the reminder
-            tone_config = policy_data.get("tone_config", {})
+            # Check which entries need escalation vs reminder
+            to_remind = []
+            for entry in entries:
+                ledger_id = entry.get("ledger_id")
+                urgency = entry.get("urgency", "gentle")
 
-            # Get user names for personalized message
-            to_name = await self._get_user_name(entry.get("to_user_id"))
-            from_name = await self._get_user_name(user_id)
-            amount = entry.get("amount", 0)
-            days = entry.get("days_overdue", 0)
-
-            message = self._build_reminder_message(
-                urgency=urgency,
-                to_name=to_name,
-                amount=amount,
-                days_overdue=days,
-                tone_config=tone_config,
-            )
-
-            notif_result = await self.call_tool(
-                "notification_sender",
-                user_ids=[user_id],
-                title=self._build_reminder_title(urgency),
-                message=message,
-                notification_type="reminder",
-                data={
-                    "ledger_id": ledger_id,
-                    "amount": amount,
-                    "to_user_id": entry.get("to_user_id"),
-                    "urgency": urgency,
-                    "source": "payment_reconciliation_agent",
-                }
-            )
-            steps.append({
-                "step": f"remind_{ledger_id}",
-                "result": notif_result
-            })
-
-            # Step 4: MEASURE — log the reminder
-            await self._log_reminder(
-                user_id=user_id,
-                ledger_id=ledger_id,
-                group_id=entry.get("group_id") or group_id,
-                urgency=urgency,
-                amount=amount,
-            )
-
-            # Update reminder count on ledger entry
-            if self.db and ledger_id:
-                from bson import ObjectId
-                await self.db.ledger_entries.update_one(
-                    {"_id": ObjectId(ledger_id)},
-                    {
-                        "$inc": {"reminder_count": 1},
-                        "$set": {
-                            "last_reminder_at": datetime.now(timezone.utc).isoformat(),
-                            "last_reminder_urgency": urgency,
-                        }
-                    }
-                )
-
-            reminders_sent += 1
-
-            # Check if this entry should be escalated after final reminder
-            if urgency in ("final", "escalate"):
+                # Check escalation first
                 esc_policy = await self.call_tool(
                     "payment_policy",
                     action="check_escalation_policy",
                     ledger_id=ledger_id,
                     group_id=entry.get("group_id") or group_id,
                 )
-                if esc_policy.get("data", {}).get("should_escalate"):
-                    esc_result = await self._escalate_single(entry, steps)
+                esc_data = esc_policy.get("data", {})
+
+                if esc_data.get("should_escalate"):
+                    esc_result = await self._escalate_single(
+                        entry, esc_data.get("escalation_type", "soft"), steps
+                    )
                     if esc_result:
                         escalated += 1
+                    continue
+
+                # Check individual entry policy
+                policy_result = await self.call_tool(
+                    "payment_policy",
+                    action="check_reminder_policy",
+                    user_id=user_id,
+                    group_id=entry.get("group_id") or group_id,
+                    ledger_id=ledger_id,
+                    urgency=urgency,
+                    target_type="payer",
+                )
+                policy_data = policy_result.get("data", {})
+
+                if policy_data.get("allowed"):
+                    to_remind.append(entry)
+                elif policy_data.get("should_escalate"):
+                    esc_result = await self._escalate_single(entry, "hard", steps)
+                    if esc_result:
+                        escalated += 1
+                else:
+                    blocked += 1
+
+            if not to_remind:
+                continue
+
+            # Step 4: EXECUTE — send batched or single notification
+            if len(to_remind) > 1:
+                # Batch: single notification for multiple debts
+                await self._send_batched_reminder(user_id, to_remind, group_id, steps)
+                batched += 1
+                reminders_sent += len(to_remind)
+            else:
+                # Single entry
+                entry = to_remind[0]
+                await self._send_single_reminder(user_id, entry, group_id, steps)
+                reminders_sent += 1
+
+            # Step 5: MEASURE — log all reminded entries
+            for entry in to_remind:
+                await self._log_reminder(
+                    user_id=user_id,
+                    ledger_id=entry.get("ledger_id"),
+                    group_id=entry.get("group_id") or group_id,
+                    urgency=entry.get("urgency", "gentle"),
+                    amount=entry.get("amount", 0),
+                )
+                # Update reminder count
+                if self.db and entry.get("ledger_id"):
+                    from bson import ObjectId
+                    await self.db.ledger_entries.update_one(
+                        {"_id": ObjectId(entry["ledger_id"])},
+                        {
+                            "$inc": {"reminder_count": 1},
+                            "$set": {
+                                "last_reminder_at": datetime.now(timezone.utc).isoformat(),
+                                "last_reminder_urgency": entry.get("urgency", "gentle"),
+                            }
+                        }
+                    )
 
         return AgentResult(
             success=True,
@@ -364,21 +359,30 @@ class PaymentReconciliationAgent(BaseAgent):
                 "reminders_sent": reminders_sent,
                 "escalated": escalated,
                 "blocked": blocked,
+                "batched_notifications": batched,
+                "users_reminded": len([
+                    uid for uid, entries in user_entries.items()
+                    if any(e in overdue_entries for e in entries)
+                ]),
                 "by_urgency": scan_result.get("data", {}).get("by_urgency", {}),
             },
             message=(
                 f"Processed {len(overdue_entries)} overdue payments: "
-                f"{reminders_sent} reminded, {escalated} escalated, {blocked} blocked"
+                f"{reminders_sent} reminded ({batched} batched), "
+                f"{escalated} escalated, {blocked} blocked"
             ),
             steps_taken=steps
         )
 
-    # ==================== Match Stripe Payment ====================
+    # ==================== Match Stripe Payment (v2: Verify -> Apply) ====================
 
     async def _match_stripe_payment(self, context: Dict, steps: List) -> AgentResult:
         """
         Match an incoming Stripe payment to a ledger entry.
-        Pipeline: Match -> Policy -> Mark Paid -> Notify.
+        v2 pipeline: Match -> Verify -> Policy -> Apply -> Notify.
+
+        Two-phase reconciliation prevents race conditions, duplicate application,
+        currency mismatch, and "I already paid" complaints.
         """
         stripe_event = context.get("stripe_event", {})
 
@@ -389,7 +393,7 @@ class PaymentReconciliationAgent(BaseAgent):
                 steps_taken=steps
             )
 
-        # Step 1: MATCH — find matching ledger entries
+        # Step 1: MATCH — find matching ledger entries (with dedup)
         match_result = await self.call_tool(
             "ledger_reconciler",
             action="match_stripe_payment",
@@ -404,7 +408,27 @@ class PaymentReconciliationAgent(BaseAgent):
                 steps_taken=steps
             )
 
-        best_match = match_result.get("data", {}).get("best_match")
+        match_data = match_result.get("data", {})
+
+        # Handle duplicate webhook
+        if match_data.get("duplicate_webhook"):
+            return AgentResult(
+                success=True,
+                data={"matched": False, "duplicate_webhook": True},
+                message="Duplicate webhook already processed",
+                steps_taken=steps
+            )
+
+        # Handle non-succeeded status
+        if match_data.get("skipped_reason"):
+            return AgentResult(
+                success=True,
+                data={"matched": False, "skipped": True, "reason": match_data["skipped_reason"]},
+                message=f"Skipped: {match_data['skipped_reason']}",
+                steps_taken=steps
+            )
+
+        best_match = match_data.get("best_match")
 
         if not best_match:
             return AgentResult(
@@ -416,13 +440,13 @@ class PaymentReconciliationAgent(BaseAgent):
 
         # Step 2: POLICY — check if auto-mark is allowed
         confidence = best_match.get("confidence", 0)
+        ledger_id = best_match.get("ledger_id")
         group_id = None
 
-        # Get group_id from ledger entry
-        if self.db and best_match.get("ledger_id"):
+        if self.db and ledger_id:
             from bson import ObjectId
             entry = await self.db.ledger_entries.find_one(
-                {"_id": ObjectId(best_match["ledger_id"])},
+                {"_id": ObjectId(ledger_id)},
                 {"_id": 0, "group_id": 1}
             )
             if entry:
@@ -438,93 +462,22 @@ class PaymentReconciliationAgent(BaseAgent):
 
         auto_mark_allowed = auto_mark_policy.get("data", {}).get("allowed", False)
 
-        if auto_mark_allowed:
-            # Step 3: EXECUTE — mark as paid
-            mark_result = await self.call_tool(
-                "payment_tracker",
-                action="mark_paid",
-                ledger_id=best_match["ledger_id"],
-            )
-            steps.append({"step": "mark_paid", "result": mark_result})
-
-            # Step 4: NOTIFY — tell both parties
-            from_id = best_match.get("from_user_id")
-            to_id = best_match.get("to_user_id")
-            amount = best_match.get("amount", 0)
-            from_name = await self._get_user_name(from_id)
-            to_name = await self._get_user_name(to_id)
-
-            # Notify payer
-            if from_id:
-                await self.call_tool(
-                    "notification_sender",
-                    user_ids=[from_id],
-                    title="Payment Confirmed",
-                    message=f"Your ${amount:.2f} payment to {to_name} has been confirmed via Stripe.",
-                    notification_type="settlement",
-                    data={
-                        "ledger_id": best_match["ledger_id"],
-                        "amount": amount,
-                        "source": "stripe_auto_match",
-                    }
-                )
-
-            # Notify recipient
-            if to_id:
-                await self.call_tool(
-                    "notification_sender",
-                    user_ids=[to_id],
-                    title="Payment Received",
-                    message=f"{from_name} paid ${amount:.2f} (confirmed via Stripe).",
-                    notification_type="settlement",
-                    data={
-                        "ledger_id": best_match["ledger_id"],
-                        "amount": amount,
-                        "source": "stripe_auto_match",
-                    }
-                )
-
-            steps.append({"step": "notify_parties", "from": from_id, "to": to_id})
-
-            # Log the reconciliation event
-            await self._log_reconciliation_event(
-                event_type="stripe_auto_matched",
-                ledger_id=best_match["ledger_id"],
-                group_id=group_id,
-                amount=amount,
-                confidence=confidence,
-            )
-
-            return AgentResult(
-                success=True,
-                data={
-                    "matched": True,
-                    "auto_marked": True,
-                    "ledger_id": best_match["ledger_id"],
-                    "amount": amount,
-                    "confidence": confidence,
-                    "match_method": best_match.get("match_method"),
-                },
-                message=f"Stripe payment matched and auto-marked (${amount:.2f}, conf={confidence:.2f})",
-                steps_taken=steps
-            )
-        else:
+        if not auto_mark_allowed:
             # Low confidence — queue for manual review
             await self._log_reconciliation_event(
                 event_type="stripe_manual_review_needed",
-                ledger_id=best_match["ledger_id"],
+                ledger_id=ledger_id,
                 group_id=group_id,
                 amount=best_match.get("amount", 0),
                 confidence=confidence,
             )
-
             return AgentResult(
                 success=True,
                 data={
                     "matched": True,
                     "auto_marked": False,
                     "requires_manual_review": True,
-                    "ledger_id": best_match["ledger_id"],
+                    "ledger_id": ledger_id,
                     "confidence": confidence,
                 },
                 message=(
@@ -534,17 +487,134 @@ class PaymentReconciliationAgent(BaseAgent):
                 steps_taken=steps
             )
 
+        # Step 3: VERIFY — two-phase reconciliation, Phase A
+        verify_result = await self.call_tool(
+            "ledger_reconciler",
+            action="verify_stripe_payment",
+            ledger_id=ledger_id,
+            stripe_event=stripe_event,
+        )
+        steps.append({"step": "verify_stripe", "result": verify_result})
+
+        verified = verify_result.get("data", {}).get("verified", False)
+
+        if not verified:
+            failed_checks = verify_result.get("data", {}).get("failed_checks", [])
+            await self._log_reconciliation_event(
+                event_type="stripe_verification_failed",
+                ledger_id=ledger_id,
+                group_id=group_id,
+                amount=best_match.get("amount", 0),
+                data={"failed_checks": failed_checks},
+            )
+            return AgentResult(
+                success=True,
+                data={
+                    "matched": True,
+                    "auto_marked": False,
+                    "verification_failed": True,
+                    "failed_checks": failed_checks,
+                },
+                message=(
+                    f"Stripe payment matched but verification failed: "
+                    f"{', '.join(failed_checks)}"
+                ),
+                steps_taken=steps
+            )
+
+        # Step 4: APPLY — mark as paid + store stripe_payment_intent_id
+        stripe_pi_id = match_data.get("stripe_payment_intent_id")
+
+        # Update ledger entry with Stripe data before marking paid
+        if self.db and ledger_id and stripe_pi_id:
+            await self.db.ledger_entries.update_one(
+                {"_id": ObjectId(ledger_id)},
+                {"$set": {
+                    "stripe_payment_intent_id": stripe_pi_id,
+                    "paid_by_provider": "stripe",
+                }}
+            )
+
+        mark_result = await self.call_tool(
+            "payment_tracker",
+            action="mark_paid",
+            ledger_id=ledger_id,
+        )
+        steps.append({"step": "mark_paid", "result": mark_result})
+
+        # Step 5: NOTIFY — tell both parties
+        from_id = best_match.get("from_user_id")
+        to_id = best_match.get("to_user_id")
+        amount = best_match.get("amount", 0)
+        from_name = await self._get_user_name(from_id)
+        to_name = await self._get_user_name(to_id)
+
+        if from_id:
+            await self.call_tool(
+                "notification_sender",
+                user_ids=[from_id],
+                title="Payment Confirmed",
+                message=f"Your ${amount:.2f} payment to {to_name} has been confirmed via Stripe.",
+                notification_type="settlement",
+                data={
+                    "ledger_id": ledger_id,
+                    "amount": amount,
+                    "source": "stripe_auto_match",
+                }
+            )
+
+        if to_id:
+            await self.call_tool(
+                "notification_sender",
+                user_ids=[to_id],
+                title="Payment Received",
+                message=f"{from_name} paid ${amount:.2f} (confirmed via Stripe).",
+                notification_type="settlement",
+                data={
+                    "ledger_id": ledger_id,
+                    "amount": amount,
+                    "source": "stripe_auto_match",
+                }
+            )
+
+        await self._log_reconciliation_event(
+            event_type="stripe_auto_matched",
+            ledger_id=ledger_id,
+            group_id=group_id,
+            amount=amount,
+            confidence=confidence,
+            data={"stripe_payment_intent_id": stripe_pi_id},
+        )
+
+        return AgentResult(
+            success=True,
+            data={
+                "matched": True,
+                "auto_marked": True,
+                "verified": True,
+                "ledger_id": ledger_id,
+                "amount": amount,
+                "confidence": confidence,
+                "match_method": best_match.get("match_method"),
+                "stripe_payment_intent_id": stripe_pi_id,
+            },
+            message=(
+                f"Stripe payment verified and applied "
+                f"(${amount:.2f}, conf={confidence:.2f})"
+            ),
+            steps_taken=steps
+        )
+
     # ==================== Consolidate Debts ====================
 
     async def _consolidate_debts(self, context: Dict, steps: List) -> AgentResult:
         """
-        Consolidate cross-game debts and notify relevant users.
-        Read-only: generates suggestions, doesn't modify entries.
+        Consolidate cross-game debts and notify with "pay once" suggestions.
+        View-only: original entries preserved, allocation plan included.
         """
         group_id = context.get("group_id")
         user_id = context.get("user_id")
 
-        # Step 1: Get consolidated view
         consol_result = await self.call_tool(
             "ledger_reconciler",
             action="consolidate_debts",
@@ -564,19 +634,22 @@ class PaymentReconciliationAgent(BaseAgent):
         consolidated = data.get("consolidated", [])
         consolidatable = [
             c for c in consolidated
-            if c.get("status") == "consolidatable" and c.get("net_amount", 0) > 0
+            if c.get("status") == "consolidatable"
+            and c.get("net_amount", 0) > 0
+            and not c.get("has_mixed_currencies")
         ]
 
         if not consolidatable:
             return AgentResult(
                 success=True,
                 data={"consolidatable_count": 0},
-                message="No debts to consolidate (all single-game or already settled)",
+                message="No debts to consolidate (all single-game, mixed currency, or settled)",
                 steps_taken=steps
             )
 
-        # Step 2: Policy check each consolidation
         suggestions = []
+        notified = 0
+
         for debt in consolidatable:
             policy_result = await self.call_tool(
                 "payment_policy",
@@ -585,42 +658,40 @@ class PaymentReconciliationAgent(BaseAgent):
                 group_id=group_id,
             )
 
-            if policy_result.get("data", {}).get("allowed"):
-                from_name = debt.get("from_user_name", "Unknown")
-                to_name = debt.get("to_user_name", "Unknown")
-                suggestions.append({
-                    "from_user_id": debt["from_user_id"],
-                    "from_user_name": from_name,
-                    "to_user_id": debt["to_user_id"],
-                    "to_user_name": to_name,
-                    "net_amount": debt["net_amount"],
-                    "game_count": debt["game_count"],
-                    "ledger_ids": debt.get("ledger_ids", []),
-                    "message": (
-                        f"{from_name} owes {to_name} ${debt['net_amount']:.2f} "
-                        f"across {debt['game_count']} games"
-                    ),
-                })
+            if not policy_result.get("data", {}).get("allowed"):
+                continue
 
-        # Step 3: Notify users with consolidation suggestions
-        notified = 0
-        for suggestion in suggestions:
+            from_name = debt.get("from_user_name", "Unknown")
+            to_name = debt.get("to_user_name", "Unknown")
+
+            suggestions.append({
+                "from_user_id": debt["from_user_id"],
+                "from_user_name": from_name,
+                "to_user_id": debt["to_user_id"],
+                "to_user_name": to_name,
+                "net_amount": debt["net_amount"],
+                "game_count": debt["game_count"],
+                "ledger_ids": debt.get("ledger_ids", []),
+                "allocation_plan": debt.get("allocation_plan", []),
+            })
+
+            # Single "pay once" notification per consolidation
             await self.call_tool(
                 "notification_sender",
-                user_ids=[suggestion["from_user_id"]],
+                user_ids=[debt["from_user_id"]],
                 title="Settle Up: Combined Balance",
                 message=(
-                    f"You owe {suggestion['to_user_name']} "
-                    f"${suggestion['net_amount']:.2f} across "
-                    f"{suggestion['game_count']} games. "
-                    f"Pay once instead of separately!"
+                    f"You have {debt['game_count']} open debts to "
+                    f"{to_name} totaling ${debt['net_amount']:.2f}. "
+                    f"Pay once to settle all."
                 ),
                 notification_type="settlement",
                 data={
                     "type": "consolidation_suggestion",
-                    "net_amount": suggestion["net_amount"],
-                    "to_user_id": suggestion["to_user_id"],
-                    "game_count": suggestion["game_count"],
+                    "net_amount": debt["net_amount"],
+                    "to_user_id": debt["to_user_id"],
+                    "game_count": debt["game_count"],
+                    "ledger_ids": debt.get("ledger_ids", []),
                     "source": "payment_reconciliation_agent",
                 }
             )
@@ -632,8 +703,12 @@ class PaymentReconciliationAgent(BaseAgent):
                 "suggestions": suggestions,
                 "suggestion_count": len(suggestions),
                 "users_notified": notified,
+                "mixed_currency_skipped": data.get("mixed_currency_pairs", 0),
             },
-            message=f"Found {len(suggestions)} consolidation opportunities, notified {notified} users",
+            message=(
+                f"Found {len(suggestions)} consolidation opportunities, "
+                f"notified {notified} users"
+            ),
             steps_taken=steps
         )
 
@@ -650,7 +725,6 @@ class PaymentReconciliationAgent(BaseAgent):
                 steps_taken=steps
             )
 
-        # Step 1: Generate report
         report_result = await self.call_tool(
             "ledger_reconciler",
             action="payment_health_report",
@@ -666,8 +740,6 @@ class PaymentReconciliationAgent(BaseAgent):
             )
 
         report = report_result.get("data", {})
-
-        # Step 2: Format the report
         pending = report.get("pending", {})
         paid = report.get("paid_last_30d", {})
         overdue = report.get("overdue", {})
@@ -684,9 +756,9 @@ class PaymentReconciliationAgent(BaseAgent):
             f"(${paid.get('total_amount', 0):.2f})"
         )
 
-        avg_days = report.get("avg_payment_days")
-        if avg_days is not None:
-            lines.append(f"  Avg Payment Time: {avg_days} days")
+        median_days = report.get("median_payment_days")
+        if median_days is not None:
+            lines.append(f"  Median Payment Time: {median_days} days")
 
         total_overdue = overdue.get("total", 0)
         if total_overdue > 0:
@@ -697,11 +769,10 @@ class PaymentReconciliationAgent(BaseAgent):
 
         chronic = report.get("chronic_nonpayer_count", 0)
         if chronic > 0:
-            lines.append(f"\n  Chronic Non-Payers: {chronic} users flagged")
+            lines.append(f"\n  Players with payment concerns: {chronic}")
 
         report_text = "\n".join(lines)
 
-        # Step 3: Send to group admins
         admins = await self._get_group_admins(group_id)
         if admins:
             await self.call_tool(
@@ -721,7 +792,6 @@ class PaymentReconciliationAgent(BaseAgent):
             )
             steps.append({"step": "send_report", "admins": admins})
 
-        # Log the report
         await self._log_reconciliation_event(
             event_type="health_report_generated",
             group_id=group_id,
@@ -729,6 +799,7 @@ class PaymentReconciliationAgent(BaseAgent):
                 "payment_rate": report.get("payment_rate"),
                 "pending_count": pending.get("count", 0),
                 "overdue_total": total_overdue,
+                "median_payment_days": median_days,
             }
         )
 
@@ -739,17 +810,23 @@ class PaymentReconciliationAgent(BaseAgent):
                 "report_text": report_text,
                 "admins_notified": len(admins),
             },
-            message=f"Payment health report sent to {len(admins)} admins (rate: {report.get('payment_rate', 0)}%)",
+            message=(
+                f"Payment health report sent to {len(admins)} admins "
+                f"(rate: {report.get('payment_rate', 0)}%)"
+            ),
             steps_taken=steps
         )
 
     # ==================== Flag Non-Payers ====================
 
     async def _flag_nonpayers(self, context: Dict, steps: List) -> AgentResult:
-        """Flag chronic non-payers and notify group hosts."""
+        """
+        Flag users with payment concerns and notify group hosts.
+        Uses group-relative detection. Never labels users as "chronic nonpayer"
+        in user-facing messages — that's internal only.
+        """
         group_id = context.get("group_id")
 
-        # Step 1: Identify chronic non-payers
         flag_result = await self.call_tool(
             "ledger_reconciler",
             action="flag_chronic_nonpayers",
@@ -770,11 +847,11 @@ class PaymentReconciliationAgent(BaseAgent):
             return AgentResult(
                 success=True,
                 data={"flagged_count": 0},
-                message="No chronic non-payers found",
+                message="No payment concerns found",
                 steps_taken=steps
             )
 
-        # Step 2: Notify hosts (per group)
+        # Notify hosts with neutral language (never "chronic nonpayer")
         if group_id:
             admins = await self._get_group_admins(group_id)
             if admins:
@@ -786,14 +863,14 @@ class PaymentReconciliationAgent(BaseAgent):
                 await self.call_tool(
                     "notification_sender",
                     user_ids=admins,
-                    title="Payment Alert: Chronic Non-Payers",
+                    title="Payment Update: Players Needing Attention",
                     message=(
-                        f"{len(flagged)} players flagged for late payments:\n"
+                        f"{len(flagged)} players may need a reminder:\n"
                         f"{flagged_summary}"
                     ),
                     notification_type="general",
                     data={
-                        "type": "chronic_nonpayer_alert",
+                        "type": "payment_concern_alert",
                         "flagged_count": len(flagged),
                         "source": "payment_reconciliation_agent",
                     }
@@ -805,8 +882,11 @@ class PaymentReconciliationAgent(BaseAgent):
             data={
                 "flagged_users": flagged,
                 "flagged_count": len(flagged),
+                "group_median_payment_days": flag_result.get("data", {}).get(
+                    "group_median_payment_days"
+                ),
             },
-            message=f"Flagged {len(flagged)} chronic non-payers",
+            message=f"Flagged {len(flagged)} players with payment concerns",
             steps_taken=steps
         )
 
@@ -835,7 +915,6 @@ class PaymentReconciliationAgent(BaseAgent):
         data = result.get("data", {})
         anomalies = data.get("anomalies", [])
 
-        # Notify admins if anomalies found
         if anomalies and group_id:
             admins = await self._get_group_admins(group_id)
             if admins:
@@ -866,17 +945,14 @@ class PaymentReconciliationAgent(BaseAgent):
     # ==================== Reconcile Game ====================
 
     async def _reconcile_game(self, context: Dict, steps: List) -> AgentResult:
-        """Full reconciliation for a specific game: scan + remind + anomaly check."""
+        """Full reconciliation for a specific game."""
         game_id = context.get("game_id")
 
         if not game_id:
             return AgentResult(
-                success=False,
-                error="game_id required",
-                steps_taken=steps
+                success=False, error="game_id required", steps_taken=steps
             )
 
-        # Get group_id from game
         group_id = context.get("group_id")
         if not group_id and self.db:
             game = await self.db.game_nights.find_one(
@@ -887,20 +963,16 @@ class PaymentReconciliationAgent(BaseAgent):
 
         results = {}
 
-        # 1. Scan and remind for this game
         remind_result = await self._scan_and_remind(
-            {"group_id": group_id, "game_id": game_id, "overdue_days": 1},
-            steps
+            {"group_id": group_id, "game_id": game_id, "overdue_days": 1}, steps
         )
         results["reminders"] = {
             "sent": remind_result.data.get("reminders_sent", 0) if remind_result.data else 0,
             "escalated": remind_result.data.get("escalated", 0) if remind_result.data else 0,
         }
 
-        # 2. Check for anomalies
         anomaly_result = await self._detect_anomalies(
-            {"game_id": game_id, "group_id": group_id},
-            steps
+            {"game_id": game_id, "group_id": group_id}, steps
         )
         results["anomalies"] = {
             "found": anomaly_result.data.get("anomaly_count", 0) if anomaly_result.data else 0,
@@ -910,8 +982,8 @@ class PaymentReconciliationAgent(BaseAgent):
             success=True,
             data=results,
             message=(
-                f"Game reconciliation: {results['reminders']['sent']} reminders sent, "
-                f"{results['anomalies']['found']} anomalies found"
+                f"Game reconciliation: {results['reminders']['sent']} reminders, "
+                f"{results['anomalies']['found']} anomalies"
             ),
             steps_taken=steps
         )
@@ -919,42 +991,31 @@ class PaymentReconciliationAgent(BaseAgent):
     # ==================== Reconcile Group ====================
 
     async def _reconcile_group(self, context: Dict, steps: List) -> AgentResult:
-        """Full reconciliation for a group: scan + consolidate + health report."""
+        """Full reconciliation for a group."""
         group_id = context.get("group_id")
 
         if not group_id:
             return AgentResult(
-                success=False,
-                error="group_id required",
-                steps_taken=steps
+                success=False, error="group_id required", steps_taken=steps
             )
 
         results = {}
 
-        # 1. Scan and remind
         remind_result = await self._scan_and_remind(
-            {"group_id": group_id, "overdue_days": 1},
-            steps
+            {"group_id": group_id, "overdue_days": 1}, steps
         )
         results["reminders"] = {
             "sent": remind_result.data.get("reminders_sent", 0) if remind_result.data else 0,
             "escalated": remind_result.data.get("escalated", 0) if remind_result.data else 0,
-            "overdue_found": remind_result.data.get("overdue_found", 0) if remind_result.data else 0,
         }
 
-        # 2. Consolidate debts
-        consol_result = await self._consolidate_debts(
-            {"group_id": group_id},
-            steps
-        )
+        consol_result = await self._consolidate_debts({"group_id": group_id}, steps)
         results["consolidation"] = {
             "suggestions": consol_result.data.get("suggestion_count", 0) if consol_result.data else 0,
         }
 
-        # 3. Generate health report
         health_result = await self._payment_health_report(
-            {"group_id": group_id},
-            steps
+            {"group_id": group_id}, steps
         )
         results["health"] = {
             "payment_rate": (
@@ -969,8 +1030,8 @@ class PaymentReconciliationAgent(BaseAgent):
             message=(
                 f"Group reconciliation: "
                 f"{results['reminders']['sent']} reminders, "
-                f"{results['consolidation']['suggestions']} consolidation opportunities, "
-                f"{results['health']['payment_rate']}% payment rate"
+                f"{results['consolidation']['suggestions']} consolidations, "
+                f"{results['health']['payment_rate']}% rate"
             ),
             steps_taken=steps
         )
@@ -978,21 +1039,15 @@ class PaymentReconciliationAgent(BaseAgent):
     # ==================== Scheduled Jobs ====================
 
     async def _run_daily_scan(self, context: Dict, steps: List) -> AgentResult:
-        """
-        Daily scan: process all groups with overdue payments.
-        Typically triggered by a scheduler or cron job.
-        """
+        """Daily scan: process all groups with overdue payments."""
         if not self.db:
             return AgentResult(
-                success=False,
-                error="Database not available",
-                steps_taken=steps
+                success=False, error="Database not available", steps_taken=steps
             )
 
-        # Get all groups with pending payments
         groups = await self.db.ledger_entries.distinct(
             "group_id",
-            {"status": "pending"}
+            {"status": {"$in": ["pending", "open"]}}
         )
 
         total_reminded = 0
@@ -1005,8 +1060,7 @@ class PaymentReconciliationAgent(BaseAgent):
                 continue
 
             result = await self._scan_and_remind(
-                {"group_id": group_id, "overdue_days": 1},
-                steps
+                {"group_id": group_id, "overdue_days": 1}, steps
             )
             if result.data:
                 total_reminded += result.data.get("reminders_sent", 0)
@@ -1014,7 +1068,6 @@ class PaymentReconciliationAgent(BaseAgent):
                 total_blocked += result.data.get("blocked", 0)
             groups_processed += 1
 
-        # Log daily scan
         await self._log_reconciliation_event(
             event_type="daily_scan_completed",
             data={
@@ -1041,18 +1094,12 @@ class PaymentReconciliationAgent(BaseAgent):
         )
 
     async def _run_weekly_report(self, context: Dict, steps: List) -> AgentResult:
-        """
-        Weekly report: generate health reports for all active groups.
-        Also flags chronic non-payers and suggests debt consolidation.
-        """
+        """Weekly report: health reports + nonpayer flagging for all active groups."""
         if not self.db:
             return AgentResult(
-                success=False,
-                error="Database not available",
-                steps_taken=steps
+                success=False, error="Database not available", steps_taken=steps
             )
 
-        # Get groups with any ledger activity in last 90 days
         cutoff = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
         groups = await self.db.ledger_entries.distinct(
             "group_id",
@@ -1066,23 +1113,18 @@ class PaymentReconciliationAgent(BaseAgent):
             if not group_id:
                 continue
 
-            # Health report
             health_result = await self._payment_health_report(
-                {"group_id": group_id},
-                steps
+                {"group_id": group_id}, steps
             )
             if health_result.success:
                 reports_sent += 1
 
-            # Flag non-payers
             flag_result = await self._flag_nonpayers(
-                {"group_id": group_id},
-                steps
+                {"group_id": group_id}, steps
             )
             if flag_result.data:
                 nonpayers_flagged += flag_result.data.get("flagged_count", 0)
 
-        # Log weekly report
         await self._log_reconciliation_event(
             event_type="weekly_report_completed",
             data={
@@ -1100,46 +1142,70 @@ class PaymentReconciliationAgent(BaseAgent):
                 "nonpayers_flagged": nonpayers_flagged,
             },
             message=(
-                f"Weekly report: {reports_sent} reports sent, "
-                f"{nonpayers_flagged} non-payers flagged"
+                f"Weekly report: {reports_sent} reports, "
+                f"{nonpayers_flagged} flagged"
             ),
+            steps_taken=steps
+        )
+
+    # ==================== Compute KPIs ====================
+
+    async def _compute_kpis(self, context: Dict, steps: List) -> AgentResult:
+        """Compute and return reconciliation KPIs."""
+        group_id = context.get("group_id")
+
+        result = await self.call_tool(
+            "ledger_reconciler",
+            action="compute_kpis",
+            group_id=group_id,
+        )
+        steps.append({"step": "compute_kpis", "result": result})
+
+        if not result.get("success"):
+            return AgentResult(
+                success=False, error=result.get("error"), steps_taken=steps
+            )
+
+        return AgentResult(
+            success=True,
+            data=result.get("data", {}),
+            message=result.get("message", "KPIs computed"),
             steps_taken=steps
         )
 
     # ==================== Job Queue Processing ====================
 
     async def _process_job(self, context: Dict, steps: List) -> AgentResult:
-        """
-        Process a single payment reconciliation job from the queue.
-        Jobs are created by EventListener or scheduler.
-        """
+        """Process a single payment reconciliation job from the queue."""
         job = context.get("job", {})
         job_type = job.get("job_type", context.get("job_type"))
         group_id = job.get("group_id", context.get("group_id"))
         game_id = job.get("game_id", context.get("game_id"))
 
-        if job_type == "daily_scan":
-            return await self._run_daily_scan(context, steps)
-        elif job_type == "weekly_report":
-            return await self._run_weekly_report(context, steps)
-        elif job_type == "scan_and_remind":
-            return await self._scan_and_remind(
+        job_handlers = {
+            "daily_scan": lambda: self._run_daily_scan(context, steps),
+            "weekly_report": lambda: self._run_weekly_report(context, steps),
+            "scan_and_remind": lambda: self._scan_and_remind(
                 {"group_id": group_id, **job}, steps
-            )
-        elif job_type == "reconcile_game":
-            return await self._reconcile_game(
+            ),
+            "reconcile_game": lambda: self._reconcile_game(
                 {"game_id": game_id, "group_id": group_id}, steps
-            )
-        elif job_type == "reconcile_group":
-            return await self._reconcile_group(
+            ),
+            "reconcile_group": lambda: self._reconcile_group(
                 {"group_id": group_id}, steps
-            )
-        elif job_type == "stripe_match":
-            return await self._match_stripe_payment(context, steps)
-        elif job_type == "consolidate":
-            return await self._consolidate_debts(
+            ),
+            "stripe_match": lambda: self._match_stripe_payment(context, steps),
+            "consolidate": lambda: self._consolidate_debts(
                 {"group_id": group_id}, steps
-            )
+            ),
+            "compute_kpis": lambda: self._compute_kpis(
+                {"group_id": group_id}, steps
+            ),
+        }
+
+        handler = job_handlers.get(job_type)
+        if handler:
+            return await handler()
         else:
             return AgentResult(
                 success=False,
@@ -1147,32 +1213,187 @@ class PaymentReconciliationAgent(BaseAgent):
                 steps_taken=steps
             )
 
-    # ==================== Single Escalation ====================
+    # ==================== Escalation (v2: Soft/Hard) ====================
 
-    async def _escalate_single(self, entry: Dict, steps: List) -> bool:
-        """Escalate a single overdue payment to the host."""
+    async def _escalate_single(
+        self, entry: Dict, escalation_type: str, steps: List
+    ) -> bool:
+        """
+        Escalate a single overdue payment to the host.
+
+        v2: Soft escalation = host gets visibility (informational).
+            Hard escalation = host action required.
+        """
         ledger_id = entry.get("ledger_id")
-
         if not ledger_id:
             return False
 
-        result = await self.call_tool(
-            "payment_tracker",
-            action="escalate_to_host",
-            ledger_id=ledger_id,
-        )
-        steps.append({"step": f"escalate_{ledger_id}", "result": result})
+        # Notify host (bypasses quiet hours for hosts only)
+        group_id = entry.get("group_id")
+        admins = await self._get_group_admins(group_id) if group_id else []
 
-        # Log the escalation
+        if admins:
+            from_name = await self._get_user_name(entry.get("from_user_id"))
+            amount = entry.get("amount", 0)
+            days = entry.get("days_overdue", 0)
+
+            if escalation_type == "soft":
+                title = "Payment Needs Attention"
+                message = (
+                    f"{from_name}'s ${amount:.2f} payment is {days} days overdue. "
+                    f"They've been reminded — this is a heads-up for your awareness."
+                )
+            else:  # hard
+                title = "Overdue Payment: Action Needed"
+                message = (
+                    f"{from_name}'s ${amount:.2f} payment is {days} days overdue "
+                    f"and has not been resolved despite multiple reminders. "
+                    f"Please reach out to them directly."
+                )
+
+            await self.call_tool(
+                "notification_sender",
+                user_ids=admins,
+                title=title,
+                message=message,
+                notification_type="general",
+                data={
+                    "type": f"{escalation_type}_escalation",
+                    "ledger_id": ledger_id,
+                    "from_user_id": entry.get("from_user_id"),
+                    "amount": amount,
+                    "days_overdue": days,
+                    "source": "payment_reconciliation_agent",
+                }
+            )
+
+        # Mark escalation on ledger entry
+        if self.db and ledger_id:
+            from bson import ObjectId
+            update = {
+                f"{escalation_type}_escalated": True,
+                f"{escalation_type}_escalated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await self.db.ledger_entries.update_one(
+                {"_id": ObjectId(ledger_id)},
+                {"$set": update}
+            )
+
+        steps.append({
+            "step": f"{escalation_type}_escalate_{ledger_id}",
+            "admins": admins,
+        })
+
         await self._log_reconciliation_event(
-            event_type="payment_escalated",
+            event_type=f"payment_{escalation_type}_escalated",
             ledger_id=ledger_id,
-            group_id=entry.get("group_id"),
+            group_id=group_id,
             amount=entry.get("amount", 0),
-            data={"days_overdue": entry.get("days_overdue", 0)},
+            data={
+                "days_overdue": entry.get("days_overdue", 0),
+                "escalation_type": escalation_type,
+            },
         )
 
-        return result.get("success", False)
+        return True
+
+    # ==================== Reminder Sending ====================
+
+    async def _send_batched_reminder(
+        self,
+        user_id: str,
+        entries: List[Dict],
+        group_id: str,
+        steps: List,
+    ):
+        """
+        Send a single batched notification for multiple debts.
+        "You have 3 open payments to settle" with itemized list.
+        """
+        total = sum(e.get("amount", 0) for e in entries)
+        max_urgency = max(
+            entries,
+            key=lambda e: ["gentle", "firm", "final", "escalate"].index(
+                e.get("urgency", "gentle")
+            )
+        ).get("urgency", "gentle")
+
+        # Build itemized list
+        items = []
+        for entry in entries[:5]:  # Cap at 5 items
+            to_name = await self._get_user_name(entry.get("to_user_id"))
+            items.append(
+                f"  ${entry['amount']:.2f} to {to_name} "
+                f"({entry.get('days_overdue', 0)}d)"
+            )
+
+        remaining = len(entries) - 5
+        item_text = "\n".join(items)
+        if remaining > 0:
+            item_text += f"\n  ...and {remaining} more"
+
+        message = (
+            f"You have {len(entries)} open payments "
+            f"totaling ${total:.2f}:\n{item_text}\n\n"
+            f"Settle up to keep your group running smoothly."
+        )
+
+        await self.call_tool(
+            "notification_sender",
+            user_ids=[user_id],
+            title=self._build_reminder_title(max_urgency),
+            message=message,
+            notification_type="reminder",
+            data={
+                "type": "batched_reminder",
+                "entry_count": len(entries),
+                "total_amount": total,
+                "urgency": max_urgency,
+                "source": "payment_reconciliation_agent",
+            }
+        )
+        steps.append({
+            "step": f"batched_remind_{user_id}",
+            "entry_count": len(entries),
+        })
+
+    async def _send_single_reminder(
+        self,
+        user_id: str,
+        entry: Dict,
+        group_id: str,
+        steps: List,
+    ):
+        """Send a single reminder for one debt."""
+        urgency = entry.get("urgency", "gentle")
+        to_name = await self._get_user_name(entry.get("to_user_id"))
+        amount = entry.get("amount", 0)
+        days = entry.get("days_overdue", 0)
+
+        message = self._build_reminder_message(
+            urgency=urgency,
+            to_name=to_name,
+            amount=amount,
+            days_overdue=days,
+        )
+
+        await self.call_tool(
+            "notification_sender",
+            user_ids=[user_id],
+            title=self._build_reminder_title(urgency),
+            message=message,
+            notification_type="reminder",
+            data={
+                "ledger_id": entry.get("ledger_id"),
+                "amount": amount,
+                "to_user_id": entry.get("to_user_id"),
+                "urgency": urgency,
+                "source": "payment_reconciliation_agent",
+            }
+        )
+        steps.append({
+            "step": f"remind_{entry.get('ledger_id')}",
+        })
 
     # ==================== Message Building ====================
 
@@ -1192,19 +1413,8 @@ class PaymentReconciliationAgent(BaseAgent):
         to_name: str,
         amount: float,
         days_overdue: int,
-        tone_config: Dict = None,
     ) -> str:
-        """
-        Build reminder message with urgency-appropriate tone.
-
-        Every reminder includes:
-        1. Who you owe
-        2. How much
-        3. How long it's been (if firm+)
-        4. What to do next
-        """
-        tone_config = tone_config or {}
-
+        """Build reminder message with urgency-appropriate tone."""
         if urgency == "gentle":
             return (
                 f"Hey! Just a heads up - you owe {to_name} ${amount:.2f} "
@@ -1235,7 +1445,6 @@ class PaymentReconciliationAgent(BaseAgent):
         """Get a user's display name."""
         if not self.db or not user_id:
             return "Unknown"
-
         user = await self.db.users.find_one(
             {"user_id": user_id}, {"_id": 0, "name": 1}
         )
@@ -1245,12 +1454,10 @@ class PaymentReconciliationAgent(BaseAgent):
         """Get admin user IDs for a group."""
         if not self.db or not group_id:
             return []
-
         admins = await self.db.group_members.find(
             {"group_id": group_id, "role": "admin"},
             {"_id": 0, "user_id": 1}
         ).to_list(10)
-
         return [a["user_id"] for a in admins]
 
     async def _log_reminder(
@@ -1261,10 +1468,9 @@ class PaymentReconciliationAgent(BaseAgent):
         urgency: str = "gentle",
         amount: float = 0,
     ):
-        """Log a reminder for cooldown tracking."""
+        """Log a reminder for cooldown + daily cap tracking."""
         if not self.db:
             return
-
         await self.db.payment_reminders_log.insert_one({
             "user_id": user_id,
             "ledger_id": ledger_id,
@@ -1286,7 +1492,6 @@ class PaymentReconciliationAgent(BaseAgent):
         """Log a reconciliation event for audit trail."""
         if not self.db:
             return
-
         event = {
             "event_type": event_type,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1301,5 +1506,4 @@ class PaymentReconciliationAgent(BaseAgent):
             event["confidence"] = confidence
         if data:
             event["data"] = data
-
         await self.db.payment_reconciliation_log.insert_one(event)

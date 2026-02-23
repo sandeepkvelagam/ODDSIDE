@@ -238,44 +238,60 @@ export function GroupHubScreen() {
   const pastGames = games.filter((g) => g.status !== "active");
 
   return (
-    <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
+    <View style={[styles.wrapper, { backgroundColor: lc.jetDark, paddingTop: insets.top }]}>
+      {/* Page Header with Back Button */}
+      <View style={[styles.pageHeader, { borderBottomColor: lc.liquidGlassBorder }]}>
+        <TouchableOpacity
+          style={[styles.backButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={22} color={lc.textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.pageTitle, { color: lc.textPrimary }]} numberOfLines={1}>
+          {group?.name || "Group"}
+        </Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.orange} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={lc.orange} />
         }
       >
         {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorBanner, { borderColor: "rgba(239,68,68,0.3)" }]}>
+            <Ionicons name="alert-circle" size={16} color={lc.danger} />
+            <Text style={[styles.errorText, { color: lc.danger }]}>{error}</Text>
           </View>
         )}
 
         {/* Group Header */}
         <View style={styles.groupHeader}>
           <View style={styles.groupHeaderRow}>
-            <Text style={[styles.groupTitle, { color: colors.textPrimary }]}>
+            <Text style={[styles.groupTitle, { color: lc.textPrimary }]}>
               {group?.name || "Group"}
             </Text>
             <View style={[
               styles.headerBadge,
-              { backgroundColor: isAdmin ? "rgba(234,179,8,0.15)" : colors.glassBg }
+              { backgroundColor: isAdmin ? adminBgColor : lc.liquidGlassBg }
             ]}>
               <Ionicons
                 name={isAdmin ? "shield" : "person"}
                 size={12}
-                color={isAdmin ? "#EAB308" : colors.textMuted}
+                color={isAdmin ? adminColor : lc.textMuted}
               />
               <Text style={[
                 styles.headerBadgeText,
-                { color: isAdmin ? "#EAB308" : colors.textMuted }
+                { color: isAdmin ? adminColor : lc.textMuted }
               ]}>
-                {isAdmin ? "Admin" : "Member"}
+                {isAdmin ? "ADMIN" : "Member"}
               </Text>
             </View>
           </View>
-          <Text style={[styles.groupDescription, { color: colors.textMuted }]}>
+          <Text style={[styles.groupDescription, { color: lc.textMuted }]}>
             {group?.description || "No description"}
           </Text>
         </View>

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, StyleSheet, Switch, Alert, Linking,
-  Platform, ScrollView, Animated,
+  Platform, ScrollView, Animated, TouchableOpacity,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -10,6 +10,7 @@ import { COLORS, ANIMATION } from "../styles/liquidGlass";
 import { PageHeader } from "../components/ui";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
 import { useTheme } from "../context/ThemeContext";
+import { api } from "../api/client";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -23,6 +24,10 @@ export function NotificationsScreen() {
   const [settlements, setSettlements] = useState(true);
   const [groupInvites, setGroupInvites] = useState(true);
 
+  // Engagement preferences
+  const [engMutedAll, setEngMutedAll] = useState(false);
+  const [engMutedCategories, setEngMutedCategories] = useState<string[]>([]);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -31,7 +36,37 @@ export function NotificationsScreen() {
       Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, ...ANIMATION.spring.bouncy }),
     ]).start();
+    fetchEngagementPrefs();
   }, []);
+
+  const fetchEngagementPrefs = async () => {
+    try {
+      const res = await api.get("/engagement/preferences");
+      if (res.data) {
+        setEngMutedAll(res.data.muted_all || false);
+        setEngMutedCategories(res.data.muted_categories || []);
+      }
+    } catch {}
+  };
+
+  const updateEngPref = async (key: string, value: any) => {
+    try {
+      await api.put("/engagement/preferences", { [key]: value });
+    } catch {}
+  };
+
+  const toggleEngMuteAll = (v: boolean) => {
+    setEngMutedAll(v);
+    updateEngPref("muted_all", v);
+  };
+
+  const toggleEngCategory = (cat: string) => {
+    const updated = engMutedCategories.includes(cat)
+      ? engMutedCategories.filter(c => c !== cat)
+      : [...engMutedCategories, cat];
+    setEngMutedCategories(updated);
+    updateEngPref("muted_categories", updated);
+  };
 
   return (
     <BottomSheetScreen>
@@ -98,6 +133,53 @@ export function NotificationsScreen() {
                   <Switch
                     value={item.value}
                     onValueChange={item.set}
+                    trackColor={{ false: colors.glassBg, true: COLORS.orange }}
+                    thumbColor="#fff"
+                  />
+                </View>
+              ))}
+            </View>
+
+            {/* ── Engagement Notifications ── */}
+            <Text style={[styles.sectionLabel, { color: colors.moonstone, marginTop: 24 }]}>ENGAGEMENT NOTIFICATIONS</Text>
+
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.toggleRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                <View style={[styles.toggleIcon, { backgroundColor: COLORS.glass.glowOrange }]}>
+                  <Ionicons name="sparkles" size={19} color={COLORS.orange} />
+                </View>
+                <View style={styles.toggleBody}>
+                  <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>Mute All Engagement</Text>
+                  <Text style={[styles.toggleDesc, { color: colors.textMuted }]}>Pause nudges, celebrations & digests</Text>
+                </View>
+                <Switch
+                  value={engMutedAll}
+                  onValueChange={toggleEngMuteAll}
+                  trackColor={{ false: colors.glassBg, true: "#ef4444" }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              {!engMutedAll && [
+                { cat: "inactive_group", icon: "calendar-outline", color: COLORS.trustBlue, title: "Inactive Nudges", desc: "Game scheduling reminders" },
+                { cat: "milestone", icon: "trophy-outline", color: "#EAB308", title: "Milestones", desc: "Game count celebrations" },
+                { cat: "big_winner", icon: "flame-outline", color: "#F97316", title: "Winner Celebrations", desc: "Big win announcements" },
+                { cat: "digest", icon: "bar-chart-outline", color: "#A855F7", title: "Weekly Digest", desc: "Group activity summaries" },
+              ].map((item, i, arr) => (
+                <View
+                  key={item.cat}
+                  style={[styles.toggleRow, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+                >
+                  <View style={[styles.toggleIcon, { backgroundColor: item.color + "18" }]}>
+                    <Ionicons name={item.icon as any} size={19} color={item.color} />
+                  </View>
+                  <View style={styles.toggleBody}>
+                    <Text style={[styles.toggleTitle, { color: engMutedCategories.includes(item.cat) ? colors.textMuted : colors.textPrimary }]}>{item.title}</Text>
+                    <Text style={[styles.toggleDesc, { color: colors.textMuted }]}>{item.desc}</Text>
+                  </View>
+                  <Switch
+                    value={!engMutedCategories.includes(item.cat)}
+                    onValueChange={() => toggleEngCategory(item.cat)}
                     trackColor={{ false: colors.glassBg, true: COLORS.orange }}
                     thumbColor="#fff"
                   />

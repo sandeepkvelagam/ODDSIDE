@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { 
-  Users, Play, Plus, Trophy, Crown, ArrowLeft, Shield, User, DollarSign, Coins, UserMinus, LogOut
+import {
+  Users, Play, Plus, Trophy, Crown, ArrowLeft, Shield, User, DollarSign, Coins, UserMinus, LogOut,
+  Sparkles, Bell, BellOff, Calendar, BarChart3, Settings2, ChevronDown, ChevronUp
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import InviteMembers from "@/components/InviteMembers";
@@ -36,6 +37,9 @@ export default function GroupHub() {
   const [gameDialogOpen, setGameDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [smartDefaults, setSmartDefaults] = useState(null);
+  const [engSettings, setEngSettings] = useState(null);
+  const [engScore, setEngScore] = useState(null);
+  const [engExpanded, setEngExpanded] = useState(false);
   
   // Game creation form - NOW includes buy-in settings
   const [gameForm, setGameForm] = useState({
@@ -53,16 +57,20 @@ export default function GroupHub() {
 
   const fetchData = async () => {
     try {
-      const [groupRes, gamesRes, statsRes, defaultsRes] = await Promise.all([
+      const [groupRes, gamesRes, statsRes, defaultsRes, engSettingsRes, engScoreRes] = await Promise.all([
         axios.get(`${API}/groups/${groupId}`),
         axios.get(`${API}/games?group_id=${groupId}`),
         axios.get(`${API}/stats/group/${groupId}`),
-        axios.get(`${API}/groups/${groupId}/smart-defaults`).catch(() => ({ data: null }))
+        axios.get(`${API}/groups/${groupId}/smart-defaults`).catch(() => ({ data: null })),
+        axios.get(`${API}/engagement/settings/${groupId}`).catch(() => ({ data: null })),
+        axios.get(`${API}/engagement/scores/group/${groupId}`).catch(() => ({ data: null }))
       ]);
       setGroup(groupRes.data);
       setGames(gamesRes.data);
       setStats(statsRes.data);
-      
+      if (engSettingsRes.data) setEngSettings(engSettingsRes.data);
+      if (engScoreRes.data) setEngScore(engScoreRes.data);
+
       // Apply smart defaults if available
       if (defaultsRes.data && defaultsRes.data.games_analyzed > 0) {
         setSmartDefaults(defaultsRes.data);
@@ -178,6 +186,19 @@ export default function GroupHub() {
       game.status === 'active' && 
       game.players?.some(p => p.user_id === memberId && !p.cashed_out)
     );
+  };
+
+  // Update engagement setting
+  const updateEngSetting = async (key, value) => {
+    const updated = { ...engSettings, [key]: value };
+    setEngSettings(updated);
+    try {
+      await axios.put(`${API}/engagement/settings/${groupId}`, { [key]: value });
+      toast.success("Engagement setting updated");
+    } catch {
+      toast.error("Failed to update setting");
+      setEngSettings(engSettings);
+    }
   };
 
   // Get role badge
@@ -676,6 +697,158 @@ export default function GroupHub() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Engagement Score */}
+            {engScore && (
+              <Card className="bg-card border-border/50">
+                <CardHeader className="cursor-pointer" onClick={() => setEngExpanded(!engExpanded)}>
+                  <CardTitle className="font-heading text-lg font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      ENGAGEMENT
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`font-mono text-2xl font-bold ${
+                        engScore.score >= 70 ? 'text-primary' :
+                        engScore.score >= 40 ? 'text-yellow-500' :
+                        'text-destructive'
+                      }`}>
+                        {engScore.score?.toFixed(0)}
+                      </span>
+                      {engExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                {engExpanded && (
+                  <CardContent className="space-y-3 pt-0">
+                    {/* Score bar */}
+                    <div className="w-full bg-secondary/50 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${
+                          engScore.score >= 70 ? 'bg-primary' :
+                          engScore.score >= 40 ? 'bg-yellow-500' :
+                          'bg-destructive'
+                        }`}
+                        style={{ width: `${Math.min(engScore.score || 0, 100)}%` }}
+                      />
+                    </div>
+
+                    {/* Components breakdown */}
+                    {engScore.components && (
+                      <div className="space-y-1.5">
+                        {Object.entries(engScore.components).map(([key, comp]) => (
+                          <div key={key} className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</span>
+                            <span className="font-mono">{comp.score?.toFixed(0)}/{comp.max}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Recommendations */}
+                    {engScore.recommendations?.length > 0 && (
+                      <div className="pt-2 border-t border-border/50">
+                        <p className="text-[10px] text-muted-foreground mb-1.5">RECOMMENDATIONS</p>
+                        {engScore.recommendations.slice(0, 3).map((rec, i) => (
+                          <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1">
+                            <span className="text-primary mt-0.5">•</span>
+                            {rec.reason || rec}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            )}
+
+            {/* Engagement Settings (admin only) */}
+            {isAdmin && engSettings && (
+              <Card className="bg-card border-border/50">
+                <CardHeader>
+                  <CardTitle className="font-heading text-lg font-bold flex items-center gap-2">
+                    <Settings2 className="w-4 h-4" />
+                    ENGAGEMENT SETTINGS
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Master toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Engagement Enabled</p>
+                      <p className="text-[10px] text-muted-foreground">Auto nudges, celebrations & digests</p>
+                    </div>
+                    <button
+                      onClick={() => updateEngSetting("engagement_enabled", !engSettings.engagement_enabled)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                        engSettings.engagement_enabled
+                          ? 'bg-primary/20 text-primary'
+                          : 'bg-secondary text-muted-foreground'
+                      }`}
+                    >
+                      {engSettings.engagement_enabled ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+
+                  {engSettings.engagement_enabled && (
+                    <>
+                      {/* Feature toggles */}
+                      {[
+                        { key: "milestone_celebrations", label: "Milestone Celebrations", icon: Trophy },
+                        { key: "big_winner_celebrations", label: "Winner Celebrations", icon: Trophy },
+                        { key: "weekly_digest", label: "Weekly Digest", icon: BarChart3 },
+                        { key: "show_amounts_in_celebrations", label: "Show $ Amounts", icon: DollarSign },
+                      ].map(({ key, label, icon: Icon }) => (
+                        <div key={key} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-xs">{label}</span>
+                          </div>
+                          <button
+                            onClick={() => updateEngSetting(key, !engSettings[key])}
+                            className={`w-8 h-4 rounded-full transition-colors relative ${
+                              engSettings[key] ? 'bg-primary' : 'bg-secondary'
+                            }`}
+                          >
+                            <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                              engSettings[key] ? 'translate-x-4' : 'translate-x-0.5'
+                            }`} />
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Nudge threshold */}
+                      <div className="pt-2 border-t border-border/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Group inactivity nudge</span>
+                          <select
+                            value={engSettings.inactive_group_nudge_days || 14}
+                            onChange={(e) => updateEngSetting("inactive_group_nudge_days", parseInt(e.target.value))}
+                            className="bg-secondary/50 border border-border rounded px-2 py-0.5 text-xs"
+                          >
+                            {[7, 10, 14, 21, 30].map(d => (
+                              <option key={d} value={d}>{d} days</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">User inactivity nudge</span>
+                          <select
+                            value={engSettings.inactive_user_nudge_days || 30}
+                            onChange={(e) => updateEngSetting("inactive_user_nudge_days", parseInt(e.target.value))}
+                            className="bg-secondary/50 border border-border rounded px-2 py-0.5 text-xs"
+                          >
+                            {[14, 21, 30, 45, 60].map(d => (
+                              <option key={d} value={d}>{d} days</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </main>

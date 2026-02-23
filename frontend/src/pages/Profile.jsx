@@ -8,7 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
   User, Mail, TrendingUp, TrendingDown, Trophy,
-  DollarSign, Target, ArrowLeft, Moon, Sun, Bell, CreditCard, Loader2, Wallet, Sparkles
+  DollarSign, Target, ArrowLeft, Moon, Sun, Bell, BellOff, CreditCard, Loader2, Wallet, Sparkles,
+  MessageSquare, Calendar, BarChart3, Flame, Volume2, VolumeX
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import UserBadges from "@/components/UserBadges";
@@ -24,6 +25,7 @@ export default function Profile() {
   const [isDark, setIsDark] = useState(false);
   const [payingLedgerId, setPayingLedgerId] = useState(null);
   const [wallet, setWallet] = useState(null);
+  const [engagementPrefs, setEngagementPrefs] = useState(null);
 
   useEffect(() => {
     // Only fetch when user is ready to prevent race conditions
@@ -45,19 +47,40 @@ export default function Profile() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, balancesRes, walletRes] = await Promise.all([
+      const [statsRes, balancesRes, walletRes, engPrefsRes] = await Promise.all([
         axios.get(`${API}/stats/me`, { withCredentials: true }),
         axios.get(`${API}/ledger/balances`, { withCredentials: true }),
-        axios.get(`${API}/wallet`, { withCredentials: true })
+        axios.get(`${API}/wallet`, { withCredentials: true }),
+        axios.get(`${API}/engagement/preferences`, { withCredentials: true }).catch(() => ({ data: null }))
       ]);
       setStats(statsRes.data);
       setBalances(balancesRes.data);
       setWallet(walletRes.data);
+      if (engPrefsRes.data) setEngagementPrefs(engPrefsRes.data);
     } catch (error) {
       toast.error("Failed to load profile");
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateEngagementPref = async (key, value) => {
+    const updated = { ...engagementPrefs, [key]: value };
+    setEngagementPrefs(updated);
+    try {
+      await axios.put(`${API}/engagement/preferences`, { [key]: value }, { withCredentials: true });
+    } catch {
+      toast.error("Failed to update preference");
+      setEngagementPrefs(engagementPrefs);
+    }
+  };
+
+  const toggleMutedCategory = async (category) => {
+    const current = engagementPrefs?.muted_categories || [];
+    const updated = current.includes(category)
+      ? current.filter(c => c !== category)
+      : [...current, category];
+    await updateEngagementPref("muted_categories", updated);
   };
 
   const handleRequestPayment = async (entry) => {
@@ -169,6 +192,110 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Engagement Preferences */}
+        {engagementPrefs && (
+          <Card className="bg-card border-border/50 mb-4 sm:mb-6">
+            <CardHeader className="px-4 sm:px-6 py-3 sm:py-4">
+              <CardTitle className="font-heading text-base sm:text-xl font-bold flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                ENGAGEMENT NOTIFICATIONS
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-4">
+              {/* Master mute toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-sm sm:text-base">Mute All Engagement</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Pause all nudges, celebrations & digests</p>
+                </div>
+                <button
+                  onClick={() => updateEngagementPref("muted_all", !engagementPrefs.muted_all)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                    engagementPrefs.muted_all
+                      ? 'bg-destructive/10 text-destructive'
+                      : 'bg-primary/10 text-primary'
+                  }`}
+                >
+                  {engagementPrefs.muted_all ? (
+                    <><VolumeX className="w-4 h-4" /> Muted</>
+                  ) : (
+                    <><Volume2 className="w-4 h-4" /> Active</>
+                  )}
+                </button>
+              </div>
+
+              {/* Category toggles */}
+              {!engagementPrefs.muted_all && (
+                <div className="space-y-2 pt-2 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground mb-2">Mute specific categories</p>
+                  {[
+                    { key: "inactive_group", label: "Inactive Group Nudges", desc: "Reminders to schedule a game", icon: Calendar, color: "text-blue-400" },
+                    { key: "milestone", label: "Milestone Celebrations", desc: "Game count achievements", icon: Trophy, color: "text-yellow-400" },
+                    { key: "big_winner", label: "Winner Celebrations", desc: "Big win announcements", icon: Flame, color: "text-orange-400" },
+                    { key: "digest", label: "Weekly Digests", desc: "Group activity summaries", icon: BarChart3, color: "text-purple-400" },
+                  ].map(({ key, label, desc, icon: Icon, color }) => {
+                    const isMuted = (engagementPrefs.muted_categories || []).includes(key);
+                    return (
+                      <div key={key} className="flex items-center justify-between p-2 sm:p-3 bg-secondary/30 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Icon className={`w-4 h-4 ${isMuted ? 'text-muted-foreground' : color}`} />
+                          <div>
+                            <p className={`text-sm font-medium ${isMuted ? 'text-muted-foreground' : ''}`}>{label}</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground">{desc}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => toggleMutedCategory(key)}
+                          className={`p-1.5 rounded-full transition-colors ${
+                            isMuted
+                              ? 'bg-destructive/10 text-destructive hover:bg-destructive/20'
+                              : 'bg-primary/10 text-primary hover:bg-primary/20'
+                          }`}
+                        >
+                          {isMuted ? <BellOff className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Quiet hours */}
+              {!engagementPrefs.muted_all && (
+                <div className="pt-2 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground mb-2">Quiet Hours (no notifications)</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground">From</label>
+                      <select
+                        value={engagementPrefs.quiet_start ?? 22}
+                        onChange={(e) => updateEngagementPref("quiet_start", parseInt(e.target.value))}
+                        className="bg-secondary/50 border border-border rounded px-2 py-1 text-xs"
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className="text-xs text-muted-foreground">to</span>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={engagementPrefs.quiet_end ?? 8}
+                        onChange={(e) => updateEngagementPref("quiet_end", parseInt(e.target.value))}
+                        className="bg-secondary/50 border border-border rounded px-2 py-1 text-xs"
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Level & Badges Section */}
         <div className="mb-4 sm:mb-6">

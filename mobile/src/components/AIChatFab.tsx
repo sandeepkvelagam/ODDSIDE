@@ -3,18 +3,19 @@ import { TouchableOpacity, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../context/ThemeContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+// Dark shade of orange for AI FAB
+const ORANGE_DARK = "#C45A22";
+
 export function AIChatFab() {
-  const { colors } = useTheme();
   const navigation = useNavigation<Nav>();
 
   return (
     <TouchableOpacity
-      style={[styles.fab, { backgroundColor: colors.orange }]}
+      style={[styles.fab, { backgroundColor: ORANGE_DARK }]}
       onPress={() => navigation.navigate("AIAssistant")}
       activeOpacity={0.8}
     >

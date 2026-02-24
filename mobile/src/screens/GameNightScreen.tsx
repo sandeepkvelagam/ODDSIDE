@@ -13,7 +13,10 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
+  Alert,
+  Dimensions,
 } from "react-native";
+import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop, Circle, Line as SvgLine } from "react-native-svg";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -134,6 +137,20 @@ export function GameNightScreen() {
   const [editChipsPlayer, setEditChipsPlayer] = useState<any>(null);
   const [editChipsValue, setEditChipsValue] = useState("");
   const [submittingEditChips, setSubmittingEditChips] = useState(false);
+
+  // Remove player state
+  const [submittingRemovePlayer, setSubmittingRemovePlayer] = useState(false);
+
+  // Settlement preview animation state
+  const [showSettlementPreview, setShowSettlementPreview] = useState(false);
+  const [settlementPhase, setSettlementPhase] = useState(0);
+  const [settlementData, setSettlementData] = useState<any>(null);
+  const [playerAnimValues] = useState(() =>
+    Array.from({ length: 10 }, () => new Animated.Value(0))
+  );
+  const [paymentAnimValues] = useState(() =>
+    Array.from({ length: 10 }, () => new Animated.Value(0))
+  );
 
   // Hand rankings modal
   const [showHandRankings, setShowHandRankings] = useState(false);
@@ -342,6 +359,39 @@ export function GameNightScreen() {
   const cashedOutPlayers = players.filter((p: any) => p.cashed_out);
   const allPlayersCashedOut = players.length > 0 && players.every((p: any) => p.cashed_out);
 
+  // Game Pulse chart data
+  const chartPlayers = [...activePlayers, ...cashedOutPlayers]
+    .filter((p: any) => (p.total_buy_in || 0) > 0);
+  const CHART_W = Dimensions.get("window").width - 80;
+  const CHART_H = 70;
+
+  const makeEcgPath = () => {
+    if (chartPlayers.length === 0) return "";
+    const pts = chartPlayers.map((p: any, i: number) => {
+      const currentVal = p.cashed_out ? (p.cash_out_value || 0) : (p.chips || 0) * chipValue;
+      const ratio = (p.total_buy_in || 1) > 0 ? currentVal / p.total_buy_in : 1;
+      const clampedRatio = Math.max(0.1, Math.min(2.5, ratio));
+      const x = chartPlayers.length === 1 ? CHART_W / 2 : (i / (chartPlayers.length - 1)) * CHART_W;
+      const y = CHART_H - ((clampedRatio - 0.1) / 2.4) * CHART_H;
+      return { x, y, ratio };
+    });
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y} L ${pts[0].x + 1} ${pts[0].y}`;
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const mid = (pts[i - 1].x + pts[i].x) / 2;
+      const spikeDir = pts[i].ratio >= 1 ? -14 : 12;
+      d += ` L ${mid - 2} ${pts[i - 1].y} L ${mid} ${pts[i - 1].y + spikeDir} L ${mid + 2} ${pts[i].y} L ${pts[i].x} ${pts[i].y}`;
+    }
+    return d;
+  };
+
+  const makeFillPath = () => {
+    const line = makeEcgPath();
+    if (!line) return "";
+    const lastX = chartPlayers.length === 1 ? CHART_W / 2 : CHART_W;
+    return `${line} L ${lastX} ${CHART_H} L 0 ${CHART_H} Z`;
+  };
+
   // Format duration
   const formatDuration = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
@@ -368,6 +418,9 @@ export function GameNightScreen() {
     try {
       await api.post(`/games/${gameId}/end`);
       await resyncGameState();
+      setSettlementPhase(0);
+      setShowSettlementPreview(true);
+      runSettlementAnimation();
     } catch (e: any) {
       setError(e?.response?.data?.detail || "Failed to end game");
     }
@@ -406,7 +459,7 @@ export function GameNightScreen() {
     }
     setSubmittingCashOut(true);
     try {
-      await api.post(`/games/${gameId}/cash-out`, { chips });
+      await api.post(`/games/${gameId}/cash-out`, { chips_returned: chips });
       setShowCashOutSheet(false);
       setCashOutChips("");
       await resyncGameState();
@@ -448,7 +501,7 @@ export function GameNightScreen() {
     try {
       await api.post(`/games/${gameId}/admin-cash-out`, {
         user_id: selectedPlayerForCashOut,
-        chips,
+        chips_count: chips,
       });
       setShowAdminCashOutSheet(false);
       setSelectedPlayerForCashOut(null);
@@ -476,6 +529,57 @@ export function GameNightScreen() {
       setSubmittingAddPlayer(false);
     }
   };
+
+  // Remove player from game
+  const handleRemovePlayer = (playerId: string, playerName: string) => {
+    Alert.alert(
+      "Remove Player",
+      `Remove ${playerName} from the game? Only players with no buy-ins can be removed.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            setSubmittingRemovePlayer(true);
+            try {
+              await api.post(`/games/${gameId}/remove-player`, { user_id: playerId });
+              await resyncGameState();
+            } catch (e: any) {
+              setError(e?.response?.data?.detail || "Failed to remove player");
+            } finally {
+              setSubmittingRemovePlayer(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Run settlement preview animation through 4 phases
+  const runSettlementAnimation = useCallback(async () => {
+    setSettlementPhase(0);
+    playerAnimValues.forEach(v => v.setValue(0));
+    Animated.stagger(100, playerAnimValues.map(v =>
+      Animated.timing(v, { toValue: 1, duration: 400, useNativeDriver: true })
+    )).start();
+
+    setTimeout(() => setSettlementPhase(1), 2000);
+
+    setTimeout(async () => {
+      try {
+        const res = await api.get(`/games/${gameId}/settlement`);
+        setSettlementData(res.data);
+      } catch {}
+      setSettlementPhase(2);
+      paymentAnimValues.forEach(v => v.setValue(0));
+      Animated.stagger(80, paymentAnimValues.map(v =>
+        Animated.timing(v, { toValue: 1, duration: 350, useNativeDriver: true })
+      )).start();
+    }, 3500);
+
+    setTimeout(() => setSettlementPhase(3), 5500);
+  }, [gameId, playerAnimValues, paymentAnimValues]);
 
   // Edit chips for cashed out player
   const handleEditChips = async () => {
@@ -701,10 +805,23 @@ export function GameNightScreen() {
                     </TouchableOpacity>
                   </>
                 )}
-                {isActive && allPlayersCashedOut && (
+                {isActive && (
                   <TouchableOpacity
                     style={[styles.hostActionButton, { backgroundColor: lc.danger }]}
-                    onPress={handleEndGame}
+                    onPress={() => {
+                      if (!allPlayersCashedOut) {
+                        Alert.alert(
+                          "End Game?",
+                          "Some players haven't cashed out yet. End game anyway?",
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            { text: "End Game", style: "destructive", onPress: handleEndGame },
+                          ]
+                        );
+                      } else {
+                        handleEndGame();
+                      }
+                    }}
                     activeOpacity={0.8}
                   >
                     <Ionicons name="stop-circle" size={18} color="#fff" />
@@ -789,6 +906,80 @@ export function GameNightScreen() {
           </View>
         )}
 
+        {/* Game Pulse — ECG/Stock Market Chart */}
+        {isActive && chartPlayers.length > 0 && (
+          <View style={[styles.liquidCard, {
+            backgroundColor: lc.liquidGlassBg,
+            borderColor: "rgba(34,197,94,0.25)",
+          }]}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <Ionicons name="pulse" size={16} color={lc.success} />
+                <Text style={[styles.sectionTitle, { color: lc.success }]}>GAME PULSE</Text>
+              </View>
+              <Text style={[styles.countBadge, { color: lc.textMuted }]}>
+                {activePlayers.length} active · {cashedOutPlayers.length} out
+              </Text>
+            </View>
+            <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg, paddingHorizontal: 12, paddingVertical: 12 }]}>
+              <Svg width={CHART_W} height={CHART_H + 10} style={{ overflow: "visible" }}>
+                <Defs>
+                  <SvgLinearGradient id="pulseGrad" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0%" stopColor="#22C55E" stopOpacity="0.25" />
+                    <Stop offset="100%" stopColor="#22C55E" stopOpacity="0.02" />
+                  </SvgLinearGradient>
+                </Defs>
+                {/* Breakeven dashed line */}
+                <SvgLine
+                  x1={0} y1={CHART_H * 0.6}
+                  x2={CHART_W} y2={CHART_H * 0.6}
+                  stroke="rgba(255,255,255,0.12)"
+                  strokeWidth={1}
+                  strokeDasharray="4 4"
+                />
+                {/* Fill area */}
+                <Path d={makeFillPath()} fill="url(#pulseGrad)" />
+                {/* ECG line */}
+                <Path
+                  d={makeEcgPath()}
+                  stroke={lc.success}
+                  strokeWidth={2}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {/* Player dots */}
+                {chartPlayers.map((p: any, i: number) => {
+                  const currentVal = p.cashed_out ? (p.cash_out_value || 0) : (p.chips || 0) * chipValue;
+                  const ratio = Math.max(0.1, Math.min(2.5, (p.total_buy_in || 1) > 0 ? currentVal / p.total_buy_in : 1));
+                  const x = chartPlayers.length === 1 ? CHART_W / 2 : (i / (chartPlayers.length - 1)) * CHART_W;
+                  const y = CHART_H - ((ratio - 0.1) / 2.4) * CHART_H;
+                  const dotColor = ratio >= 1 ? "#22C55E" : "#EF4444";
+                  return <Circle key={p.user_id} cx={x} cy={y} r={4} fill={dotColor} />;
+                })}
+              </Svg>
+              {/* Player name + delta labels */}
+              <View style={{ flexDirection: "row", marginTop: 6 }}>
+                {chartPlayers.map((p: any) => {
+                  const currentVal = p.cashed_out ? (p.cash_out_value || 0) : (p.chips || 0) * chipValue;
+                  const delta = currentVal - (p.total_buy_in || 0);
+                  const color = delta >= 0 ? lc.success : lc.danger;
+                  return (
+                    <View key={p.user_id} style={{ flex: 1, alignItems: "center" }}>
+                      <Text style={{ fontSize: 9, color: lc.textMuted }} numberOfLines={1}>
+                        {(p?.user?.name || p?.name || "?").split(" ")[0]}
+                      </Text>
+                      <Text style={{ fontSize: 9, color, fontWeight: "700" }}>
+                        {delta >= 0 ? "+" : ""}{delta.toFixed(0)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Active Players */}
         {activePlayers.length > 0 && (
           <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
@@ -850,6 +1041,14 @@ export function GameNightScreen() {
                           >
                             <Ionicons name="remove" size={16} color="#f97316" />
                           </TouchableOpacity>
+                          {(p.total_buy_in || 0) === 0 && (
+                            <TouchableOpacity
+                              style={[styles.playerActionButton, { backgroundColor: "rgba(239,68,68,0.15)" }]}
+                              onPress={() => handleRemovePlayer(p.user_id, p?.user?.name || p?.name || "Player")}
+                            >
+                              <Ionicons name="person-remove" size={14} color={lc.danger} />
+                            </TouchableOpacity>
+                          )}
                         </View>
                       )}
 
@@ -998,8 +1197,8 @@ export function GameNightScreen() {
 
       {/* Buy-In Sheet */}
       <Modal visible={showBuyInSheet} animationType="slide" transparent onRequestClose={() => setShowBuyInSheet(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowBuyInSheet(false)} />
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowBuyInSheet(false)} />
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay} pointerEvents="box-none">
           <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>Buy In</Text>
@@ -1048,8 +1247,8 @@ export function GameNightScreen() {
 
       {/* Cash-Out Sheet */}
       <Modal visible={showCashOutSheet} animationType="slide" transparent onRequestClose={() => setShowCashOutSheet(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowCashOutSheet(false)} />
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowCashOutSheet(false)} />
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay} pointerEvents="box-none">
           <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>Cash Out</Text>
@@ -1104,8 +1303,8 @@ export function GameNightScreen() {
 
       {/* Admin Buy-In Sheet */}
       <Modal visible={showAdminBuyInSheet} animationType="slide" transparent onRequestClose={() => setShowAdminBuyInSheet(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowAdminBuyInSheet(false)} />
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowAdminBuyInSheet(false)} />
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay} pointerEvents="box-none">
           <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>Add Buy-In</Text>
@@ -1173,8 +1372,8 @@ export function GameNightScreen() {
 
       {/* Admin Cash-Out Sheet */}
       <Modal visible={showAdminCashOutSheet} animationType="slide" transparent onRequestClose={() => setShowAdminCashOutSheet(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowAdminCashOutSheet(false)} />
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowAdminCashOutSheet(false)} />
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay} pointerEvents="box-none">
           <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>Cash Out Player</Text>
@@ -1256,8 +1455,8 @@ export function GameNightScreen() {
 
       {/* Add Player Sheet */}
       <Modal visible={showAddPlayerSheet} animationType="slide" transparent onRequestClose={() => setShowAddPlayerSheet(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowAddPlayerSheet(false)} />
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowAddPlayerSheet(false)} />
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay} pointerEvents="box-none">
           <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>Add Player</Text>
@@ -1319,8 +1518,8 @@ export function GameNightScreen() {
 
       {/* Edit Chips Sheet */}
       <Modal visible={showEditChipsSheet} animationType="slide" transparent onRequestClose={() => setShowEditChipsSheet(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowEditChipsSheet(false)} />
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowEditChipsSheet(false)} />
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay} pointerEvents="box-none">
           <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>Edit Chips</Text>
@@ -1356,8 +1555,8 @@ export function GameNightScreen() {
 
       {/* Hand Rankings Modal */}
       <Modal visible={showHandRankings} animationType="slide" transparent onRequestClose={() => setShowHandRankings(false)}>
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowHandRankings(false)} />
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowHandRankings(false)} />
+        <View style={styles.modalOverlay} pointerEvents="box-none">
           <View style={[styles.handRankingsSheet, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.handRankingsHeader}>
@@ -1388,8 +1587,8 @@ export function GameNightScreen() {
 
       {/* Game Thread Modal */}
       <Modal visible={showGameThread} animationType="slide" transparent onRequestClose={() => setShowGameThread(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowGameThread(false)} />
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowGameThread(false)} />
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay} pointerEvents="box-none">
           <View style={[styles.threadSheet, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.threadHeader}>
@@ -1469,6 +1668,169 @@ export function GameNightScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Settlement Preview Animation Modal */}
+      <Modal visible={showSettlementPreview} animationType="fade" transparent onRequestClose={() => setShowSettlementPreview(false)}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} />
+        <View style={styles.modalOverlay} pointerEvents="box-none">
+          <View style={[styles.settlementPreviewSheet, { backgroundColor: lc.jetSurface }]}>
+            <View style={styles.sheetHandle} />
+
+            {/* Phase 0 & 1 title */}
+            <Text style={[styles.sheetTitle, { color: lc.textPrimary, marginBottom: 4 }]}>
+              {settlementPhase === 0 && "Collecting Player Data..."}
+              {settlementPhase === 1 && "Calculating Settlement..."}
+              {settlementPhase === 2 && "Settlement Optimized! 🎉"}
+              {settlementPhase >= 3 && "Settlement Ready!"}
+            </Text>
+            <Text style={[styles.sheetSubtitle, { color: lc.textMuted, marginBottom: 20 }]}>
+              {settlementPhase === 0 && "Reviewing player results"}
+              {settlementPhase === 1 && "Finding minimum number of transactions"}
+              {settlementPhase === 2 && "Optimized payment flow"}
+              {settlementPhase >= 3 && "View the full breakdown below"}
+            </Text>
+
+            {/* Phase 0: Player cards fading in */}
+            {settlementPhase === 0 && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {players.filter((p: any) => (p.total_buy_in || 0) > 0).slice(0, 10).map((p: any, i: number) => {
+                  const currentVal = p.cashed_out ? (p.cash_out_value || 0) : (p.chips || 0) * chipValue;
+                  const net = currentVal - (p.total_buy_in || 0);
+                  const animVal = playerAnimValues[Math.min(i, 9)];
+                  return (
+                    <Animated.View
+                      key={p.user_id}
+                      style={[
+                        styles.settlementPlayerCard,
+                        { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder },
+                        {
+                          opacity: animVal,
+                          transform: [{ translateY: animVal.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+                        },
+                      ]}
+                    >
+                      <View style={[styles.settlementAvatar, { backgroundColor: net >= 0 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)" }]}>
+                        <Text style={{ fontSize: 16, fontWeight: "700", color: net >= 0 ? lc.success : lc.danger }}>
+                          {(p?.user?.name || p?.name || "?")[0].toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: lc.textPrimary, fontWeight: "600", fontSize: 14 }}>
+                          {p?.user?.name || p?.name || "Player"}
+                        </Text>
+                        <Text style={{ color: lc.textMuted, fontSize: 12 }}>
+                          Buy-in: ${p.total_buy_in || 0} · Cash-out: ${currentVal.toFixed(0)}
+                        </Text>
+                      </View>
+                      <Text style={{ color: net >= 0 ? lc.success : lc.danger, fontWeight: "700", fontSize: 16 }}>
+                        {net >= 0 ? "+" : ""}{net.toFixed(0)}
+                      </Text>
+                    </Animated.View>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* Phase 1: Spinner */}
+            {settlementPhase === 1 && (
+              <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                <ActivityIndicator size="large" color={lc.trustBlue} />
+                <Text style={{ color: lc.textMuted, marginTop: 16, fontSize: 14 }}>Kvitt is optimizing payments...</Text>
+              </View>
+            )}
+
+            {/* Phase 2 & 3: Payment entries */}
+            {settlementPhase >= 2 && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Optimization badge */}
+                {(settlementData?.payments?.length ?? 0) > 0 && (
+                  <View style={styles.settlementBadgeRow}>
+                    <View style={[styles.settlementBadge, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
+                      <Text style={{ color: lc.danger, fontSize: 12, fontWeight: "600" }}>
+                        Up to {players.filter((p: any) => (p.total_buy_in || 0) > 0).length} payments
+                      </Text>
+                    </View>
+                    <Ionicons name="arrow-forward" size={16} color={lc.textMuted} />
+                    <View style={[styles.settlementBadge, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
+                      <Text style={{ color: lc.success, fontSize: 12, fontWeight: "600" }}>
+                        {settlementData?.payments?.length ?? 0} payments
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {(settlementData?.payments?.length ?? 0) === 0 && (
+                  <View style={{ alignItems: "center", paddingVertical: 24 }}>
+                    <Ionicons name="checkmark-circle" size={48} color={lc.success} />
+                    <Text style={{ color: lc.textPrimary, fontWeight: "600", marginTop: 12, fontSize: 16 }}>
+                      Everyone broke even!
+                    </Text>
+                    <Text style={{ color: lc.textMuted, fontSize: 13, marginTop: 4 }}>No payments needed</Text>
+                  </View>
+                )}
+
+                {(settlementData?.payments || []).map((pay: any, i: number) => {
+                  const animVal = paymentAnimValues[Math.min(i, 9)];
+                  return (
+                    <Animated.View
+                      key={pay.ledger_id || i}
+                      style={[
+                        styles.settlementPaymentRow,
+                        { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder },
+                        {
+                          opacity: animVal,
+                          transform: [{ translateY: animVal.interpolate({ inputRange: [0, 1], outputRange: [15, 0] }) }],
+                        },
+                      ]}
+                    >
+                      <View style={[styles.settlementAvatar, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
+                        <Text style={{ color: lc.danger, fontWeight: "700" }}>
+                          {(pay.from_name || "?")[0].toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, marginHorizontal: 8 }}>
+                        <Text style={{ color: lc.textPrimary, fontSize: 13, fontWeight: "500" }}>
+                          {pay.from_name || "Player"} → {pay.to_name || "Player"}
+                        </Text>
+                      </View>
+                      <Text style={{ color: lc.orange, fontWeight: "700", fontSize: 16 }}>
+                        ${pay.amount?.toFixed(2)}
+                      </Text>
+                      <View style={[styles.settlementAvatar, { backgroundColor: "rgba(34,197,94,0.15)", marginLeft: 8 }]}>
+                        <Text style={{ color: lc.success, fontWeight: "700" }}>
+                          {(pay.to_name || "?")[0].toUpperCase()}
+                        </Text>
+                      </View>
+                    </Animated.View>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* Phase 3: View Settlement button */}
+            {settlementPhase >= 3 && (
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: lc.trustBlue, marginTop: 20 }]}
+                onPress={() => {
+                  setShowSettlementPreview(false);
+                  navigation.navigate("Settlement", { gameId });
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calculator" size={18} color="#fff" />
+                <Text style={[styles.submitButtonText, { marginLeft: 8 }]}>View Full Settlement</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={{ alignSelf: "center", marginTop: 16, padding: 8 }}
+              onPress={() => setShowSettlementPreview(false)}
+            >
+              <Text style={{ color: lc.textMuted, fontSize: 14 }}>Dismiss</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -1986,7 +2348,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalBackdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.6)",
   },
   sheetContainer: {
@@ -1995,6 +2357,7 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 40,
     maxHeight: "85%",
+    minHeight: 380,
   },
   sheetHandle: {
     width: 36,
@@ -2242,5 +2605,58 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
     letterSpacing: 1,
+  },
+  // Settlement preview modal
+  settlementPreviewSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 28,
+    paddingBottom: 44,
+    maxHeight: "90%",
+    minHeight: 460,
+  },
+  settlementPlayerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+    gap: 12,
+  },
+  settlementAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  settlementBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 16,
+  },
+  settlementBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  settlementPaymentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  // Game Pulse chart
+  gamePulseCard: {
+    marginHorizontal: 20,
+    borderRadius: 24,
+    padding: 4,
+    borderWidth: 1.5,
+    marginBottom: 16,
   },
 });

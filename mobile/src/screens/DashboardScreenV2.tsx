@@ -193,6 +193,7 @@ export function DashboardScreenV2() {
     { icon: "people-outline" as const, label: t.nav.groups, onPress: () => navigation.navigate("Groups") },
     { icon: "game-controller-outline" as const, label: t.nav.games, onPress: () => navigation.navigate("Groups") },
     { icon: "wallet-outline" as const, label: t.nav.wallet, onPress: () => navigation.navigate("Wallet") },
+    { icon: "document-text-outline" as const, label: "View Requests", onPress: () => navigation.navigate("PendingRequests") },
     {
       icon: "notifications-outline" as const,
       label: t.nav.notifications,
@@ -339,6 +340,25 @@ export function DashboardScreenV2() {
           </Pressable>
         </View>
 
+        {/* Welcome Section - Sticky, outside ScrollView */}
+        <View style={[styles.welcomeRow, styles.welcomeRowSticky]}>
+          <View style={styles.welcomeTextContainer}>
+            <Text style={[styles.welcomeTitle, { color: lc.textPrimary }]}>
+              Welcome back, {userName.split(' ')[0]}
+            </Text>
+            <Text style={[styles.welcomeSubtitle, { color: lc.moonstone }]}>
+              Here's your poker overview
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.helpButtonSmall, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+            onPress={() => setShowOnboardingAgent(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="help-circle-outline" size={14} color={lc.moonstone} />
+          </TouchableOpacity>
+        </View>
+
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
@@ -346,25 +366,6 @@ export function DashboardScreenV2() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={lc.orange} />
           }
         >
-          {/* Welcome Section */}
-          <View style={styles.welcomeRow}>
-            <View style={styles.welcomeTextContainer}>
-              <Text style={[styles.welcomeTitle, { color: lc.textPrimary }]}>
-                Welcome back, {userName.split(' ')[0]}
-              </Text>
-              <Text style={[styles.welcomeSubtitle, { color: lc.moonstone }]}>
-                Here's your poker overview
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.helpButtonSmall, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
-              onPress={() => setShowOnboardingAgent(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="help-circle-outline" size={14} color={lc.moonstone} />
-            </TouchableOpacity>
-          </View>
-
           {error && (
             <View style={[styles.errorBanner, { borderColor: "rgba(239,68,68,0.3)" }]}>
               <Ionicons name="alert-circle" size={16} color={lc.danger} />
@@ -746,7 +747,7 @@ export function DashboardScreenV2() {
               activeOpacity={0.8}
             >
               <Ionicons name="sparkles" size={28} color="#fff" />
-              <Text style={styles.actionTextWhite}>AI Chat</Text>
+              <Text style={styles.actionTextWhite}>AI Assistant</Text>
             </TouchableOpacity>
           </Animated.View>
 
@@ -769,6 +770,8 @@ export function DashboardScreenV2() {
           blurIntensity={60}
         >
           <View style={[styles.helpModalContent, { backgroundColor: lc.jetSurface }]}>
+            {/* Color accent bar */}
+            <View style={[styles.modalAccentBar, { backgroundColor: showStatModal === 'profit' ? '#EE6C29' : '#3B82F6' }]} />
             <View style={styles.helpModalHeader}>
               <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>
                 {showStatModal === 'profit' ? 'Net Profit Details' : 'Win Rate Details'}
@@ -899,6 +902,8 @@ export function DashboardScreenV2() {
           blurIntensity={60}
         >
           <View style={[styles.helpModalContent, { backgroundColor: lc.jetSurface }]}>
+            {/* Color accent bar */}
+            <View style={[styles.modalAccentBar, { backgroundColor: balances.net_balance >= 0 ? '#22C55E' : '#EF4444' }]} />
             <View style={styles.helpModalHeader}>
               <Text style={[styles.helpModalTitle, { color: lc.textPrimary }]}>Balance Details</Text>
               <TouchableOpacity
@@ -1101,6 +1106,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
+  welcomeRowSticky: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    marginBottom: 0,
+  },
   welcomeTextContainer: {
     flex: 1,
   },
@@ -1158,6 +1168,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 4,
     elevation: 8,
+  },
+  gradientCardWrapper: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 1.5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  liquidCardThirdInner: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: "hidden",
   },
   liquidInnerSmall: {
     borderRadius: 15,
@@ -1492,6 +1517,16 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.12)",
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+  },
+  modalAccentBar: {
+    height: 4,
+    borderRadius: 2,
+    width: 48,
+    alignSelf: "center",
+    marginBottom: 20,
   },
   // Notifications Panel - proper sizing
   notificationsPanel: {

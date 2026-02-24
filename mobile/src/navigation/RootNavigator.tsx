@@ -27,12 +27,14 @@ import { WalletScreen } from "../screens/WalletScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
 import { AutomationsScreen } from "../screens/AutomationsScreen";
 import { ChatsScreen } from "../screens/ChatsScreen";
+import { PendingRequestsScreen } from "../screens/PendingRequestsScreen";
 
 export type RootStackParamList = {
   Login: undefined;
   Dashboard: undefined;
   Groups: undefined;
   Chats: undefined;
+  PendingRequests: undefined;
   GroupHub: { groupId: string; groupName?: string };
   GameNight: { gameId: string };
   Settlement: { gameId: string };
@@ -235,6 +237,7 @@ export default function RootNavigator() {
               <Stack.Screen name="AIToolkit" component={AIToolkitScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
               <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
               <Stack.Screen name="Automations" component={AutomationsScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
+              <Stack.Screen name="PendingRequests" component={PendingRequestsScreen} options={{ headerShown: false }} />
             </>
           )}
         </Stack.Navigator>

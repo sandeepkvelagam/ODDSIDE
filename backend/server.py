@@ -2509,6 +2509,26 @@ async def add_player_to_game(game_id: str, data: dict, user: User = Depends(get_
 
     return {"message": f"{player_name} added with ${buy_in_amount} ({chips_per_buy_in} chips)"}
 
+@api_router.post("/games/{game_id}/remove-player")
+async def remove_player_from_game(game_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Host removes a player who has not yet bought in."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    if game["host_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Only host can remove players")
+    player_user_id = data.get("user_id")
+    if not player_user_id:
+        raise HTTPException(status_code=400, detail="user_id required")
+    player = await db.players.find_one({"game_id": game_id, "user_id": player_user_id})
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found in this game")
+    if (player.get("total_buy_in") or 0) > 0:
+        raise HTTPException(status_code=400, detail="Cannot remove a player who has already bought in. Use cash-out instead.")
+    await db.players.delete_one({"game_id": game_id, "user_id": player_user_id})
+    await sio.emit("game_update", {"game_id": game_id})
+    return {"message": "Player removed"}
+
 @api_router.get("/games/{game_id}/available-players")
 async def get_available_players(game_id: str, user: User = Depends(get_current_user)):
     """Get group members who can be added to the game."""

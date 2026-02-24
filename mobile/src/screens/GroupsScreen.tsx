@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Animated,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -78,6 +79,9 @@ export function GroupsScreen() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // Favorites state
+  const [favorites, setFavorites] = useState<string[]>([]);
+
   // Entrance animations
   const entranceAnim = useState(new Animated.Value(0))[0];
   const headerEntrance = useState(new Animated.Value(0))[0];
@@ -107,6 +111,23 @@ export function GroupsScreen() {
       Animated.spring(listEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
     ]).start();
   }, [headerEntrance, listEntrance]);
+
+  // Load favorites from storage
+  useEffect(() => {
+    AsyncStorage.getItem("group_favorites").then((val) => {
+      if (val) setFavorites(JSON.parse(val));
+    }).catch(() => {});
+  }, []);
+
+  const toggleFavorite = useCallback(async (groupId: string) => {
+    setFavorites((prev) => {
+      const next = prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId];
+      AsyncStorage.setItem("group_favorites", JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -162,40 +183,56 @@ export function GroupsScreen() {
     setNewGroupName(generateRandomName());
   };
 
-  const renderGroupCard = ({ item }: { item: GroupItem }) => (
-    <TouchableOpacity
-      style={[styles.groupItem, { borderBottomColor: lc.liquidGlassBorder }]}
-      onPress={() =>
-        navigation.navigate("GroupHub", {
-          groupId: item.group_id,
-          groupName: item.name,
-        })
-      }
-      activeOpacity={0.7}
-      testID={`group-card-${item.group_id}`}
-    >
-      <View style={[styles.groupAvatar, { backgroundColor: lc.liquidGlowOrange }]}>
-        <Text style={[styles.groupAvatarText, { color: lc.orange }]}>
-          {item.name?.[0]?.toUpperCase() || "G"}
-        </Text>
-      </View>
-      <View style={styles.groupInfo}>
-        <View style={styles.groupNameRow}>
-          <Text style={[styles.groupName, { color: lc.textPrimary }]}>{item.name}</Text>
-          {item.role === "admin" && (
-            <View style={[styles.adminBadge, { backgroundColor: adminBgColor }]}>
-              <Ionicons name="shield" size={10} color={adminColor} />
-              <Text style={[styles.adminText, { color: adminColor }]}>Admin</Text>
-            </View>
-          )}
+  const renderGroupCard = ({ item }: { item: GroupItem }) => {
+    const isFav = favorites.includes(item.group_id);
+    return (
+      <TouchableOpacity
+        style={[styles.groupItem, { borderBottomColor: lc.liquidGlassBorder }]}
+        onPress={() =>
+          navigation.navigate("GroupHub", {
+            groupId: item.group_id,
+            groupName: item.name,
+          })
+        }
+        activeOpacity={0.7}
+        testID={`group-card-${item.group_id}`}
+      >
+        <View style={[styles.groupAvatar, { backgroundColor: lc.liquidGlowOrange }]}>
+          <Text style={[styles.groupAvatarText, { color: lc.orange }]}>
+            {item.name?.[0]?.toUpperCase() || "G"}
+          </Text>
         </View>
-        <Text style={[styles.groupMeta, { color: lc.textMuted }]}>
-          {item.member_count ?? 0} members
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={16} color={lc.textMuted} />
-    </TouchableOpacity>
-  );
+        <View style={styles.groupInfo}>
+          <View style={styles.groupNameRow}>
+            <Text style={[styles.groupName, { color: lc.textPrimary }]}>{item.name}</Text>
+            {item.role === "admin" ? (
+              <View style={[styles.adminBadge, { backgroundColor: adminBgColor }]}>
+                <Ionicons name="shield" size={10} color={adminColor} />
+                <Text style={[styles.adminText, { color: adminColor }]}>Admin</Text>
+              </View>
+            ) : (
+              <View style={[styles.adminBadge, { backgroundColor: "rgba(59,130,246,0.12)" }]}>
+                <Ionicons name="person" size={10} color={lc.trustBlue} />
+                <Text style={[styles.adminText, { color: lc.trustBlue }]}>Member</Text>
+              </View>
+            )}
+          </View>
+          <Text style={[styles.groupMeta, { color: lc.textMuted }]}>
+            {item.member_count ?? 0} members
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.heartButton}
+          onPress={(e) => { e.stopPropagation(); toggleFavorite(item.group_id); }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={isFav ? "heart" : "heart-outline"} size={18} color={isFav ? lc.orange : lc.textMuted} />
+        </TouchableOpacity>
+        <Ionicons name="chevron-forward" size={16} color={lc.textMuted} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: lc.jetDark, paddingTop: insets.top }]} testID="groups-screen">
@@ -237,7 +274,7 @@ export function GroupsScreen() {
             </View>
             <TouchableOpacity
               style={[styles.invitesButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
-              onPress={() => navigation.navigate("Notifications")}
+              onPress={() => navigation.navigate("PendingRequests")}
               activeOpacity={0.7}
             >
               <Ionicons name="mail-open-outline" size={16} color={lc.orange} />
@@ -252,6 +289,40 @@ export function GroupsScreen() {
           <Ionicons name="alert-circle" size={16} color={lc.danger} />
           <Text style={[styles.errorText, { color: lc.danger }]}>{error}</Text>
         </View>
+      )}
+
+      {/* Favorites Section - shown only when there are favorites */}
+      {favorites.length > 0 && groups.filter(g => favorites.includes(g.group_id)).length > 0 && (
+        <Animated.View style={[styles.listCard, styles.favoritesCard, {
+          backgroundColor: lc.liquidGlassBg,
+          borderColor: "rgba(238,108,41,0.3)",
+          opacity: listEntrance,
+          transform: [{
+            translateY: listEntrance.interpolate({
+              inputRange: [0, 1],
+              outputRange: [20, 0],
+            })
+          }]
+        }]}>
+          <View style={styles.listHeader}>
+            <View style={styles.listHeaderLeft}>
+              <Ionicons name="heart" size={16} color={lc.orange} />
+              <Text style={[styles.listHeaderTitle, { color: lc.orange }]}>FAVORITES</Text>
+            </View>
+            <Text style={[styles.countBadge, { color: lc.textMuted }]}>
+              {groups.filter(g => favorites.includes(g.group_id)).length}
+            </Text>
+          </View>
+          <View style={[styles.listInner, { backgroundColor: lc.liquidInnerBg }]}>
+            <FlatList
+              data={groups.filter(g => favorites.includes(g.group_id))}
+              keyExtractor={(g) => g.group_id}
+              renderItem={renderGroupCard}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={{ height: 0 }} />}
+            />
+          </View>
+        </Animated.View>
       )}
 
       {/* Groups List - Liquid Glass Card */}
@@ -307,7 +378,7 @@ export function GroupsScreen() {
         <View style={styles.quickActionsContainer}>
           <TouchableOpacity
             style={[styles.quickActionButton, { backgroundColor: lc.trustBlue }]}
-            onPress={() => navigation.navigate("Notifications")}
+            onPress={() => navigation.navigate("PendingRequests")}
             activeOpacity={0.8}
           >
             <Ionicons name="mail-outline" size={18} color="#fff" />
@@ -350,15 +421,16 @@ export function GroupsScreen() {
         transparent
         onRequestClose={() => setShowCreateSheet(false)}
       >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowCreateSheet(false)}
+        />
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
+          pointerEvents="box-none"
         >
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowCreateSheet(false)}
-          />
           <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>Create Group</Text>
@@ -430,6 +502,7 @@ export function GroupsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
     </View>
   );
 }
@@ -620,6 +693,13 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "600",
   },
+  heartButton: {
+    padding: 4,
+    marginRight: 4,
+  },
+  favoritesCard: {
+    marginBottom: 8,
+  },
   // Quick Actions inside card
   quickActionsContainer: {
     paddingHorizontal: 8,
@@ -705,7 +785,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalBackdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.6)",
   },
   sheetContainer: {
@@ -713,6 +793,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     padding: 24,
     paddingBottom: 40,
+    overflow: "hidden",
   },
   sheetHandle: {
     width: 36,

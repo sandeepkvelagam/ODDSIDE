@@ -295,16 +295,28 @@ export function GroupHubScreen() {
               <Ionicons name="people" size={16} color={lc.orange} />
               <Text style={[styles.cardHeaderTitle, { color: lc.moonstone }]}>MEMBERS ({members.length})</Text>
             </View>
-            {isAdmin && (
-              <TouchableOpacity
-                style={[styles.inviteBtn, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
-                onPress={() => { fetchPendingInvites(); setShowInviteSheet(true); }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="person-add" size={14} color={lc.orange} />
-                <Text style={[styles.inviteBtnText, { color: lc.orange }]}>Invite</Text>
-              </TouchableOpacity>
-            )}
+            <View style={styles.adminBtnsRow}>
+              {isAdmin && (
+                <TouchableOpacity
+                  style={[styles.inviteBtn, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+                  onPress={() => { fetchPendingInvites(); setShowInviteSheet(true); }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="person-add" size={14} color={lc.orange} />
+                  <Text style={[styles.inviteBtnText, { color: lc.orange }]}>Invite</Text>
+                </TouchableOpacity>
+              )}
+              {isAdmin && members.filter((m: any) => m.role !== "admin").length > 0 && (
+                <TouchableOpacity
+                  style={[styles.inviteBtn, { backgroundColor: lc.liquidGlassBg, borderColor: "rgba(238,108,41,0.4)" }]}
+                  onPress={() => setShowTransferSheet(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="swap-horizontal-outline" size={14} color={lc.orange} />
+                  <Text style={[styles.inviteBtnText, { color: lc.orange }]}>Transfer Admin</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
           <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
             {members.length > 0 ? (
@@ -474,15 +486,16 @@ export function GroupHubScreen() {
         transparent
         onRequestClose={() => setShowStartGameSheet(false)}
       >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowStartGameSheet(false)}
+        />
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
+          pointerEvents="box-none"
         >
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowStartGameSheet(false)}
-          />
           <View style={[styles.sheetContainer, { backgroundColor: lc.jetSurface }]}>
             <View style={styles.sheetHandle} />
             <Text style={[styles.sheetTitle, { color: lc.textPrimary }]}>New Game</Text>
@@ -900,6 +913,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  adminBtnsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
   inviteBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1234,7 +1251,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalBackdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   sheetContainer: {
@@ -1242,6 +1259,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 28,
     paddingBottom: 40,
+    overflow: "hidden",
   },
   sheetHandle: {
     width: 36,

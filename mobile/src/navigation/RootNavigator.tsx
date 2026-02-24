@@ -232,7 +232,7 @@ export default function RootNavigator() {
               <Stack.Screen name="Chats" component={ChatsScreen} options={{ headerShown: false }} />
               <Stack.Screen name="GroupHub" component={GroupHubScreen} options={{ headerShown: false }} />
               <Stack.Screen name="GameNight" component={GameNightScreen} options={{ headerShown: false }} />
-              <Stack.Screen name="Settlement" component={SettlementScreen} options={{ title: "Settlement", headerBackTitle: "" }} />
+              <Stack.Screen name="Settlement" component={SettlementScreen} options={{ headerShown: false }} />
               <Stack.Screen name="PokerAI" component={PokerAIScreen} options={{ title: "Poker AI", headerBackTitle: "" }} />
               <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
               <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />

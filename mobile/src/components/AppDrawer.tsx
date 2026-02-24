@@ -118,7 +118,7 @@ export function AppDrawer({
         </View>
 
         {/* Nav Items — Grouped by Section */}
-        <ScrollView style={styles.navSection} showsVerticalScrollIndicator={false}>
+        <View style={styles.navSection}>
           {menuSections.map((section) => (
             <View key={section.key}>
               {section.label && (
@@ -158,7 +158,7 @@ export function AppDrawer({
               ))}
             </View>
           ))}
-        </ScrollView>
+        </View>
 
         {/* Recents Section */}
         {recentItems.length > 0 && (
@@ -201,9 +201,6 @@ export function AppDrawer({
             )}
           </View>
         )}
-
-        {/* Spacer */}
-        <View style={styles.spacer} />
 
         {/* Bottom Section */}
         <View style={styles.bottomSection}>
@@ -312,7 +309,6 @@ const styles = StyleSheet.create({
   },
   navSection: {
     paddingHorizontal: 12,
-    flex: 1,
   },
   sectionHeader: {
     paddingHorizontal: 14,

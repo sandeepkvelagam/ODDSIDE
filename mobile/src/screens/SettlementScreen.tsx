@@ -169,7 +169,13 @@ export function SettlementScreen() {
           <Ionicons name="chevron-back" size={22} color={lc.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.pageTitle, { color: lc.textPrimary }]}>Settlement</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          style={[styles.backButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+          onPress={() => navigation.navigate("Dashboard" as any)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="home-outline" size={20} color={lc.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView

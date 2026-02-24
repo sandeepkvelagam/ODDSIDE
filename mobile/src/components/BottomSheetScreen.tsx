@@ -135,8 +135,8 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    borderTopLeftRadius: 56,
-    borderTopRightRadius: 56,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     overflow: "hidden",
     zIndex: 1,
     // Shadow for depth

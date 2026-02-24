@@ -11,8 +11,6 @@ import {
   Pressable,
   Linking,
   ActivityIndicator,
-  Animated,
-  LayoutRectangle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,7 +24,6 @@ import { useHaptics } from "../context/HapticsContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import { api } from "../api/client";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
-import { LiquidGlassPopup } from "../components/ui/LiquidGlassPopup";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -41,31 +38,6 @@ export function SettingsScreen() {
   const [showAppearancePopup, setShowAppearancePopup] = useState(false);
   const [showInfoPopup, setShowInfoPopup] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
-
-  // Info popup
-  const infoButtonRef = useRef<View>(null);
-  const [infoButtonLayout, setInfoButtonLayout] = useState<LayoutRectangle | null>(null);
-
-  // Info button liquid glass press animation
-  const infoButtonScale = useRef(new Animated.Value(1)).current;
-
-  const onInfoPressIn = () => {
-    Animated.spring(infoButtonScale, {
-      toValue: 0.82,
-      tension: 200,
-      friction: 3,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const onInfoPressOut = () => {
-    Animated.spring(infoButtonScale, {
-      toValue: 1,
-      tension: 65,
-      friction: 5,
-      useNativeDriver: true,
-    }).start();
-  };
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -207,27 +179,20 @@ export function SettingsScreen() {
 
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t.settings.title}</Text>
 
-          <Animated.View style={{ transform: [{ scale: infoButtonScale }] }}>
-            <Pressable
-              ref={infoButtonRef}
-              testID="settings-info-button"
-              style={[
-                styles.glassButton,
-                { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
-              ]}
-              onPressIn={onInfoPressIn}
-              onPressOut={onInfoPressOut}
-              onPress={() => {
-                triggerHaptic("light");
-                infoButtonRef.current?.measureInWindow((x, y, w, h) => {
-                  setInfoButtonLayout({ x, y, width: w, height: h });
-                  setShowInfoPopup(true);
-                });
-              }}
-            >
-              <Ionicons name="information-circle-outline" size={22} color={colors.textPrimary} />
-            </Pressable>
-          </Animated.View>
+          <Pressable
+            testID="settings-info-button"
+            style={({ pressed }) => [
+              styles.glassButton,
+              { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
+              pressed && styles.glassButtonPressed,
+            ]}
+            onPress={() => {
+              triggerHaptic("light");
+              setShowInfoPopup(true);
+            }}
+          >
+            <Ionicons name="information-circle-outline" size={22} color={colors.textPrimary} />
+          </Pressable>
         </View>
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -559,36 +524,61 @@ export function SettingsScreen() {
         </View>
       </Modal>
 
-      {/* Info Popup - Liquid Glass from "i" button */}
-      <LiquidGlassPopup
+      {/* Info Popup */}
+      <Modal
         visible={showInfoPopup}
-        onClose={() => setShowInfoPopup(false)}
-        anchorLayout={infoButtonLayout}
-        anchorSide="right"
-        header={
-          <Text style={[styles.versionText, { color: colors.textMuted }]}>Kvitt v1.0.0</Text>
-        }
-        items={[
-          {
-            icon: "document-text-outline",
-            label: "Acceptable Use Policy",
-            rightIcon: "open-outline",
-            onPress: () => Linking.openURL("https://kvitt.app/acceptable-use"),
-          },
-          {
-            icon: "document-text-outline",
-            label: "Consumer Terms",
-            rightIcon: "open-outline",
-            onPress: () => Linking.openURL("https://kvitt.app/terms"),
-          },
-          {
-            icon: "shield-outline",
-            label: "Privacy Policy",
-            rightIcon: "open-outline",
-            onPress: () => Linking.openURL("https://kvitt.app/privacy"),
-          },
-        ]}
-      />
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInfoPopup(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowInfoPopup(false)}
+        >
+          <Pressable
+            style={[
+              styles.infoPopup,
+              {
+                backgroundColor: colors.popupBg,
+                top: insets.top + 70,
+              },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={[styles.infoVersionText, { color: colors.textMuted }]}>Kvitt v1.0.0</Text>
+
+            <TouchableOpacity
+              style={[styles.infoItem, { borderTopColor: colors.border }]}
+              onPress={() => { setShowInfoPopup(false); Linking.openURL("https://kvitt.app/acceptable-use"); }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
+              <Text style={[styles.infoItemLabel, { color: colors.textPrimary }]}>Acceptable Use Policy</Text>
+              <Ionicons name="open-outline" size={15} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.infoItem, { borderTopColor: colors.border }]}
+              onPress={() => { setShowInfoPopup(false); Linking.openURL("https://kvitt.app/terms"); }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
+              <Text style={[styles.infoItemLabel, { color: colors.textPrimary }]}>Consumer Terms</Text>
+              <Ionicons name="open-outline" size={15} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.infoItem, { borderTopColor: colors.border }]}
+              onPress={() => { setShowInfoPopup(false); Linking.openURL("https://kvitt.app/privacy"); }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="shield-outline" size={18} color={colors.textSecondary} />
+              <Text style={[styles.infoItemLabel, { color: colors.textPrimary }]}>Privacy Policy</Text>
+              <Ionicons name="open-outline" size={15} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
     </BottomSheetScreen>
   );
@@ -818,5 +808,35 @@ const styles = StyleSheet.create({
   exampleText: {
     fontSize: 15,
     fontStyle: "italic",
+  },
+  infoPopup: {
+    position: "absolute",
+    right: 16,
+    width: 240,
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  infoVersionText: {
+    fontSize: 13,
+    fontWeight: "500",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+  },
+  infoItemLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
   },
 });

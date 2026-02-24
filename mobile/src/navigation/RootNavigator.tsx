@@ -26,11 +26,13 @@ import { AIToolkitScreen } from "../screens/AIToolkitScreen";
 import { WalletScreen } from "../screens/WalletScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
 import { AutomationsScreen } from "../screens/AutomationsScreen";
+import { ChatsScreen } from "../screens/ChatsScreen";
 
 export type RootStackParamList = {
   Login: undefined;
   Dashboard: undefined;
   Groups: undefined;
+  Chats: undefined;
   GroupHub: { groupId: string; groupName?: string };
   GameNight: { gameId: string };
   Settlement: { gameId: string };
@@ -217,6 +219,7 @@ export default function RootNavigator() {
             <>
               <Stack.Screen name="Dashboard" component={DashboardScreenV2} options={{ headerShown: false }} />
               <Stack.Screen name="Groups" component={GroupsScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="Chats" component={ChatsScreen} options={{ headerShown: false }} />
               <Stack.Screen name="GroupHub" component={GroupHubScreen} options={{ headerShown: false }} />
               <Stack.Screen name="GameNight" component={GameNightScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Settlement" component={SettlementScreen} options={{ title: "Settlement", headerBackTitle: "" }} />

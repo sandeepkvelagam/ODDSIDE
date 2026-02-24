@@ -189,9 +189,17 @@ export function DashboardScreenV2() {
 
   const menuItems = [
     { icon: "home-outline" as const, label: t.nav.dashboard, onPress: () => {} },
-    { icon: "chatbubble-outline" as const, label: "Chats", onPress: () => navigation.navigate("Groups") },
+    { icon: "chatbubbles-outline" as const, label: t.nav.chats, onPress: () => navigation.navigate("Chats") },
     { icon: "people-outline" as const, label: t.nav.groups, onPress: () => navigation.navigate("Groups") },
-    { icon: "game-controller-outline" as const, label: "Games", onPress: () => navigation.navigate("Groups") },
+    { icon: "game-controller-outline" as const, label: t.nav.games, onPress: () => navigation.navigate("Groups") },
+    { icon: "wallet-outline" as const, label: t.nav.wallet, onPress: () => navigation.navigate("Wallet") },
+    {
+      icon: "notifications-outline" as const,
+      label: t.nav.notifications,
+      onPress: () => setShowNotificationsPanel(true),
+      badge: notifications.length > 0 ? notifications.length : undefined,
+    },
+    { icon: "flash-outline" as const, label: t.nav.automations, onPress: () => navigation.navigate("Automations") },
   ];
 
   const recentDrawerItems = recentGames.map((game) => ({
@@ -290,6 +298,7 @@ export function DashboardScreenV2() {
       userEmail={user?.email}
       onProfilePress={() => navigation.navigate("Settings")}
       onNewPress={() => navigation.navigate("AIAssistant")}
+      onAllGamesPress={() => navigation.navigate("Groups")}
     >
       <View style={[styles.container, { paddingTop: insets.top, backgroundColor: lc.jetDark }]}>
         {/* Header Bar */}

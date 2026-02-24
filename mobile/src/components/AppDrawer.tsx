@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -38,6 +38,7 @@ type Props = {
   userEmail?: string;
   onProfilePress: () => void;
   onNewPress: () => void;
+  onAllGamesPress?: () => void;
   children: React.ReactNode;
 };
 
@@ -47,6 +48,7 @@ export function AppDrawer({
   userName,
   onProfilePress,
   onNewPress,
+  onAllGamesPress,
   children,
 }: Props) {
   const { colors } = useTheme();
@@ -55,6 +57,7 @@ export function AppDrawer({
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(0)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
+  const [recentsCollapsed, setRecentsCollapsed] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -143,29 +146,42 @@ export function AppDrawer({
         {/* Recents Section */}
         {recentItems.length > 0 && (
           <View style={styles.recentsSection}>
-            <Text style={[styles.recentsLabel, { color: colors.textMuted }]}>
-              Recents
-            </Text>
-            <ScrollView style={styles.recentsList} showsVerticalScrollIndicator={false}>
-              {recentItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.recentItem}
-                  onPress={() => {
-                    item.onPress();
-                    closeDrawer();
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[styles.recentTitle, { color: colors.textSecondary }]}
-                    numberOfLines={1}
+            <TouchableOpacity
+              style={styles.recentsHeader}
+              onPress={() => setRecentsCollapsed((prev) => !prev)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.recentsLabel, { color: colors.textMuted }]}>
+                Recents
+              </Text>
+              <Ionicons
+                name={recentsCollapsed ? "chevron-forward" : "chevron-down"}
+                size={14}
+                color={colors.textMuted}
+              />
+            </TouchableOpacity>
+            {!recentsCollapsed && (
+              <ScrollView style={styles.recentsList} showsVerticalScrollIndicator={false}>
+                {recentItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.recentItem}
+                    onPress={() => {
+                      item.onPress();
+                      closeDrawer();
+                    }}
+                    activeOpacity={0.7}
                   >
-                    {item.title}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                    <Text
+                      style={[styles.recentTitle, { color: colors.textSecondary }]}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
           </View>
         )}
 
@@ -174,7 +190,14 @@ export function AppDrawer({
 
         {/* Bottom Section */}
         <View style={styles.bottomSection}>
-          <TouchableOpacity style={styles.allGamesRow} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.allGamesRow}
+            activeOpacity={0.7}
+            onPress={() => {
+              onAllGamesPress?.();
+              closeDrawer();
+            }}
+          >
             <Text style={[styles.allGamesText, { color: colors.textMuted }]}>
               All games
             </Text>
@@ -202,7 +225,7 @@ export function AppDrawer({
               </Text>
             </TouchableOpacity>
 
-            {/* FAB */}
+            {/* FAB — pill with sparkles icon + "AI" label */}
             <TouchableOpacity
               style={[styles.fab, { backgroundColor: colors.orange }]}
               onPress={() => {
@@ -211,7 +234,8 @@ export function AppDrawer({
               }}
               activeOpacity={0.9}
             >
-              <Ionicons name="add" size={26} color="#fff" />
+              <Ionicons name="sparkles-outline" size={17} color="#fff" />
+              <Text style={styles.fabLabel}>AI</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -306,10 +330,15 @@ const styles = StyleSheet.create({
     marginTop: 28,
     flex: 1,
   },
+  recentsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
   recentsLabel: {
     fontSize: 13,
     fontWeight: "500",
-    marginBottom: 14,
   },
   recentsList: {
     flex: 1,
@@ -369,11 +398,17 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   fab: {
-    width: 44,
     height: 44,
     borderRadius: 22,
+    paddingHorizontal: 14,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
+  },
+  fabLabel: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
   contentPanel: {
     position: "absolute",

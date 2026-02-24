@@ -46,6 +46,11 @@ type TranslationKeys = {
     settings: string;
     profile: string;
     notifications: string;
+    chats: string;
+    games: string;
+    wallet: string;
+    aiAssistant: string;
+    automations: string;
   };
   
   // Dashboard
@@ -172,6 +177,11 @@ const translations: Record<Language, TranslationKeys> = {
       settings: "Settings",
       profile: "Profile",
       notifications: "Notifications",
+      chats: "Chats",
+      games: "Games",
+      wallet: "Wallet",
+      aiAssistant: "AI Assistant",
+      automations: "Automations",
     },
     dashboard: {
       welcome: "Welcome back",
@@ -283,6 +293,11 @@ const translations: Record<Language, TranslationKeys> = {
       settings: "Ajustes",
       profile: "Perfil",
       notifications: "Notificaciones",
+      chats: "Chats",
+      games: "Juegos",
+      wallet: "Billetera",
+      aiAssistant: "Asistente IA",
+      automations: "Automatizaciones",
     },
     dashboard: {
       welcome: "Bienvenido",
@@ -394,6 +409,11 @@ const translations: Record<Language, TranslationKeys> = {
       settings: "Paramètres",
       profile: "Profil",
       notifications: "Notifications",
+      chats: "Chats",
+      games: "Parties",
+      wallet: "Portefeuille",
+      aiAssistant: "Assistant IA",
+      automations: "Automatisations",
     },
     dashboard: {
       welcome: "Bienvenue",
@@ -505,6 +525,11 @@ const translations: Record<Language, TranslationKeys> = {
       settings: "Einstellungen",
       profile: "Profil",
       notifications: "Benachrichtigungen",
+      chats: "Chats",
+      games: "Spiele",
+      wallet: "Wallet",
+      aiAssistant: "KI-Assistent",
+      automations: "Automatisierungen",
     },
     dashboard: {
       welcome: "Willkommen zurück",
@@ -616,6 +641,11 @@ const translations: Record<Language, TranslationKeys> = {
       settings: "सेटिंग्स",
       profile: "प्रोफ़ाइल",
       notifications: "सूचनाएं",
+      chats: "चैट्स",
+      games: "गेम्स",
+      wallet: "वॉलेट",
+      aiAssistant: "AI सहायक",
+      automations: "स्वचालन",
     },
     dashboard: {
       welcome: "वापसी पर स्वागत है",
@@ -727,6 +757,11 @@ const translations: Record<Language, TranslationKeys> = {
       settings: "Configurações",
       profile: "Perfil",
       notifications: "Notificações",
+      chats: "Chats",
+      games: "Jogos",
+      wallet: "Carteira",
+      aiAssistant: "Assistente IA",
+      automations: "Automações",
     },
     dashboard: {
       welcome: "Bem-vindo de volta",
@@ -838,6 +873,11 @@ const translations: Record<Language, TranslationKeys> = {
       settings: "设置",
       profile: "个人资料",
       notifications: "通知",
+      chats: "聊天",
+      games: "游戏",
+      wallet: "钱包",
+      aiAssistant: "AI助手",
+      automations: "自动化",
     },
     dashboard: {
       welcome: "欢迎回来",

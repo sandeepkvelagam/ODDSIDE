@@ -187,20 +187,51 @@ export function DashboardScreenV2() {
     setRefreshing(false);
   }, [fetchDashboard]);
 
-  const menuItems = [
-    { icon: "home-outline" as const, label: t.nav.dashboard, onPress: () => {} },
-    { icon: "chatbubbles-outline" as const, label: t.nav.chats, onPress: () => navigation.navigate("Chats") },
-    { icon: "people-outline" as const, label: t.nav.groups, onPress: () => navigation.navigate("Groups") },
-    { icon: "game-controller-outline" as const, label: t.nav.games, onPress: () => navigation.navigate("Groups") },
-    { icon: "wallet-outline" as const, label: t.nav.wallet, onPress: () => navigation.navigate("Wallet") },
-    { icon: "document-text-outline" as const, label: "View Requests", onPress: () => navigation.navigate("PendingRequests") },
+  const menuSections = [
     {
-      icon: "notifications-outline" as const,
-      label: t.nav.notifications,
-      onPress: () => setShowNotificationsPanel(true),
-      badge: notifications.length > 0 ? notifications.length : undefined,
+      key: "main",
+      items: [
+        { icon: "home-outline" as const, label: t.nav.dashboard, onPress: () => {} },
+      ],
     },
-    { icon: "flash-outline" as const, label: t.nav.automations, onPress: () => navigation.navigate("Automations") },
+    {
+      key: "social",
+      label: "Social",
+      items: [
+        { icon: "people-outline" as const, label: t.nav.groups, onPress: () => navigation.navigate("Groups") },
+        { icon: "chatbubbles-outline" as const, label: t.nav.chats, onPress: () => navigation.navigate("Chats") },
+      ],
+    },
+    {
+      key: "gaming",
+      label: "Gaming",
+      items: [
+        { icon: "game-controller-outline" as const, label: t.nav.games, onPress: () => navigation.navigate("Groups") },
+        { icon: "receipt-outline" as const, label: t.nav.settlements, onPress: () => navigation.navigate("SettlementHistory" as any) },
+      ],
+    },
+    {
+      key: "finance",
+      label: "Finance",
+      items: [
+        { icon: "wallet-outline" as const, label: t.nav.wallet, onPress: () => navigation.navigate("Wallet") },
+        { icon: "cash-outline" as const, label: t.nav.requestPay, onPress: () => navigation.navigate("RequestAndPay" as any) },
+      ],
+    },
+    {
+      key: "system",
+      label: "System",
+      items: [
+        {
+          icon: "notifications-outline" as const,
+          label: t.nav.notifications,
+          onPress: () => setShowNotificationsPanel(true),
+          badge: notifications.length > 0 ? notifications.length : undefined,
+        },
+        { icon: "flash-outline" as const, label: t.nav.automations, onPress: () => navigation.navigate("Automations") },
+        { icon: "document-text-outline" as const, label: "View Requests", onPress: () => navigation.navigate("PendingRequests") },
+      ],
+    },
   ];
 
   const recentDrawerItems = recentGames.map((game) => ({
@@ -293,7 +324,7 @@ export function DashboardScreenV2() {
 
   return (
     <AppDrawer
-      menuItems={menuItems}
+      menuSections={menuSections}
       recentItems={recentDrawerItems}
       userName={user?.name || user?.email || "Player"}
       userEmail={user?.email}

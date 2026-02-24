@@ -28,6 +28,8 @@ import { FeedbackScreen } from "../screens/FeedbackScreen";
 import { AutomationsScreen } from "../screens/AutomationsScreen";
 import { ChatsScreen } from "../screens/ChatsScreen";
 import { PendingRequestsScreen } from "../screens/PendingRequestsScreen";
+import { SettlementHistoryScreen } from "../screens/SettlementHistoryScreen";
+import { RequestAndPayScreen } from "../screens/RequestAndPayScreen";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -50,6 +52,8 @@ export type RootStackParamList = {
   AIToolkit: undefined;
   Feedback: undefined;
   Automations: undefined;
+  SettlementHistory: undefined;
+  RequestAndPay: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -115,6 +119,10 @@ function handleNotificationDeepLink(data: Record<string, any>) {
       } else {
         navigationRef.navigate("Notifications");
       }
+      break;
+
+    case "payment_request":
+      navigationRef.navigate("RequestAndPay" as any);
       break;
 
     case "reminder":
@@ -238,6 +246,8 @@ export default function RootNavigator() {
               <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
               <Stack.Screen name="Automations" component={AutomationsScreen} options={{ headerShown: false, animation: "slide_from_bottom", presentation: "transparentModal", contentStyle: { backgroundColor: "transparent" } }} />
               <Stack.Screen name="PendingRequests" component={PendingRequestsScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="SettlementHistory" component={SettlementHistoryScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="RequestAndPay" component={RequestAndPayScreen} options={{ headerShown: false }} />
             </>
           )}
         </Stack.Navigator>

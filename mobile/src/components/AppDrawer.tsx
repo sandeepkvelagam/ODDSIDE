@@ -24,6 +24,12 @@ type MenuItem = {
   badge?: number;
 };
 
+type MenuSection = {
+  key: string;
+  label?: string;
+  items: MenuItem[];
+};
+
 type RecentItem = {
   id: string;
   title: string;
@@ -32,7 +38,7 @@ type RecentItem = {
 };
 
 type Props = {
-  menuItems: MenuItem[];
+  menuSections: MenuSection[];
   recentItems?: RecentItem[];
   userName: string;
   userEmail?: string;
@@ -43,7 +49,7 @@ type Props = {
 };
 
 export function AppDrawer({
-  menuItems,
+  menuSections,
   recentItems = [],
   userName,
   onProfilePress,
@@ -111,37 +117,48 @@ export function AppDrawer({
           <Text style={[styles.logo, { color: colors.textPrimary }]}>Kvitt</Text>
         </View>
 
-        {/* Nav Items */}
-        <View style={styles.navSection}>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.navItem}
-              onPress={() => {
-                item.onPress();
-                closeDrawer();
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={item.icon}
-                size={24}
-                color={colors.textSecondary}
-                style={styles.navIcon}
-              />
-              <Text style={[styles.navLabel, { color: colors.textSecondary }]}>
-                {item.label}
-              </Text>
-              {item.badge !== undefined && item.badge > 0 && (
-                <View style={[styles.badge, { backgroundColor: colors.orange }]}>
-                  <Text style={styles.badgeText}>
-                    {item.badge > 99 ? "99+" : item.badge}
+        {/* Nav Items — Grouped by Section */}
+        <ScrollView style={styles.navSection} showsVerticalScrollIndicator={false}>
+          {menuSections.map((section) => (
+            <View key={section.key}>
+              {section.label && (
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionHeaderText, { color: colors.textMuted }]}>
+                    {section.label}
                   </Text>
                 </View>
               )}
-            </TouchableOpacity>
+              {section.items.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.navItem}
+                  onPress={() => {
+                    item.onPress();
+                    closeDrawer();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={22}
+                    color={colors.textSecondary}
+                    style={styles.navIcon}
+                  />
+                  <Text style={[styles.navLabel, { color: colors.textSecondary }]}>
+                    {item.label}
+                  </Text>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <View style={[styles.badge, { backgroundColor: colors.orange }]}>
+                      <Text style={styles.badgeText}>
+                        {item.badge > 99 ? "99+" : item.badge}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
           ))}
-        </View>
+        </ScrollView>
 
         {/* Recents Section */}
         {recentItems.length > 0 && (
@@ -295,20 +312,32 @@ const styles = StyleSheet.create({
   },
   navSection: {
     paddingHorizontal: 12,
+    flex: 1,
+  },
+  sectionHeader: {
+    paddingHorizontal: 14,
+    paddingTop: 18,
+    paddingBottom: 4,
+  },
+  sectionHeaderText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
   navItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 11,
     paddingHorizontal: 12,
     borderRadius: 12,
   },
   navIcon: {
-    width: 28,
-    marginRight: 14,
+    width: 26,
+    marginRight: 12,
   },
   navLabel: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "400",
     flex: 1,
   },

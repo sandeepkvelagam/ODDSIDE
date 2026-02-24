@@ -51,6 +51,8 @@ type TranslationKeys = {
     wallet: string;
     aiAssistant: string;
     automations: string;
+    settlements: string;
+    requestPay: string;
   };
   
   // Dashboard
@@ -182,6 +184,8 @@ const translations: Record<Language, TranslationKeys> = {
       wallet: "Wallet",
       aiAssistant: "AI Assistant",
       automations: "Automations",
+      settlements: "Settlements",
+      requestPay: "Request & Pay",
     },
     dashboard: {
       welcome: "Welcome back",
@@ -298,6 +302,8 @@ const translations: Record<Language, TranslationKeys> = {
       wallet: "Billetera",
       aiAssistant: "Asistente IA",
       automations: "Automatizaciones",
+      settlements: "Liquidaciones",
+      requestPay: "Solicitar y Pagar",
     },
     dashboard: {
       welcome: "Bienvenido",
@@ -414,6 +420,8 @@ const translations: Record<Language, TranslationKeys> = {
       wallet: "Portefeuille",
       aiAssistant: "Assistant IA",
       automations: "Automatisations",
+      settlements: "Règlements",
+      requestPay: "Demander et Payer",
     },
     dashboard: {
       welcome: "Bienvenue",
@@ -530,6 +538,8 @@ const translations: Record<Language, TranslationKeys> = {
       wallet: "Wallet",
       aiAssistant: "KI-Assistent",
       automations: "Automatisierungen",
+      settlements: "Abrechnungen",
+      requestPay: "Anfordern & Bezahlen",
     },
     dashboard: {
       welcome: "Willkommen zurück",
@@ -646,6 +656,8 @@ const translations: Record<Language, TranslationKeys> = {
       wallet: "वॉलेट",
       aiAssistant: "AI सहायक",
       automations: "स्वचालन",
+      settlements: "निपटान",
+      requestPay: "अनुरोध और भुगतान",
     },
     dashboard: {
       welcome: "वापसी पर स्वागत है",
@@ -762,6 +774,8 @@ const translations: Record<Language, TranslationKeys> = {
       wallet: "Carteira",
       aiAssistant: "Assistente IA",
       automations: "Automações",
+      settlements: "Acertos",
+      requestPay: "Solicitar e Pagar",
     },
     dashboard: {
       welcome: "Bem-vindo de volta",
@@ -878,6 +892,8 @@ const translations: Record<Language, TranslationKeys> = {
       wallet: "钱包",
       aiAssistant: "AI助手",
       automations: "自动化",
+      settlements: "结算",
+      requestPay: "请求和支付",
     },
     dashboard: {
       welcome: "欢迎回来",

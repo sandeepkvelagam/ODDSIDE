@@ -1,7 +1,6 @@
-import React, { useRef } from "react";
+import React from "react";
 import {
   TouchableOpacity,
-  Animated,
   Text,
   View,
   StyleSheet,
@@ -10,7 +9,12 @@ import {
   TextStyle,
   ActivityIndicator,
 } from "react-native";
-import { COLORS, TYPOGRAPHY, RADIUS, SPACING, SHADOWS, ANIMATION } from "../../styles/liquidGlass";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
+import { COLORS, TYPOGRAPHY, RADIUS, SPACING, SHADOWS, SPRINGS, ANIMATION } from "../../styles/liquidGlass";
 import { useTheme } from "../../context/ThemeContext";
 
 type ButtonVariant = "primary" | "primaryDark" | "secondary" | "ghost" | "destructive";
@@ -33,17 +37,8 @@ interface GlassButtonProps {
 
 /**
  * GlassButton - Premium button with spring press animation
- * 
- * Features:
- * - Multiple variants (primary, secondary, ghost, destructive)
- * - Spring-based press animation (scale 0.95 → 1.0)
- * - Loading state with spinner
- * - Icon support (left/right)
- * 
- * Usage:
- * <GlassButton variant="primary" onPress={handlePress}>
- *   Sign In
- * </GlassButton>
+ *
+ * Uses react-native-reanimated for UI-thread animations.
  */
 export function GlassButton({
   children,
@@ -60,20 +55,18 @@ export function GlassButton({
   testID,
 }: GlassButtonProps) {
   const { colors } = useTheme();
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: ANIMATION.scale.pressed,
-      ...ANIMATION.spring.press,
-    }).start();
+    scale.value = withSpring(ANIMATION.scale.pressed, SPRINGS.press);
   };
 
   const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: ANIMATION.scale.normal,
-      ...ANIMATION.spring.snap,
-    }).start();
+    scale.value = withSpring(ANIMATION.scale.normal, SPRINGS.snap);
   };
 
   const getVariantStyle = (): ViewStyle => {
@@ -123,7 +116,7 @@ export function GlassButton({
   return (
     <Animated.View
       style={[
-        { transform: [{ scale: scaleAnim }] },
+        animatedStyle,
         fullWidth && { width: "100%" },
       ]}
     >
@@ -192,20 +185,18 @@ export function GlassIconButton({
   testID,
 }: GlassIconButtonProps) {
   const { colors } = useTheme();
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: ANIMATION.scale.pressed,
-      ...ANIMATION.spring.press,
-    }).start();
+    scale.value = withSpring(ANIMATION.scale.pressed, SPRINGS.press);
   };
 
   const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: ANIMATION.scale.normal,
-      ...ANIMATION.spring.snap,
-    }).start();
+    scale.value = withSpring(ANIMATION.scale.normal, SPRINGS.snap);
   };
 
   const getSizeValue = (): number => {
@@ -240,7 +231,7 @@ export function GlassIconButton({
   const sizeValue = getSizeValue();
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <Animated.View style={animatedStyle}>
       <TouchableOpacity
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -283,7 +274,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   iconButton: {
-    borderRadius: 22, // Fully circular (matches 44x44 button size)
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -405,6 +405,67 @@ export const KVITT_LOGO = {
 } as const;
 
 // ===========================================
+// BLUR CONFIG (for GlassSurface, GlassHeader)
+// ===========================================
+
+export const BLUR = {
+  surface: {
+    intensity: { dark: 20, light: 15, android: 10 },
+    tint: { dark: "dark" as const, light: "light" as const },
+    overlay: {
+      dark: "rgba(40, 43, 43, 0.65)",
+      light: "rgba(255, 255, 255, 0.55)",
+    },
+  },
+  header: {
+    maxIntensity: { dark: 25, light: 20 },
+    scrollRange: 80, // px of scroll before header is fully glass
+  },
+  modal: {
+    intensity: { dark: 50, light: 40 },
+  },
+  bottomSheet: {
+    intensity: { dark: 30, light: 25 },
+  },
+} as const;
+
+// ===========================================
+// TINT PRESETS (for content-aware glass tinting)
+// ===========================================
+
+export const TINTS = {
+  warmOrange: "rgba(238, 108, 41, 0.06)",
+  coolBlue: "rgba(59, 130, 246, 0.06)",
+  successGreen: "rgba(34, 197, 94, 0.06)",
+  dangerRed: "rgba(239, 68, 68, 0.06)",
+  neutral: "rgba(255, 255, 255, 0.03)",
+} as const;
+
+// ===========================================
+// REANIMATED SPRING CONFIGS
+// ===========================================
+
+export const SPRINGS = {
+  /** Bouncy entrance (modals, menus) */
+  bouncy: { damping: 12, stiffness: 120, mass: 0.8 },
+  /** Responsive press feedback */
+  press: { damping: 8, stiffness: 200, mass: 0.5 },
+  /** Quick bounce back */
+  snap: { damping: 5, stiffness: 400, mass: 0.3 },
+  /** Smooth layout transitions */
+  layout: { damping: 14, stiffness: 150, mass: 0.6 },
+} as const;
+
+// ===========================================
+// HEADER CONSTANTS
+// ===========================================
+
+export const HEADER = {
+  height: 56,
+  scrollRange: 80,
+} as const;
+
+// ===========================================
 // HELPER FUNCTIONS
 // ===========================================
 
@@ -446,3 +507,61 @@ export const createGlassSurfaceStyle = (glowVariant?: 'orange' | 'blue' | 'green
     ...(glowVariant && { backgroundColor: getGlowColor(glowVariant) }),
   },
 });
+
+/**
+ * Theme-aware liquid colors.
+ * Replaces the per-screen `const LIQUID_COLORS = {...}` + `const lc = isDark ? ...` pattern.
+ *
+ * Usage in screens:
+ * ```ts
+ * import { getThemedColors } from "../../styles/liquidGlass";
+ * const { isDark, colors } = useTheme();
+ * const lc = getThemedColors(isDark, colors);
+ * ```
+ */
+export const getThemedColors = (isDark: boolean, themeColors: Record<string, string>) => {
+  if (isDark) {
+    return {
+      jetDark: COLORS.jetDark,
+      jetSurface: COLORS.jetSurface,
+      orange: COLORS.orange,
+      orangeDark: COLORS.orangeDark,
+      trustBlue: COLORS.trustBlue,
+      moonstone: COLORS.moonstone,
+      liquidGlassBg: COLORS.glass.bg,
+      liquidGlassBorder: COLORS.glass.border,
+      liquidInnerBg: COLORS.glass.inner,
+      liquidGlowOrange: COLORS.glass.glowOrange,
+      liquidGlowBlue: COLORS.glass.glowBlue,
+      glassBg: "rgba(255, 255, 255, 0.08)",
+      glassBorder: COLORS.glass.border,
+      textPrimary: COLORS.text.primary,
+      textSecondary: COLORS.text.secondary,
+      textMuted: COLORS.text.muted,
+      success: COLORS.status.success,
+      danger: COLORS.status.danger,
+      warning: COLORS.status.warning,
+    };
+  }
+  return {
+    jetDark: themeColors.background ?? "#F5F3EF",
+    jetSurface: themeColors.surface ?? "#FFFFFF",
+    orange: COLORS.orange,
+    orangeDark: COLORS.orangeDark,
+    trustBlue: COLORS.trustBlue,
+    moonstone: COLORS.moonstone,
+    liquidGlassBg: "rgba(0, 0, 0, 0.04)",
+    liquidGlassBorder: "rgba(0, 0, 0, 0.10)",
+    liquidInnerBg: "rgba(0, 0, 0, 0.03)",
+    liquidGlowOrange: COLORS.glass.glowOrange,
+    liquidGlowBlue: COLORS.glass.glowBlue,
+    glassBg: "rgba(0, 0, 0, 0.04)",
+    glassBorder: "rgba(0, 0, 0, 0.10)",
+    textPrimary: themeColors.textPrimary ?? "#1a1a1a",
+    textSecondary: themeColors.textSecondary ?? "#666666",
+    textMuted: themeColors.textMuted ?? "#999999",
+    success: COLORS.status.success,
+    danger: COLORS.status.danger,
+    warning: COLORS.status.warning,
+  };
+};

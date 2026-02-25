@@ -21,6 +21,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
+import { getThemedColors } from "../styles/liquidGlass";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -32,25 +33,6 @@ type GroupItem = {
   role?: string;
 };
 
-// Liquid Glass Design System Colors (matching DashboardV2)
-const LIQUID_COLORS = {
-  jetDark: "#282B2B",
-  jetSurface: "#323535",
-  orange: "#EE6C29",
-  orangeDark: "#C45A22",
-  trustBlue: "#3B82F6",
-  moonstone: "#7AA6B3",
-  liquidGlassBg: "rgba(255, 255, 255, 0.06)",
-  liquidGlassBorder: "rgba(255, 255, 255, 0.12)",
-  liquidInnerBg: "rgba(255, 255, 255, 0.03)",
-  liquidGlowOrange: "rgba(238, 108, 41, 0.15)",
-  liquidGlowBlue: "rgba(59, 130, 246, 0.15)",
-  textPrimary: "#F5F5F5",
-  textSecondary: "#B8B8B8",
-  textMuted: "#7A7A7A",
-  success: "#22C55E",
-  danger: "#EF4444",
-};
 
 // Fun random group name generator
 const GROUP_ADJECTIVES = ["Lucky", "Wild", "Golden", "Royal", "Midnight", "Epic", "Thunder", "Cosmic"];
@@ -87,18 +69,7 @@ export function GroupsScreen() {
   const headerEntrance = useState(new Animated.Value(0))[0];
   const listEntrance = useState(new Animated.Value(0))[0];
 
-  // Use liquid glass colors
-  const lc = isDark ? LIQUID_COLORS : {
-    ...LIQUID_COLORS,
-    jetDark: colors.background,
-    jetSurface: colors.surface,
-    liquidGlassBg: "rgba(0, 0, 0, 0.04)",
-    liquidGlassBorder: "rgba(0, 0, 0, 0.10)",
-    liquidInnerBg: "rgba(0, 0, 0, 0.03)",
-    textPrimary: colors.textPrimary,
-    textSecondary: colors.textSecondary,
-    textMuted: colors.textMuted,
-  };
+  const lc = getThemedColors(isDark, colors);
 
   // Admin badge color - amber that's readable on both themes
   const adminColor = isDark ? "#eab308" : "#b45309";

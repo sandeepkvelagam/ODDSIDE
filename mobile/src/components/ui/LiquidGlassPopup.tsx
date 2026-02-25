@@ -1,19 +1,26 @@
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   View,
   Modal,
-  Animated,
-  TouchableOpacity,
   Pressable,
   StyleSheet,
   LayoutRectangle,
   Dimensions,
   Text,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  FadeInRight,
+  runOnJS,
+} from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { useHaptics } from "../../context/HapticsContext";
+import { SPRINGS } from "../../styles/liquidGlass";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -41,8 +48,6 @@ interface LiquidGlassPopupProps {
 
 // ─── Animation configs ───────────────────────────────────────
 
-const SPRING_OPEN = { tension: 65, friction: 8, useNativeDriver: true };
-const SPRING_FLOAT = { tension: 80, friction: 10, useNativeDriver: true };
 const CLOSE_DURATION = 180;
 const STAGGER_DELAY = 50;
 const STAGGER_START_DELAY = 80;
@@ -63,81 +68,55 @@ export function LiquidGlassPopup({
   const { triggerHaptic } = useHaptics();
 
   // Core animation values
-  const scale = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(12)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-
-  // Per-item stagger values
-  const itemCount = items?.length ?? React.Children.count(children) ?? 0;
-  const itemAnims = useRef<Animated.Value[]>([]).current;
-  const itemSlides = useRef<Animated.Value[]>([]).current;
-
-  // Ensure we have enough animated values for each item
-  while (itemAnims.length < itemCount) {
-    itemAnims.push(new Animated.Value(0));
-    itemSlides.push(new Animated.Value(15));
-  }
+  const scale = useSharedValue(0);
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(12);
+  const backdropOpacity = useSharedValue(0);
 
   // ─── Open animation ──────────────────────────────────────
 
-  const animateOpen = () => {
-    // Reset
-    scale.setValue(0);
-    opacity.setValue(0);
-    translateY.setValue(12);
-    backdropOpacity.setValue(0);
-    itemAnims.forEach((a) => a.setValue(0));
-    itemSlides.forEach((a) => a.setValue(15));
+  useEffect(() => {
+    if (visible) {
+      // Reset
+      scale.value = 0;
+      opacity.value = 0;
+      translateY.value = 12;
+      backdropOpacity.value = 0;
 
-    triggerHaptic("light");
+      triggerHaptic("light");
 
-    // Container entrance
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, ...SPRING_OPEN }),
-      Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
-      Animated.spring(translateY, { toValue: 0, ...SPRING_FLOAT }),
-      Animated.timing(backdropOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-    ]).start();
-
-    // Staggered item entrance
-    const staggerAnims = itemAnims.slice(0, itemCount).map((anim, i) =>
-      Animated.parallel([
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 200,
-          delay: STAGGER_START_DELAY + i * STAGGER_DELAY,
-          useNativeDriver: true,
-        }),
-        Animated.timing(itemSlides[i], {
-          toValue: 0,
-          duration: 200,
-          delay: STAGGER_START_DELAY + i * STAGGER_DELAY,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    Animated.parallel(staggerAnims).start();
-  };
+      // Container entrance
+      scale.value = withSpring(1, SPRINGS.bouncy);
+      opacity.value = withTiming(1, { duration: 180 });
+      translateY.value = withSpring(0, { damping: 10, stiffness: 80 });
+      backdropOpacity.value = withTiming(1, { duration: 200 });
+    }
+  }, [visible]);
 
   // ─── Close animation ─────────────────────────────────────
 
   const animateClose = () => {
     triggerHaptic("light");
 
-    Animated.parallel([
-      Animated.timing(scale, { toValue: 0, duration: CLOSE_DURATION, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 8, duration: 150, useNativeDriver: true }),
-      Animated.timing(backdropOpacity, { toValue: 0, duration: 150, useNativeDriver: true }),
-    ]).start(() => onClose());
+    scale.value = withTiming(0, { duration: CLOSE_DURATION });
+    opacity.value = withTiming(0, { duration: 150 });
+    translateY.value = withTiming(8, { duration: 150 });
+    backdropOpacity.value = withTiming(0, { duration: 150 }, (finished) => {
+      if (finished) {
+        runOnJS(onClose)();
+      }
+    });
   };
 
-  useEffect(() => {
-    if (visible) {
-      animateOpen();
-    }
-  }, [visible]);
+  // Animated styles
+  const backdropAnimStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
+  const popupAnimStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }, { translateY: translateY.value }],
+  }));
 
   // ─── Positioning ──────────────────────────────────────────
 
@@ -171,13 +150,15 @@ export function LiquidGlassPopup({
   const separatorColor = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
   const itemPressedBg = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.04)";
 
+  const itemCount = items?.length ?? React.Children.count(children) ?? 0;
+
   // ─── Render ───────────────────────────────────────────────
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={animateClose}>
       <View style={styles.fullscreen}>
         {/* Backdrop */}
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, backdropAnimStyle]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={animateClose}>
             <BlurView intensity={isDark ? 18 : 12} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill}>
               <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.1)" }]} />
@@ -192,9 +173,8 @@ export function LiquidGlassPopup({
             {
               width,
               ...popupPosition,
-              opacity,
-              transform: [{ scale }, { translateY }],
             },
+            popupAnimStyle,
           ]}
         >
           {/* Glass background */}
@@ -212,34 +192,35 @@ export function LiquidGlassPopup({
               {/* Optional header */}
               {header && <View style={styles.headerSection}>{header}</View>}
 
-              {/* Items */}
+              {/* Items — each item uses reanimated entering for stagger */}
               {items
                 ? items.map((item, index) => (
-                    <LiquidGlassRow
+                    <Animated.View
                       key={index}
-                      item={item}
-                      index={index}
-                      itemOpacity={itemAnims[index]}
-                      itemSlide={itemSlides[index]}
-                      showSeparator={index < items.length - 1}
-                      separatorColor={separatorColor}
-                      pressedBg={itemPressedBg}
-                      colors={colors}
-                      onPress={() => {
-                        triggerHaptic("light");
-                        animateClose();
-                        // Delay the action slightly so close animation is visible
-                        setTimeout(() => item.onPress(), CLOSE_DURATION);
-                      }}
-                    />
+                      entering={FadeInRight.delay(STAGGER_START_DELAY + index * STAGGER_DELAY)
+                        .springify()
+                        .damping(SPRINGS.layout.damping)}
+                    >
+                      <LiquidGlassRow
+                        item={item}
+                        showSeparator={index < items.length - 1}
+                        separatorColor={separatorColor}
+                        pressedBg={itemPressedBg}
+                        colors={colors}
+                        onPress={() => {
+                          triggerHaptic("light");
+                          animateClose();
+                          setTimeout(() => item.onPress(), CLOSE_DURATION);
+                        }}
+                      />
+                    </Animated.View>
                   ))
                 : React.Children.map(children, (child, index) => (
                     <Animated.View
                       key={index}
-                      style={{
-                        opacity: itemAnims[index] || 1,
-                        transform: [{ translateX: itemSlides[index] || 0 }],
-                      }}
+                      entering={FadeInRight.delay(STAGGER_START_DELAY + index * STAGGER_DELAY)
+                        .springify()
+                        .damping(SPRINGS.layout.damping)}
                     >
                       {child}
                     </Animated.View>
@@ -256,9 +237,6 @@ export function LiquidGlassPopup({
 
 interface LiquidGlassRowProps {
   item: LiquidGlassPopupItem;
-  index: number;
-  itemOpacity: Animated.Value;
-  itemSlide: Animated.Value;
   showSeparator: boolean;
   separatorColor: string;
   pressedBg: string;
@@ -268,8 +246,6 @@ interface LiquidGlassRowProps {
 
 function LiquidGlassRow({
   item,
-  itemOpacity,
-  itemSlide,
   showSeparator,
   separatorColor,
   pressedBg,
@@ -280,12 +256,7 @@ function LiquidGlassRow({
   const iconColor = item.destructive ? colors.danger : colors.textSecondary;
 
   return (
-    <Animated.View
-      style={{
-        opacity: itemOpacity,
-        transform: [{ translateX: itemSlide }],
-      }}
-    >
+    <View>
       <Pressable
         style={({ pressed }) => [
           styles.menuRow,
@@ -307,7 +278,7 @@ function LiquidGlassRow({
         )}
       </Pressable>
       {showSeparator && <View style={[styles.separator, { backgroundColor: separatorColor }]} />}
-    </Animated.View>
+    </View>
   );
 }
 

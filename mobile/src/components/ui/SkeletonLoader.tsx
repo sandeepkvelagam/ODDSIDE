@@ -1,5 +1,12 @@
-import React, { useEffect, useRef } from "react";
-import { View, Animated, StyleSheet, StyleProp, ViewStyle, DimensionValue } from "react-native";
+import React, { useEffect } from "react";
+import { View, StyleSheet, StyleProp, ViewStyle, DimensionValue } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, RADIUS, SPACING } from "../../styles/liquidGlass";
 
@@ -12,10 +19,8 @@ interface SkeletonProps {
 
 /**
  * Skeleton - Loading placeholder with shimmer animation
- * 
- * Usage:
- * <Skeleton width={200} height={20} />
- * <Skeleton width="100%" height={100} borderRadius={16} />
+ *
+ * Uses react-native-reanimated for UI-thread shimmer loop.
  */
 export function Skeleton({
   width = "100%",
@@ -23,24 +28,19 @@ export function Skeleton({
   borderRadius = RADIUS.sm,
   style,
 }: SkeletonProps) {
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const translateX = useSharedValue(-200);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.timing(shimmerAnim, {
-        toValue: 1,
-        duration: 1500,
-        useNativeDriver: true,
-      })
+    translateX.value = withRepeat(
+      withTiming(200, { duration: 1500, easing: Easing.linear }),
+      -1, // infinite
+      false,
     );
-    animation.start();
-    return () => animation.stop();
   }, []);
 
-  const translateX = shimmerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-200, 200],
-  });
+  const shimmerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   return (
     <View
@@ -50,12 +50,7 @@ export function Skeleton({
         style,
       ]}
     >
-      <Animated.View
-        style={[
-          styles.shimmer,
-          { transform: [{ translateX }] },
-        ]}
-      >
+      <Animated.View style={[styles.shimmer, shimmerStyle]}>
         <LinearGradient
           colors={[
             "transparent",

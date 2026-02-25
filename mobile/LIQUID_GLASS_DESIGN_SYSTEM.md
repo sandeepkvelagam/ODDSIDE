@@ -422,5 +422,22 @@ Color: #ffffff
 
 ---
 
-*Last Updated: December 2025*
-*Version: 1.0*
+## 9. Glass Standards (Definition of Done)
+
+Every screen and component MUST follow these rules:
+
+1. **No local `LIQUID_COLORS`** — import from `liquidGlass.ts` only
+2. **Every card/panel** uses `GlassSurface` or `GlassSurfaceFlat`
+3. **Every tappable** uses `GlassButton` / `GlassIconButton` / `GlassListItem`
+4. **No `import { Animated } from "react-native"`** — use `react-native-reanimated`
+5. **Scrollable screens** use `GlassHeader` + `useScrollGlass` where appropriate
+6. **Token access only** via `liquidGlass.ts` — no hardcoded rgba glass colors
+7. **Max 3 blurred surfaces** visible simultaneously per screen (blur budget)
+8. **Text over glass** must meet 4.5:1 contrast ratio
+
+Run `scripts/check-glass-standards.sh` to validate.
+
+---
+
+*Last Updated: February 2026*
+*Version: 2.0*

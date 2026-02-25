@@ -1,16 +1,19 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   StyleSheet,
-  Animated,
   Dimensions,
   TouchableOpacity,
-  Platform,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { BlurView } from "expo-blur";
-import * as Haptics from "expo-haptics";
 import { useTheme } from "../context/ThemeContext";
 import { useHaptics } from "../context/HapticsContext";
 
@@ -24,72 +27,47 @@ interface BottomSheetScreenProps {
 
 /**
  * BottomSheetScreen - A screen wrapper that presents content as a bottom sheet
- * 
- * Features:
- * - Curved top corners (borderRadius: 28)
- * - Transparent top area showing previous screen
- * - Spring slide-up animation
- * - Blur backdrop at top
+ *
+ * Uses react-native-reanimated for UI-thread slide animations.
  */
 export function BottomSheetScreen({ children, noBorderRadius }: BottomSheetScreenProps) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { triggerHaptic } = useHaptics();
-  
-  // Animation
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const slideY = useSharedValue(SCREEN_HEIGHT);
+  const backdropOp = useSharedValue(0);
 
   useEffect(() => {
-    // Slide up animation
-    Animated.parallel([
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 65,
-        friction: 10,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    slideY.value = withSpring(0, { damping: 20, stiffness: 120, mass: 0.8 });
+    backdropOp.value = withTiming(1, { duration: 200 });
   }, []);
 
   const handleClose = () => {
     triggerHaptic("light");
-    
-    // Slide down animation
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: SCREEN_HEIGHT,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      navigation.goBack();
+
+    slideY.value = withTiming(SCREEN_HEIGHT, { duration: 250 });
+    backdropOp.value = withTiming(0, { duration: 200 }, (finished) => {
+      if (finished) {
+        runOnJS(navigation.goBack)();
+      }
     });
   };
 
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOp.value,
+    backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.15)",
+  }));
+
+  const contentStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideY.value }],
+  }));
+
   return (
     <View style={styles.container}>
-      {/* Semi-transparent backdrop that covers the entire screen behind content */}
-      <Animated.View 
-        style={[
-          styles.fullBackdrop, 
-          { 
-            opacity: opacityAnim,
-            backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.15)",
-          }
-        ]}
-      >
+      {/* Semi-transparent backdrop */}
+      <Animated.View style={[styles.fullBackdrop, backdropStyle]}>
         <TouchableOpacity
           style={styles.backdropTouchable}
           activeOpacity={1}
@@ -97,22 +75,21 @@ export function BottomSheetScreen({ children, noBorderRadius }: BottomSheetScree
         />
       </Animated.View>
 
-      {/* Main content with curved corners - sits on top of backdrop */}
+      {/* Main content with curved corners */}
       <Animated.View
         style={[
           styles.contentContainer,
           {
             backgroundColor: colors.contentBg,
             marginTop: TOP_VISIBLE_HEIGHT + insets.top,
-            transform: [{ translateY: slideAnim }],
             ...(noBorderRadius && {
               borderTopLeftRadius: 0,
               borderTopRightRadius: 0,
             }),
           },
+          contentStyle,
         ]}
       >
-        {/* Content */}
         <View style={[styles.content, { paddingBottom: insets.bottom }]}>
           {children}
         </View>
@@ -139,7 +116,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     overflow: "hidden",
     zIndex: 1,
-    // Shadow for depth
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25,

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   TextInput,
   View,
@@ -8,8 +8,13 @@ import {
   ViewStyle,
   TextInputProps,
   TouchableOpacity,
-  Animated,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolateColor,
+} from "react-native-reanimated";
 import { COLORS, TYPOGRAPHY, RADIUS, SPACING } from "../../styles/liquidGlass";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -24,20 +29,8 @@ interface GlassInputProps extends TextInputProps {
 
 /**
  * GlassInput - Premium text input with glass styling
- * 
- * Features:
- * - Glass morphism background
- * - Focus state with orange border glow
- * - Optional label and error message
- * - Icon support (left/right)
- * 
- * Usage:
- * <GlassInput
- *   label="Email"
- *   placeholder="you@example.com"
- *   value={email}
- *   onChangeText={setEmail}
- * />
+ *
+ * Uses react-native-reanimated for UI-thread border color animation.
  */
 export function GlassInput({
   label,
@@ -50,32 +43,27 @@ export function GlassInput({
 }: GlassInputProps) {
   const { colors } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
-  const borderAnim = useRef(new Animated.Value(0)).current;
+  const focusProgress = useSharedValue(0);
+
+  const animatedBorderStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(
+      focusProgress.value,
+      [0, 1],
+      [colors.glassBorder, COLORS.input.focusBorder],
+    ),
+  }));
 
   const handleFocus = (e: any) => {
     setIsFocused(true);
-    Animated.timing(borderAnim, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
+    focusProgress.value = withTiming(1, { duration: 200 });
     props.onFocus?.(e);
   };
 
   const handleBlur = (e: any) => {
     setIsFocused(false);
-    Animated.timing(borderAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
+    focusProgress.value = withTiming(0, { duration: 200 });
     props.onBlur?.(e);
   };
-
-  const borderColor = borderAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [colors.glassBorder, COLORS.input.focusBorder],
-  });
 
   return (
     <View style={containerStyle}>
@@ -83,7 +71,8 @@ export function GlassInput({
       <Animated.View
         style={[
           styles.container,
-          { borderColor, backgroundColor: colors.inputBg },
+          { backgroundColor: colors.inputBg },
+          animatedBorderStyle,
           error && styles.errorBorder,
         ]}
       >

@@ -22,6 +22,7 @@ import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useDrawer } from "../context/DrawerContext";
 import { useTheme } from "../context/ThemeContext";
+import { getThemedColors, COLORS } from "../styles/liquidGlass";
 import { useLanguage } from "../context/LanguageContext";
 import { AppDrawer } from "../components/AppDrawer";
 import { AIChatFab } from "../components/AIChatFab";
@@ -30,35 +31,6 @@ import type { RootStackParamList } from "../navigation/RootNavigator";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // Liquid Glass Design System Colors
-const LIQUID_COLORS = {
-  // Backgrounds
-  jetDark: "#282B2B",
-  jetSurface: "#323535",
-
-  // Brand
-  orange: "#EE6C29",
-  orangeDark: "#C45A22",
-  trustBlue: "#3B82F6",
-  moonstone: "#7AA6B3",
-
-  // Glass effects
-  liquidGlassBg: "rgba(255, 255, 255, 0.06)",
-  liquidGlassBorder: "rgba(255, 255, 255, 0.12)",
-  liquidInnerBg: "rgba(255, 255, 255, 0.03)",
-  liquidGlowOrange: "rgba(238, 108, 41, 0.15)",
-  liquidGlowBlue: "rgba(59, 130, 246, 0.15)",
-  glassBg: "rgba(255, 255, 255, 0.08)",
-  glassBorder: "rgba(255, 255, 255, 0.12)",
-
-  // Text
-  textPrimary: "#F5F5F5",
-  textSecondary: "#B8B8B8",
-  textMuted: "#7A7A7A",
-
-  // Status
-  success: "#22C55E",
-  danger: "#EF4444",
-};
 
 export function DashboardScreenV2() {
   const { isDark, colors } = useTheme();
@@ -272,14 +244,14 @@ export function DashboardScreenV2() {
 
   const getNotifIcon = (type: string): { icon: string; color: string } => {
     const map: Record<string, { icon: string; color: string }> = {
-      game_started: { icon: "play-circle", color: LIQUID_COLORS.success },
-      game_ended: { icon: "stop-circle", color: LIQUID_COLORS.textMuted },
+      game_started: { icon: "play-circle", color: lc.success },
+      game_ended: { icon: "stop-circle", color: lc.textMuted },
       settlement_generated: { icon: "calculator", color: "#F59E0B" },
-      invite_accepted: { icon: "person-add", color: LIQUID_COLORS.success },
-      wallet_received: { icon: "wallet", color: LIQUID_COLORS.success },
-      group_invite: { icon: "people", color: LIQUID_COLORS.orange },
+      invite_accepted: { icon: "person-add", color: lc.success },
+      wallet_received: { icon: "wallet", color: lc.success },
+      group_invite: { icon: "people", color: lc.orange },
     };
-    return map[type] || { icon: "notifications", color: LIQUID_COLORS.moonstone };
+    return map[type] || { icon: "notifications", color: lc.moonstone };
   };
 
   const handleNotificationPress = async (notif: any) => {
@@ -308,19 +280,7 @@ export function DashboardScreenV2() {
       navigation.navigate("Wallet");
     }
   };
-
-  // Use liquid glass colors for dark mode, fall back to theme colors for light
-  const lc = isDark ? LIQUID_COLORS : {
-    ...LIQUID_COLORS,
-    jetDark: colors.background,
-    jetSurface: colors.surface,
-    liquidGlassBg: "rgba(0, 0, 0, 0.04)",
-    liquidGlassBorder: "rgba(0, 0, 0, 0.08)",
-    liquidInnerBg: "rgba(0, 0, 0, 0.02)",
-    textPrimary: colors.textPrimary,
-    textSecondary: colors.textSecondary,
-    textMuted: colors.textMuted,
-  };
+  const lc = getThemedColors(isDark, colors);
 
   return (
     <AppDrawer
@@ -1724,7 +1684,7 @@ const styles = StyleSheet.create({
   },
   statPill: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: COLORS.glass.bg,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",

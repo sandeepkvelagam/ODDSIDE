@@ -1,31 +1,39 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Animated, Easing } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { listGroups } from "../api/groups";
+import { COLORS } from "../styles/liquidGlass";
 
 type Nav = NativeStackNavigationProp<any, any>;
 
 export default function AuthLoadingScreen() {
   const navigation = useNavigation<Nav>();
-  const [scaleAnim] = useState(new Animated.Value(0.8));
-  const [opacityAnim] = useState(new Animated.Value(0));
+  const scale = useSharedValue(0.8);
+  const opacity = useSharedValue(0);
+
+  const logoStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const textStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
   useEffect(() => {
     // Logo zoom animation
-    Animated.parallel([
-      Animated.timing(scaleAnim, {
-        toValue: 1.2,
-        duration: 1500,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    scale.value = withTiming(1.2, {
+      duration: 1500,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    });
+    opacity.value = withTiming(1, { duration: 800 });
 
     // Preload data
     const loadData = async () => {
@@ -49,22 +57,14 @@ export default function AuthLoadingScreen() {
     };
 
     loadData();
-  }, [navigation, scaleAnim, opacityAnim]);
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.logoContainer,
-          {
-            transform: [{ scale: scaleAnim }],
-            opacity: opacityAnim,
-          },
-        ]}
-      >
+      <Animated.View style={[styles.logoContainer, logoStyle]}>
         <Text style={styles.logo}>K</Text>
       </Animated.View>
-      <Animated.Text style={[styles.subtitle, { opacity: opacityAnim }]}>
+      <Animated.Text style={[styles.subtitle, textStyle]}>
         Game Ledger
       </Animated.Text>
     </View>
@@ -74,7 +74,7 @@ export default function AuthLoadingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B0B0F",
+    backgroundColor: COLORS.deepBlack,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#3b82f6",
+    backgroundColor: COLORS.trustBlue,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 24,
@@ -90,11 +90,11 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 72,
     fontWeight: "bold",
-    color: "#fff",
+    color: COLORS.text.primary,
   },
   subtitle: {
     fontSize: 18,
-    color: "#999",
+    color: COLORS.text.muted,
     letterSpacing: 2,
     textTransform: "uppercase",
   },

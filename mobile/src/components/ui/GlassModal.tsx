@@ -1,8 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useCallback } from "react";
 import {
   View,
   Modal,
-  Animated,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -11,8 +10,15 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from "react-native-reanimated";
 import { BlurView } from "expo-blur";
-import { COLORS, TYPOGRAPHY, RADIUS, SPACING, SHADOWS, ANIMATION } from "../../styles/liquidGlass";
+import { COLORS, TYPOGRAPHY, RADIUS, SPACING, SHADOWS, SPRINGS, BLUR, ANIMATION } from "../../styles/liquidGlass";
 import { GlassIconButton } from "./GlassButton";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -30,17 +36,8 @@ interface GlassModalProps {
 
 /**
  * GlassModal - Premium modal with spring animations
- * 
- * Features:
- * - Blur backdrop
- * - Spring open/close animation (scale 0.85 → 1.0)
- * - Glass morphism styling
- * - Optional header with title/subtitle
- * 
- * Usage:
- * <GlassModal visible={showModal} onClose={() => setShowModal(false)} title="Settings">
- *   <View>...</View>
- * </GlassModal>
+ *
+ * Uses react-native-reanimated for UI-thread animations.
  */
 export function GlassModal({
   visible,
@@ -52,46 +49,36 @@ export function GlassModal({
   size = "medium",
   avoidKeyboard = true,
 }: GlassModalProps) {
-  const scaleAnim = useRef(new Animated.Value(ANIMATION.scale.modalStart)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const scale = useSharedValue<number>(ANIMATION.scale.modalStart);
+  const opacity = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
-      // Animate in
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: ANIMATION.scale.normal,
-          ...ANIMATION.spring.bouncy,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          ...ANIMATION.timing.normal,
-        }),
-      ]).start();
+      scale.value = withSpring(ANIMATION.scale.normal, SPRINGS.bouncy);
+      opacity.value = withTiming(1, { duration: 200 });
     } else {
-      // Reset for next open
-      scaleAnim.setValue(ANIMATION.scale.modalStart);
-      opacityAnim.setValue(0);
+      scale.value = ANIMATION.scale.modalStart;
+      opacity.value = 0;
     }
   }, [visible]);
 
-  const handleClose = () => {
-    // Animate out
-    Animated.parallel([
-      Animated.timing(scaleAnim, {
-        toValue: ANIMATION.scale.modalStart,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose();
+  const handleClose = useCallback(() => {
+    scale.value = withTiming(ANIMATION.scale.modalStart, { duration: 150 });
+    opacity.value = withTiming(0, { duration: 150 }, (finished) => {
+      if (finished) {
+        runOnJS(onClose)();
+      }
     });
-  };
+  }, [onClose]);
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
 
   const getMaxHeight = () => {
     switch (size) {
@@ -119,8 +106,8 @@ export function GlassModal({
     >
       <View style={styles.overlay}>
         {/* Blur backdrop */}
-        <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]}>
-          <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" />
+        <Animated.View style={[styles.backdrop, backdropStyle]}>
+          <BlurView intensity={BLUR.modal.intensity.dark} style={StyleSheet.absoluteFill} tint="dark" />
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
@@ -137,10 +124,7 @@ export function GlassModal({
             style={[
               styles.modal,
               { maxHeight: getMaxHeight() },
-              {
-                opacity: opacityAnim,
-                transform: [{ scale: scaleAnim }],
-              },
+              contentStyle,
             ]}
           >
             {/* Header */}
@@ -193,43 +177,35 @@ export function GlassBottomSheet({
   height = "auto",
   avoidKeyboard = true,
 }: GlassBottomSheetProps) {
-  const translateYAnim = useRef(new Animated.Value(300)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useSharedValue(300);
+  const opacity = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.spring(translateYAnim, {
-          toValue: 0,
-          ...ANIMATION.spring.bouncy,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          ...ANIMATION.timing.normal,
-        }),
-      ]).start();
+      translateY.value = withSpring(0, SPRINGS.bouncy);
+      opacity.value = withTiming(1, { duration: 200 });
     } else {
-      translateYAnim.setValue(300);
-      opacityAnim.setValue(0);
+      translateY.value = 300;
+      opacity.value = 0;
     }
   }, [visible]);
 
-  const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(translateYAnim, {
-        toValue: 300,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose();
+  const handleClose = useCallback(() => {
+    translateY.value = withTiming(300, { duration: 200 });
+    opacity.value = withTiming(0, { duration: 150 }, (finished) => {
+      if (finished) {
+        runOnJS(onClose)();
+      }
     });
-  };
+  }, [onClose]);
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
 
   const Wrapper = avoidKeyboard ? KeyboardAvoidingView : View;
 
@@ -242,8 +218,8 @@ export function GlassBottomSheet({
     >
       <View style={styles.overlay}>
         {/* Backdrop */}
-        <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]}>
-          <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
+        <Animated.View style={[styles.backdrop, backdropStyle]}>
+          <BlurView intensity={BLUR.bottomSheet.intensity.dark} style={StyleSheet.absoluteFill} tint="dark" />
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
@@ -260,7 +236,7 @@ export function GlassBottomSheet({
             style={[
               styles.bottomSheet,
               height !== "auto" && { height },
-              { transform: [{ translateY: translateYAnim }] },
+              sheetStyle,
             ]}
           >
             {/* Drag handle */}

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
+import { getThemedColors } from "../styles/liquidGlass";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -26,38 +27,13 @@ type Invite = {
   status: string;
 };
 
-const LIQUID_COLORS = {
-  jetDark: "#282B2B",
-  jetSurface: "#323535",
-  orange: "#EE6C29",
-  trustBlue: "#3B82F6",
-  moonstone: "#7AA6B3",
-  liquidGlassBg: "rgba(255, 255, 255, 0.06)",
-  liquidGlassBorder: "rgba(255, 255, 255, 0.12)",
-  liquidInnerBg: "rgba(255, 255, 255, 0.03)",
-  textPrimary: "#F5F5F5",
-  textSecondary: "#B8B8B8",
-  textMuted: "#7A7A7A",
-  success: "#22C55E",
-  danger: "#EF4444",
-};
 
 export function PendingRequestsScreen() {
   const { isDark, colors } = useTheme();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
 
-  const lc = isDark ? LIQUID_COLORS : {
-    ...LIQUID_COLORS,
-    jetDark: colors.background,
-    jetSurface: colors.surface,
-    liquidGlassBg: "rgba(0, 0, 0, 0.04)",
-    liquidGlassBorder: "rgba(0, 0, 0, 0.10)",
-    liquidInnerBg: "rgba(0, 0, 0, 0.03)",
-    textPrimary: colors.textPrimary,
-    textSecondary: colors.textSecondary,
-    textMuted: colors.textMuted,
-  };
+  const lc = getThemedColors(isDark, colors);
 
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);

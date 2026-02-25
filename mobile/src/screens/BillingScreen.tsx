@@ -1,8 +1,14 @@
-import React, { useRef, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Linking } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SPRINGS } from "../styles/liquidGlass";
 import { PageHeader } from "../components/ui";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
 import { useTheme } from "../context/ThemeContext";
@@ -18,20 +24,23 @@ export function BillingScreen() {
   const navigation = useNavigation();
   const { colors } = useTheme();
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
+  const fade = useSharedValue(0);
+  const slideY = useSharedValue(20);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, ...ANIMATION.spring.bouncy }),
-    ]).start();
+    fade.value = withTiming(1, { duration: 350 });
+    slideY.value = withSpring(0, SPRINGS.bouncy);
   }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: fade.value,
+    transform: [{ translateY: slideY.value }],
+  }));
 
   return (
     <BottomSheetScreen>
       <View style={[styles.container, { backgroundColor: colors.contentBg }]}>
-        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+        <Animated.View style={animStyle}>
           <PageHeader
             title="Billing"
             subtitle="Subscription & payments"
@@ -40,7 +49,7 @@ export function BillingScreen() {
         </Animated.View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          <Animated.View style={animStyle}>
 
             {/* ── Current Plan ── */}
             <View style={[styles.planHero, { backgroundColor: colors.surface, borderColor: colors.border }]}>

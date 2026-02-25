@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
-  ScrollView,
   Text,
   View,
   StyleSheet,
@@ -12,13 +11,17 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
+import Animated from "react-native-reanimated";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
+import { getThemedColors, HEADER } from "../styles/liquidGlass";
 import { useAuth } from "../context/AuthContext";
+import { GlassHeader, GLASS_HEADER_HEIGHT } from "../components/ui/GlassHeader";
+import { useScrollGlass } from "../hooks/useScrollGlass";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type R = RouteProp<RootStackParamList, "GroupHub">;
@@ -28,24 +31,6 @@ const BUY_IN_OPTIONS = [5, 10, 20, 50, 100];
 const CHIPS_OPTIONS = [10, 20, 50, 100];
 
 // Liquid Glass Design System Colors
-const LIQUID_COLORS = {
-  jetDark: "#282B2B",
-  jetSurface: "#323535",
-  orange: "#EE6C29",
-  orangeDark: "#C45A22",
-  trustBlue: "#3B82F6",
-  moonstone: "#7AA6B3",
-  liquidGlassBg: "rgba(255, 255, 255, 0.06)",
-  liquidGlassBorder: "rgba(255, 255, 255, 0.12)",
-  liquidInnerBg: "rgba(255, 255, 255, 0.03)",
-  liquidGlowOrange: "rgba(238, 108, 41, 0.15)",
-  liquidGlowBlue: "rgba(59, 130, 246, 0.15)",
-  textPrimary: "#F5F5F5",
-  textSecondary: "#B8B8B8",
-  textMuted: "#7A7A7A",
-  success: "#22C55E",
-  danger: "#EF4444",
-};
 
 export function GroupHubScreen() {
   const { isDark, colors } = useTheme();
@@ -54,6 +39,7 @@ export function GroupHubScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { groupId } = route.params;
+  const { scrollY, scrollHandler } = useScrollGlass();
 
   const [group, setGroup] = useState<any>(null);
   const [games, setGames] = useState<any[]>([]);
@@ -88,18 +74,7 @@ export function GroupHubScreen() {
   const [showMemberActions, setShowMemberActions] = useState<string | null>(null);
   const [removingMember, setRemovingMember] = useState(false);
 
-  // Theme-aware colors
-  const lc = isDark ? LIQUID_COLORS : {
-    ...LIQUID_COLORS,
-    jetDark: colors.background,
-    jetSurface: colors.surface,
-    liquidGlassBg: "rgba(0, 0, 0, 0.04)",
-    liquidGlassBorder: "rgba(0, 0, 0, 0.10)",
-    liquidInnerBg: "rgba(0, 0, 0, 0.03)",
-    textPrimary: colors.textPrimary,
-    textSecondary: colors.textSecondary,
-    textMuted: colors.textMuted,
-  };
+  const lc = getThemedColors(isDark, colors);
 
   // Admin badge color - readable on both themes
   const adminColor = isDark ? "#fbbf24" : "#b45309";
@@ -238,24 +213,19 @@ export function GroupHubScreen() {
   const pastGames = games.filter((g) => g.status !== "active");
 
   return (
-    <View style={[styles.wrapper, { backgroundColor: lc.jetDark, paddingTop: insets.top }]}>
-      {/* Page Header with Back Button - Left Aligned */}
-      <View style={[styles.pageHeader, { borderBottomColor: lc.liquidGlassBorder }]}>
-        <TouchableOpacity
-          style={[styles.backButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={22} color={lc.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.pageTitle, { color: lc.textPrimary }]} numberOfLines={1}>
-          {group?.name || "Group"}
-        </Text>
-      </View>
+    <View style={[styles.wrapper, { backgroundColor: lc.jetDark }]}>
+      {/* Scroll-aware glass header */}
+      <GlassHeader
+        scrollY={scrollY}
+        title={group?.name || "Group"}
+        onClose={() => navigation.goBack()}
+      />
 
-      <ScrollView
+      <Animated.ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: GLASS_HEADER_HEIGHT + insets.top }]}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={lc.orange} />
         }
@@ -451,7 +421,7 @@ export function GroupHubScreen() {
 
         {/* Bottom spacing for FAB */}
         <View style={{ height: 120 }} />
-      </ScrollView>
+      </Animated.ScrollView>
       {/* Bottom Action Buttons - Labeled FABs */}
       <View style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         {/* AI Chat Button - Labeled */}
@@ -1231,12 +1201,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(34,197,94,0.15)",
   },
   statusEnded: {},
-  livePulse: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#22c55e",
-  },
   statusActiveText: {
     color: "#22c55e",
     fontSize: 13,

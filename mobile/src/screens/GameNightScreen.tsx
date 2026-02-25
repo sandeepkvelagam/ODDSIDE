@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api, getGame } from "../api/games";
 import { useTheme } from "../context/ThemeContext";
+import { getThemedColors } from "../styles/liquidGlass";
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import type { Socket } from "socket.io-client";
@@ -34,24 +35,6 @@ type R = RouteProp<RootStackParamList, "GameNight">;
 const BUY_IN_OPTIONS = [5, 10, 20, 50, 100];
 
 // Liquid Glass Design System Colors (matching DashboardV2)
-const LIQUID_COLORS = {
-  jetDark: "#282B2B",
-  jetSurface: "#323535",
-  orange: "#EE6C29",
-  orangeDark: "#C45A22",
-  trustBlue: "#3B82F6",
-  moonstone: "#7AA6B3",
-  liquidGlassBg: "rgba(255, 255, 255, 0.06)",
-  liquidGlassBorder: "rgba(255, 255, 255, 0.12)",
-  liquidInnerBg: "rgba(255, 255, 255, 0.03)",
-  liquidGlowOrange: "rgba(238, 108, 41, 0.15)",
-  liquidGlowBlue: "rgba(59, 130, 246, 0.15)",
-  textPrimary: "#F5F5F5",
-  textSecondary: "#B8B8B8",
-  textMuted: "#7A7A7A",
-  success: "#22C55E",
-  danger: "#EF4444",
-};
 
 // Poker hand rankings data
 const HAND_RANKINGS = [
@@ -75,18 +58,7 @@ export function GameNightScreen() {
   const insets = useSafeAreaInsets();
   const { gameId } = route.params;
 
-  // Use liquid glass colors - with light theme adjustments
-  const lc = isDark ? LIQUID_COLORS : {
-    ...LIQUID_COLORS,
-    jetDark: colors.background,
-    jetSurface: colors.surface,
-    liquidGlassBg: "rgba(0, 0, 0, 0.04)",
-    liquidGlassBorder: "rgba(0, 0, 0, 0.10)",
-    liquidInnerBg: "rgba(0, 0, 0, 0.03)",
-    textPrimary: colors.textPrimary,
-    textSecondary: colors.textSecondary,
-    textMuted: colors.textMuted,
-  };
+  const lc = getThemedColors(isDark, colors);
 
   // Host/Admin color - amber that's readable on both themes
   const hostColor = isDark ? "#fbbf24" : "#b45309"; // amber-400 in dark, amber-700 in light

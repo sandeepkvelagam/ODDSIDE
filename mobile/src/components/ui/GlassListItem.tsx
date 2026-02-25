@@ -1,14 +1,21 @@
-import React, { useRef } from "react";
+import React from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  Animated,
   StyleSheet,
   StyleProp,
   ViewStyle,
 } from "react-native";
-import { COLORS, TYPOGRAPHY, RADIUS, SPACING, ANIMATION } from "../../styles/liquidGlass";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  FadeInDown,
+  FadeOutDown,
+  Layout,
+} from "react-native-reanimated";
+import { COLORS, TYPOGRAPHY, RADIUS, SPACING, SPRINGS, ANIMATION } from "../../styles/liquidGlass";
 
 interface GlassListItemProps {
   title: string;
@@ -22,25 +29,15 @@ interface GlassListItemProps {
   style?: StyleProp<ViewStyle>;
   showChevron?: boolean;
   danger?: boolean;
+  /** Pass list index to enable staggered enter/exit animations */
+  animationIndex?: number;
 }
 
 /**
  * GlassListItem - Glass styled list row with press animation
- * 
- * Features:
- * - Press animation (scale 0.98)
- * - Optional left/right icons
- * - Optional right text (e.g., value display)
- * - Danger variant for destructive actions
- * 
- * Usage:
- * <GlassListItem
- *   title="Language"
- *   subtitle="English"
- *   leftIcon={<Globe />}
- *   onPress={handlePress}
- *   showChevron
- * />
+ *
+ * Uses react-native-reanimated for UI-thread press feedback
+ * and optional entering/exiting layout animations.
  */
 export function GlassListItem({
   title,
@@ -54,23 +51,22 @@ export function GlassListItem({
   style,
   showChevron = false,
   danger = false,
+  animationIndex,
 }: GlassListItemProps) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const handlePressIn = () => {
     if (!onPress) return;
-    Animated.spring(scaleAnim, {
-      toValue: ANIMATION.scale.cardPressed,
-      ...ANIMATION.spring.press,
-    }).start();
+    scale.value = withSpring(ANIMATION.scale.cardPressed, SPRINGS.press);
   };
 
   const handlePressOut = () => {
     if (!onPress) return;
-    Animated.spring(scaleAnim, {
-      toValue: ANIMATION.scale.normal,
-      ...ANIMATION.spring.snap,
-    }).start();
+    scale.value = withSpring(ANIMATION.scale.normal, SPRINGS.snap);
   };
 
   const content = (
@@ -94,16 +90,37 @@ export function GlassListItem({
     </View>
   );
 
+  // Layout animation props (only when animationIndex is provided)
+  const enteringAnim = animationIndex !== undefined
+    ? FadeInDown.delay(animationIndex * 40).springify().damping(SPRINGS.layout.damping)
+    : undefined;
+  const exitingAnim = animationIndex !== undefined
+    ? FadeOutDown.duration(200)
+    : undefined;
+  const layoutAnim = animationIndex !== undefined
+    ? Layout.springify().damping(SPRINGS.layout.damping)
+    : undefined;
+
   if (!onPress) {
     return (
-      <View style={[styles.container, style]}>
+      <Animated.View
+        style={[styles.container, style]}
+        entering={enteringAnim}
+        exiting={exitingAnim}
+        layout={layoutAnim}
+      >
         {content}
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, style]}>
+    <Animated.View
+      style={[animatedStyle, style]}
+      entering={enteringAnim}
+      exiting={exitingAnim}
+      layout={layoutAnim}
+    >
       <TouchableOpacity
         onPress={onPress}
         onPressIn={handlePressIn}

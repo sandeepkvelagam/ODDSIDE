@@ -1,15 +1,21 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Animated,
   Modal,
   StyleSheet,
   Pressable,
   View,
   Dimensions,
-  Platform,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import { SPRINGS, BLUR } from "../styles/liquidGlass";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -21,140 +27,80 @@ interface AnimatedModalProps {
   enableHaptics?: boolean;
 }
 
-// Spring configuration for bouncy entrance
-const SPRING_CONFIG = {
-  tension: 65,
-  friction: 7,
-  useNativeDriver: true,
-};
-
 /**
  * AnimatedModal - Premium modal with spring entrance, blur backdrop, and float effect
  *
- * Features:
- * - Spring entrance animation (scale 0.85 → 1 with overshoot)
- * - Blur background with expo-blur
- * - Deep shadow for floating effect
- * - Scale down + fade out on close
- * - Optional haptic feedback
+ * Uses react-native-reanimated for UI-thread animations.
  */
 export function AnimatedModal({
   visible,
   onClose,
   children,
-  blurIntensity = 50,
+  blurIntensity = BLUR.modal.intensity.dark,
   enableHaptics = true,
 }: AnimatedModalProps) {
   const [modalVisible, setModalVisible] = useState(visible);
 
-  // Animation values
-  const scaleAnim = useRef(new Animated.Value(0.85)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const scale = useSharedValue(0.85);
+  const opacity = useSharedValue(0);
+  const backdropOpacity = useSharedValue(0);
 
-  // Handle visibility changes
   useEffect(() => {
     if (visible) {
       setModalVisible(true);
       animateIn();
     } else if (modalVisible) {
-      // External close (prop changed to false) - animate out
-      // Don't call onClose since parent already knows it's closing
       if (enableHaptics) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.85,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+      animateOutInternal(() => {
         setModalVisible(false);
       });
     }
   }, [visible]);
 
   const animateIn = () => {
-    // Reset to starting position
-    scaleAnim.setValue(0.85);
-    opacityAnim.setValue(0);
-    backdropOpacity.setValue(0);
+    scale.value = 0.85;
+    opacity.value = 0;
+    backdropOpacity.value = 0;
 
-    // Haptic feedback on open
     if (enableHaptics) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
-    Animated.parallel([
-      // Backdrop fade in
-      Animated.timing(backdropOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      // Content springs in with bounce
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        ...SPRING_CONFIG,
-      }),
-      // Content fades in
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    backdropOpacity.value = withTiming(1, { duration: 200 });
+    scale.value = withSpring(1, SPRINGS.bouncy);
+    opacity.value = withTiming(1, { duration: 200 });
   };
 
-  const animateOut = (callback: () => void) => {
-    // Haptic feedback on close
-    if (enableHaptics) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
-    Animated.parallel([
-      // Backdrop fades out
-      Animated.timing(backdropOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      // Content scales down
-      Animated.timing(scaleAnim, {
-        toValue: 0.85,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      // Content fades out
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setModalVisible(false);
-      callback();
+  const animateOutInternal = (callback: () => void) => {
+    backdropOpacity.value = withTiming(0, { duration: 200 });
+    scale.value = withTiming(0.85, { duration: 200 });
+    opacity.value = withTiming(0, { duration: 200 }, (finished) => {
+      if (finished) {
+        runOnJS(callback)();
+      }
     });
   };
 
   const handleClose = () => {
-    animateOut(() => onClose());
+    if (enableHaptics) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    animateOutInternal(() => {
+      setModalVisible(false);
+      onClose();
+    });
   };
 
-  const handleBackdropPress = () => {
-    handleClose();
-  };
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
+  const contentAnimStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
 
   if (!modalVisible && !visible) {
     return null;
@@ -170,8 +116,8 @@ export function AnimatedModal({
     >
       <View style={styles.container}>
         {/* Blurred backdrop */}
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleBackdropPress}>
+        <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose}>
             <BlurView
               intensity={blurIntensity}
               tint="dark"
@@ -183,15 +129,7 @@ export function AnimatedModal({
         </Animated.View>
 
         {/* Modal content with spring animation */}
-        <Animated.View
-          style={[
-            styles.contentWrapper,
-            {
-              opacity: opacityAnim,
-              transform: [{ scale: scaleAnim }],
-            },
-          ]}
-        >
+        <Animated.View style={[styles.contentWrapper, contentAnimStyle]}>
           <View style={styles.contentContainer}>
             {children}
           </View>

@@ -346,3 +346,115 @@ code {
     display: none;
 }
 
+/* ===========================
+   AI ORB SYSTEM (Gradient Orb)
+   =========================== */
+
+.ai-orb {
+    position: relative;
+    border-radius: 9999px;
+    background:
+        radial-gradient(circle at 30% 28%, rgba(255,255,255,0.9), rgba(255,255,255,0) 32%),
+        radial-gradient(circle at 60% 65%, rgba(255, 110, 168, 0.95), rgba(120, 72, 255, 0.95) 60%, rgba(40, 24, 90, 0.95) 100%);
+    filter: saturate(1.1);
+    box-shadow:
+        0 14px 40px rgba(124, 58, 237, 0.25),
+        inset 0 0 0 1px rgba(255,255,255,0.18);
+    overflow: hidden;
+}
+
+.ai-orb::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    background: radial-gradient(circle at 25% 25%, rgba(255,255,255,0.55), rgba(255,255,255,0) 40%);
+    transform: rotate(-12deg);
+    pointer-events: none;
+}
+
+.ai-orb-shadow {
+    width: 160px;
+    height: 42px;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(124,58,237,0.35), rgba(124,58,237,0) 70%);
+    filter: blur(10px);
+}
+
+.ai-orb-eye {
+    position: absolute;
+    top: 42%;
+    width: 14px;
+    height: 14px;
+    background: rgba(255,255,255,0.92);
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.12));
+}
+
+.ai-orb-eye-left {
+    left: 38%;
+    transform: translateX(-50%);
+}
+
+.ai-orb-eye-right {
+    left: 62%;
+    transform: translateX(-50%);
+}
+
+.ai-speech-bubble {
+    position: relative;
+    background: rgba(255,255,255,0.95);
+    color: rgba(17, 24, 39, 0.92);
+    border-radius: 9999px;
+    padding: 10px 14px;
+    box-shadow:
+        0 10px 30px rgba(0,0,0,0.10),
+        inset 0 0 0 1px rgba(0,0,0,0.04);
+}
+
+.ai-speech-bubble::after {
+    content: "";
+    position: absolute;
+    left: 24px;
+    bottom: -8px;
+    width: 14px;
+    height: 14px;
+    background: rgba(255,255,255,0.95);
+    transform: rotate(45deg);
+    border-radius: 3px;
+    box-shadow: 6px 6px 14px rgba(0,0,0,0.06);
+}
+
+/* Dark theme orb */
+.dark .ai-orb {
+    background:
+        radial-gradient(circle at 30% 28%, rgba(255,255,255,0.22), rgba(255,255,255,0) 35%),
+        radial-gradient(circle at 55% 70%, rgba(255, 120, 180, 0.9), rgba(135, 85, 255, 0.92) 60%, rgba(10, 6, 20, 0.98) 100%);
+    box-shadow:
+        0 18px 60px rgba(124, 58, 237, 0.35),
+        inset 0 0 0 1px rgba(255,255,255,0.12);
+}
+
+.dark .ai-speech-bubble {
+    background: rgba(17, 24, 39, 0.92);
+    color: rgba(255,255,255,0.92);
+    box-shadow:
+        0 12px 40px rgba(0,0,0,0.35),
+        inset 0 0 0 1px rgba(255,255,255,0.08);
+}
+
+.dark .ai-speech-bubble::after {
+    background: rgba(17, 24, 39, 0.92);
+}
+
+/* Reduced motion for orb animations */
+@media (prefers-reduced-motion: reduce) {
+    .animate-orb-breathe,
+    .animate-orb-glow,
+    .animate-speech-bounce,
+    .animate-welcome-fade-in,
+    .animate-mini-orb-pulse,
+    .animate-blink-eyes {
+        animation: none !important;
+    }
+}
+

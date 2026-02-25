@@ -26,6 +26,7 @@ import { getThemedColors, COLORS } from "../styles/liquidGlass";
 import { useLanguage } from "../context/LanguageContext";
 import { AppDrawer } from "../components/AppDrawer";
 import { AIChatFab } from "../components/AIChatFab";
+import { AIGradientOrb } from "./AIAssistantScreen";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -53,6 +54,7 @@ export function DashboardScreenV2() {
   const [showStatModal, setShowStatModal] = useState<'profit' | 'winrate' | null>(null);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
+  const [aiUsage, setAiUsage] = useState<{ requests_remaining: number; daily_limit: number; is_premium: boolean } | null>(null);
 
   // Animated pulse for live indicator
   const pulseAnim = useState(new Animated.Value(1))[0];
@@ -61,6 +63,7 @@ export function DashboardScreenV2() {
   // Entrance animations for staggered fade-in
   const entranceAnim = useState(new Animated.Value(0))[0];
   const statsEntrance = useState(new Animated.Value(0))[0];
+  const aiCardEntrance = useState(new Animated.Value(0))[0];
   const perfEntrance = useState(new Animated.Value(0))[0];
   const sectionsEntrance = useState(new Animated.Value(0))[0];
 
@@ -103,6 +106,7 @@ export function DashboardScreenV2() {
     Animated.stagger(100, [
       Animated.spring(entranceAnim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
       Animated.spring(statsEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+      Animated.spring(aiCardEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
       Animated.spring(perfEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
       Animated.spring(sectionsEntrance, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
     ]).start();
@@ -111,17 +115,18 @@ export function DashboardScreenV2() {
       pulse.stop();
       glow.stop();
     };
-  }, [pulseAnim, glowAnim, entranceAnim, statsEntrance, perfEntrance, sectionsEntrance]);
+  }, [pulseAnim, glowAnim, entranceAnim, statsEntrance, aiCardEntrance, perfEntrance, sectionsEntrance]);
 
   const fetchDashboard = useCallback(async () => {
     try {
       setError(null);
-      const [statsRes, gamesRes, notifRes, groupsRes, balancesRes] = await Promise.all([
+      const [statsRes, gamesRes, notifRes, groupsRes, balancesRes, aiUsageRes] = await Promise.all([
         api.get("/stats/me").catch(() => ({ data: null })),
         api.get("/games").catch(() => ({ data: [] })),
         api.get("/notifications").catch(() => ({ data: [] })),
         api.get("/groups").catch(() => ({ data: [] })),
         api.get("/ledger/consolidated").catch(() => ({ data: { net_balance: 0, total_you_owe: 0, total_owed_to_you: 0 } })),
+        api.get("/assistant/usage").catch(() => ({ data: null })),
       ]);
       setStats(statsRes.data);
       setBalances(balancesRes.data);
@@ -131,6 +136,7 @@ export function DashboardScreenV2() {
       const notifs = Array.isArray(notifRes.data) ? notifRes.data : [];
       setNotifications(notifs.filter((n: any) => !n.read));
       setGroups(Array.isArray(groupsRes.data) ? groupsRes.data : []);
+      if (aiUsageRes.data) setAiUsage(aiUsageRes.data);
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load");
     } finally {
@@ -437,6 +443,52 @@ export function DashboardScreenV2() {
                 </Text>
               </View>
             </TouchableOpacity>
+          </Animated.View>
+
+          {/* AI Assistant Highlight Card */}
+          <Animated.View style={[styles.liquidCardFull, {
+            backgroundColor: lc.liquidGlassBg,
+            borderColor: lc.liquidGlassBorder,
+            opacity: aiCardEntrance,
+            transform: [{
+              translateY: aiCardEntrance.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              })
+            }]
+          }]}>
+            <View style={[styles.liquidInnerFull, { backgroundColor: lc.liquidInnerBg }]}>
+              <View style={styles.aiCardRow}>
+                <AIGradientOrb size={64} />
+                <View style={styles.aiCardContent}>
+                  <View style={styles.aiCardTopRow}>
+                    <View style={styles.aiBetaBadge}>
+                      <Text style={styles.aiBetaBadgeText}>BETA</Text>
+                    </View>
+                    {aiUsage && (
+                      <Text style={[styles.aiRequestsLeft, { color: lc.textMuted }]}>
+                        ✨ {aiUsage.requests_remaining} requests left
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={[styles.aiCardHeading, { color: lc.textPrimary }]}>
+                    Use AI at full power
+                  </Text>
+                  {aiUsage && !aiUsage.is_premium && (
+                    <Text style={[styles.aiCardSub, { color: lc.textMuted }]}>
+                      Upgrade to Pro for {aiUsage.daily_limit < 50 ? "50" : "more"} daily requests
+                    </Text>
+                  )}
+                  <TouchableOpacity
+                    style={styles.aiCardButton}
+                    onPress={() => navigation.navigate("AIAssistant")}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.aiCardButtonText}>Try it →</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
           </Animated.View>
 
           {/* Performance Card - Full Width Liquid Glass */}
@@ -1475,6 +1527,58 @@ const styles = StyleSheet.create({
   },
   seeAll: {
     fontSize: 12,
+    fontWeight: "600",
+  },
+  // AI Highlight Card
+  aiCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  aiCardContent: {
+    flex: 1,
+  },
+  aiCardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  aiBetaBadge: {
+    backgroundColor: "rgba(124,58,237,0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  aiBetaBadgeText: {
+    color: "#A78BFA",
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  aiRequestsLeft: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  aiCardHeading: {
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  aiCardSub: {
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  aiCardButton: {
+    backgroundColor: "#7C3AED",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  aiCardButtonText: {
+    color: "#fff",
+    fontSize: 13,
     fontWeight: "600",
   },
   // Quick Actions

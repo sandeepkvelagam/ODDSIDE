@@ -50,6 +50,27 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# ============== AI ORCHESTRATOR SINGLETON ==============
+_orchestrator = None
+
+def get_orchestrator():
+    """Lazy-init the AI orchestrator with db and optional Claude client."""
+    global _orchestrator
+    if _orchestrator is None:
+        try:
+            from ai_service.orchestrator import AIOrchestrator
+            from ai_service.claude_client import get_claude_client
+            claude = get_claude_client()
+            _orchestrator = AIOrchestrator(
+                db=db,
+                llm_client=claude if claude.is_available else None
+            )
+            logger.info("AI Orchestrator initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to init AI Orchestrator: {e}")
+            return None
+    return _orchestrator
+
 # Supabase config
 SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
@@ -4682,23 +4703,190 @@ class PokerAnalyzeRequest(BaseModel):
     community_cards: List[str] = []  # ["Q of hearts", "J of diamonds", "10 of clubs"]
     game_id: Optional[str] = None  # Optional link to active game for analytics
 
+# --- AI Assistant: Rate Limiting ---
+
+AI_DAILY_LIMIT_FREE = 10
+AI_DAILY_LIMIT_PREMIUM = 50
+
+async def check_ai_rate_limit(user_id: str, daily_limit: int) -> bool:
+    """Check AI request rate limit. Returns True if allowed."""
+    return await wallet_service.check_rate_limit(
+        key=f"ai:{user_id}",
+        endpoint="assistant_ask",
+        limit=daily_limit,
+        window_seconds=86400,
+        db=db
+    )
+
+async def get_ai_requests_remaining(user_id: str, daily_limit: int) -> int:
+    """Get remaining AI requests for current period."""
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(seconds=86400)
+    doc = await db.rate_limits.find_one({
+        "key": f"ai:{user_id}",
+        "endpoint": "assistant_ask",
+        "window_start": {"$gte": window_start}
+    })
+    used = doc["count"] if doc else 0
+    return max(0, daily_limit - used)
+
+async def get_user_ai_limit(user_id: str) -> tuple:
+    """Get daily limit and premium status for user."""
+    user_doc = await db.users.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "is_premium": 1}
+    )
+    is_premium = user_doc.get("is_premium", False) if user_doc else False
+    daily_limit = AI_DAILY_LIMIT_PREMIUM if is_premium else AI_DAILY_LIMIT_FREE
+    return daily_limit, is_premium
+
+# --- AI Assistant: Navigation Detection ---
+
+SCREEN_MAP = {
+    "groups": {"screen": "Groups", "params": {}},
+    "wallet": {"screen": "Wallet", "params": {}},
+    "settings": {"screen": "Settings", "params": {}},
+    "premium": {"screen": "Billing", "params": {}},
+    "billing": {"screen": "Billing", "params": {}},
+    "notifications": {"screen": "Notifications", "params": {}},
+    "profile": {"screen": "Settings", "params": {}},
+    "automations": {"screen": "Automations", "params": {}},
+    "history": {"screen": "SettlementHistory", "params": {}},
+}
+
+NAV_TRIGGERS = {
+    "groups": ["go to groups", "my groups", "see groups", "manage groups", "create a group", "show groups", "open groups"],
+    "wallet": ["go to wallet", "my wallet", "check wallet", "wallet balance", "open wallet"],
+    "settings": ["go to settings", "open settings", "my settings", "my profile"],
+    "premium": ["upgrade", "go premium", "go pro", "billing", "subscription"],
+    "automations": ["automations", "my automations"],
+    "history": ["game history", "past games", "settlement history"],
+    "notifications": ["my notifications", "check notifications"],
+}
+
+def detect_navigation(user_input: str, ai_response: str):
+    """Detect if the response implies navigation to a screen."""
+    combined = (user_input + " " + (ai_response or "")).lower()
+    for key, triggers in NAV_TRIGGERS.items():
+        for trigger in triggers:
+            if trigger in combined:
+                return SCREEN_MAP.get(key)
+    return None
+
+# --- AI Assistant: Content Guardrails ---
+
+def validate_ai_input(message: str) -> str | None:
+    """Validate user input. Returns error message if invalid, None if ok."""
+    if not message or not message.strip():
+        return "Please enter a message."
+    if len(message) > 1000:
+        return "Message too long. Please keep it under 1000 characters."
+    return None
+
+# --- AI Assistant: Endpoints ---
+
+@api_router.get("/assistant/usage")
+async def get_assistant_usage(user: User = Depends(get_current_user)):
+    """Get AI assistant usage for current period."""
+    daily_limit, is_premium = await get_user_ai_limit(user.user_id)
+    remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
+    return {
+        "requests_used": daily_limit - remaining,
+        "requests_remaining": remaining,
+        "daily_limit": daily_limit,
+        "is_premium": is_premium
+    }
+
 @api_router.post("/assistant/ask")
 async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_current_user)):
-    """Ask the AI assistant a question."""
-    from ai_assistant import get_ai_response, get_quick_answer
-    
-    # Check for quick answer first (no API call needed)
+    """Ask the AI assistant a question (BETA - powered by orchestrator)."""
+    from ai_assistant import get_quick_answer
+
+    # Step 1: Validate input
+    validation_error = validate_ai_input(data.message)
+    if validation_error:
+        return {"response": validation_error, "source": "guardrail", "requests_remaining": None}
+
+    # Step 2: Check rate limit
+    daily_limit, is_premium = await get_user_ai_limit(user.user_id)
+    allowed = await check_ai_rate_limit(user.user_id, daily_limit)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "Daily AI request limit reached",
+                "limit": daily_limit,
+                "requests_remaining": 0,
+                "is_premium": is_premium,
+                "upgrade_message": "You've reached your daily limit. Upgrade to Premium for 50 requests/day!" if not is_premium else "Daily limit reached. Resets in 24 hours."
+            }
+        )
+
+    # Step 3: Quick answer fast path (no API call needed)
     quick = get_quick_answer(data.message)
     if quick:
-        return {"response": quick, "source": "quick_answer"}
-    
-    # Use AI for complex questions
-    session_id = f"kvitt_{user.user_id}"
-    context = data.context or {}
-    context["user_role"] = "user"
-    
-    response = await get_ai_response(data.message, session_id, context)
-    return {"response": response, "source": "ai"}
+        remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
+        return {"response": quick, "source": "quick_answer", "requests_remaining": remaining}
+
+    # Step 4: Route through orchestrator
+    try:
+        orchestrator = get_orchestrator()
+        if orchestrator:
+            context = data.context or {}
+            context["user_id"] = user.user_id
+            context["is_beta"] = True
+
+            result = await orchestrator.process(
+                user_input=data.message,
+                context=context,
+                user_id=user.user_id
+            )
+
+            response_text = result.get("message") or result.get("data") or "I couldn't process that request. Try asking differently."
+            if isinstance(response_text, dict):
+                response_text = str(response_text)
+
+            # Detect navigation intent
+            navigation = detect_navigation(data.message, response_text)
+            remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
+
+            resp = {
+                "response": response_text,
+                "source": "orchestrator",
+                "requests_remaining": remaining
+            }
+            if navigation:
+                resp["navigation"] = navigation
+            return resp
+        else:
+            raise Exception("Orchestrator not available")
+
+    except Exception as e:
+        logger.error(f"Orchestrator error in assistant: {e}")
+        # Fallback to simple AI
+        try:
+            from ai_assistant import get_ai_response
+            session_id = f"kvitt_{user.user_id}"
+            ctx = data.context or {}
+            ctx["user_role"] = "user"
+            fallback_response = await get_ai_response(data.message, session_id, ctx)
+            remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
+            navigation = detect_navigation(data.message, fallback_response)
+            resp = {
+                "response": fallback_response,
+                "source": "ai_fallback",
+                "requests_remaining": remaining
+            }
+            if navigation:
+                resp["navigation"] = navigation
+            return resp
+        except Exception as fallback_err:
+            logger.error(f"AI fallback error: {fallback_err}")
+            return {
+                "response": "Sorry, I'm having trouble right now. Please try again later.",
+                "source": "error",
+                "requests_remaining": None
+            }
 
 @api_router.post("/poker/analyze")
 async def analyze_poker_hand(data: PokerAnalyzeRequest, user: User = Depends(get_current_user)):

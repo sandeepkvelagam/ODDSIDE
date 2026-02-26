@@ -58,7 +58,7 @@ export function SettlementHistoryScreen() {
           )
       );
     } catch (e: any) {
-      setError(e?.message || "Failed to load settlements");
+      setError(e?.message || "Settlement history unavailable.");
     } finally {
       setLoading(false);
     }

@@ -41,7 +41,7 @@ export function PrivacyScreen() {
       await refreshUser?.();
     } catch (e: any) {
       setHelpImprove(!value);
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to save");
+      Alert.alert("Not available right now", e?.response?.data?.detail || "Please try again.");
     } finally { setIsSaving(false); }
   };
 

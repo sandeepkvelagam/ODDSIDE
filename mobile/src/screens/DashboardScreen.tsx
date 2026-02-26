@@ -83,7 +83,7 @@ export function DashboardScreen() {
       setNotifications(notifs.filter((n: any) => !n.read));
       setGroups(Array.isArray(groupsRes.data) ? groupsRes.data : []);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load");
+      setError(e?.response?.data?.detail || e?.message || "Not available right now.");
     } finally {
       setLoading(false);
     }

@@ -47,7 +47,7 @@ export function PendingRequestsScreen() {
       const res = await api.get("/users/invites");
       setInvites(res.data || []);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load requests");
+      setError(e?.response?.data?.detail || e?.message || "Requests unavailable.");
     } finally {
       setLoading(false);
     }

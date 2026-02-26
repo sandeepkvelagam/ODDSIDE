@@ -50,7 +50,7 @@ export function SettlementScreen() {
       const res = await api.get(`/games/${gameId}/settlement`);
       setSettlement(res.data);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load settlement");
+      setError(e?.response?.data?.detail || e?.message || "Settlement unavailable.");
     } finally {
       setLoading(false);
     }
@@ -87,7 +87,7 @@ export function SettlementScreen() {
       await api.patch(`/ledger/${ledgerId}`, { paid: !currentPaid });
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to update payment");
+      setError(e?.response?.data?.detail || e?.message || "Payment update unavailable.");
     } finally {
       setMarkingPaid(null);
     }
@@ -103,13 +103,13 @@ export function SettlementScreen() {
         if (canOpen) {
           await Linking.openURL(res.data.url);
         } else {
-          Alert.alert("Error", "Unable to open payment page. Please try again.");
+          Alert.alert("Payment page unavailable", "Please try again.");
         }
       } else {
-        Alert.alert("Error", "Failed to create payment link. Please try again.");
+        Alert.alert("Payment link unavailable", "Please try again.");
       }
     } catch (e: any) {
-      Alert.alert("Payment Error", e?.response?.data?.detail || e?.message || "Failed to initiate payment");
+      Alert.alert("Payment unavailable", e?.response?.data?.detail || "Please try again.");
     } finally {
       setPayingStripe(null);
     }

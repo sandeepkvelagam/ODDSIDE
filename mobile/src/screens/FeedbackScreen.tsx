@@ -73,11 +73,11 @@ export function FeedbackScreen() {
 
   const handleSubmit = async () => {
     if (!selectedType) {
-      Alert.alert("Select a type", "Please choose the type of feedback.");
+      Alert.alert("Select a type", "Choose the type of feedback.");
       return;
     }
     if (!content.trim()) {
-      Alert.alert("Add details", "Please describe your feedback.");
+      Alert.alert("Add details", "Describe your feedback.");
       return;
     }
 
@@ -96,8 +96,8 @@ export function FeedbackScreen() {
       triggerHaptic("medium");
       setSubmitted(true);
     } catch (err: any) {
-      const msg = err?.response?.data?.detail || "Failed to submit. Please try again.";
-      Alert.alert("Error", msg);
+      const msg = err?.response?.data?.detail || "Submission unavailable. Please try again.";
+      Alert.alert("Submission unavailable", msg);
     } finally {
       setIsSubmitting(false);
     }

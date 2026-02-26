@@ -121,7 +121,7 @@ export default function LoginScreen() {
       if (error) throw error;
       setResetSent(true);
     } catch (err: any) {
-      setError(err.message || "Failed to send reset email");
+      setError(err.message || "Reset email unavailable. Please try again.");
     } finally {
       setLoading(false);
     }

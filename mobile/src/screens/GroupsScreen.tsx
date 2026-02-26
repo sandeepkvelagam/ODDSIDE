@@ -113,7 +113,7 @@ export function GroupsScreen() {
       const data = Array.isArray(res.data) ? res.data : [];
       setGroups(data);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load groups");
+      setError(e?.response?.data?.detail || e?.message || "Groups aren't available right now.");
     } finally {
       setLoading(false);
       if (skeletonVisible) {
@@ -159,7 +159,7 @@ export function GroupsScreen() {
         });
       }
     } catch (e: any) {
-      setCreateError(e?.response?.data?.detail || e?.message || "Failed to create group");
+      setCreateError(e?.response?.data?.detail || e?.message || "Group creation unavailable.");
     } finally {
       setCreating(false);
     }

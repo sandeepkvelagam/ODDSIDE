@@ -121,6 +121,7 @@ export function AutomationsScreen() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -153,8 +154,9 @@ export function AutomationsScreen() {
     try {
       const res = await api.get("/automations");
       setAutomations(res.data?.data?.automations || []);
+      setError(false);
     } catch {
-      Alert.alert("Error", "Failed to load automations");
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -185,12 +187,12 @@ export function AutomationsScreen() {
       await api.post(`/automations/${id}/toggle`);
       fetchAutomations();
     } catch {
-      Alert.alert("Error", "Failed to toggle automation");
+      Alert.alert("Update unavailable", "Please try again.");
     }
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert("Delete Automation", "This cannot be undone.", [
+    Alert.alert("Delete Smart Flow", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -201,7 +203,7 @@ export function AutomationsScreen() {
             triggerHaptic("medium");
             fetchAutomations();
           } catch {
-            Alert.alert("Error", "Failed to delete automation");
+            Alert.alert("Removal unavailable", "Please try again.");
           }
         },
       },
@@ -214,7 +216,7 @@ export function AutomationsScreen() {
       const res = await api.post(`/automations/${id}/run`);
       Alert.alert("Test Run", res.data?.message || "Dry run completed");
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.detail || "Dry run failed");
+      Alert.alert("Test unavailable", err?.response?.data?.detail || "Please try again.");
     }
   };
 
@@ -226,7 +228,7 @@ export function AutomationsScreen() {
       fetchAutomations();
       fetchCostBudget();
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.detail || "Replay failed");
+      Alert.alert("Replay unavailable", err?.response?.data?.detail || "Please try again.");
     }
   };
 
@@ -237,7 +239,7 @@ export function AutomationsScreen() {
       const res = await api.get(`/automations/${id}/history`);
       setHistoryData(res.data?.data || []);
     } catch {
-      Alert.alert("Error", "Failed to load history");
+      Alert.alert("Not available right now", "Please try again.");
     } finally {
       setHistoryLoading(false);
     }
@@ -249,7 +251,7 @@ export function AutomationsScreen() {
       setTemplates(res.data?.data?.templates || []);
       setShowTemplates(true);
     } catch {
-      Alert.alert("Error", "Failed to load templates");
+      Alert.alert("Not available right now", "Please try again.");
     }
   };
 
@@ -263,7 +265,7 @@ export function AutomationsScreen() {
 
   const handleCreate = async () => {
     if (!formName.trim() || !formTrigger || !formAction) {
-      Alert.alert("Missing fields", "Please fill in name, trigger, and action.");
+      Alert.alert("Missing details", "Add a name, trigger, and action.");
       return;
     }
     setCreating(true);
@@ -278,7 +280,7 @@ export function AutomationsScreen() {
       resetForm();
       fetchAutomations();
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.detail || "Failed to create");
+      Alert.alert("Creation unavailable", err?.response?.data?.detail || "Please try again.");
     } finally {
       setCreating(false);
     }
@@ -317,7 +319,7 @@ export function AutomationsScreen() {
             <Ionicons name="close" size={22} color={colors.textPrimary} />
           </Pressable>
 
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Automations</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Smart Flows</Text>
 
           <Pressable
             style={[
@@ -368,19 +370,41 @@ export function AutomationsScreen() {
             </View>
           )}
 
+          {/* Error State */}
+          {!loading && error && (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="cloud-offline-outline" size={48} color={colors.textMuted} />
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                Smart Flows aren't available
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                Check your connection and try again.
+              </Text>
+              <View style={{ marginTop: 16 }}>
+                <GlassButton
+                  onPress={() => { setError(false); setLoading(true); fetchAutomations(); }}
+                  variant="primary"
+                  size="medium"
+                >
+                  Try Again
+                </GlassButton>
+              </View>
+            </View>
+          )}
+
           {/* Empty State */}
-          {!loading && automations.length === 0 && (
+          {!loading && !error && automations.length === 0 && (
             <View style={styles.emptyContainer}>
               <Ionicons name="flash-outline" size={48} color={colors.textMuted} />
               <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                No automations yet
+                No Smart Flows
               </Text>
               <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Create IFTTT-style rules that run automatically — like auto-RSVP, payment reminders, or post-game summaries.
+                Create one to automate your games.
               </Text>
               <View style={{ marginTop: 16 }}>
                 <GlassButton onPress={() => { resetForm(); setShowCreate(true); }} variant="primary" size="medium">
-                  Create Automation
+                  Create Smart Flow
                 </GlassButton>
               </View>
             </View>
@@ -522,7 +546,7 @@ export function AutomationsScreen() {
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>New Automation</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>New Smart Flow</Text>
               <TouchableOpacity
                 style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
                 onPress={() => setShowCreate(false)}
@@ -549,8 +573,8 @@ export function AutomationsScreen() {
                 style={[styles.setValueBtn, { backgroundColor: colors.orange + "12" }]}
                 onPress={() => {
                   Alert.prompt?.(
-                    "Automation Name",
-                    "Enter a name for your automation",
+                    "Smart Flow Name",
+                    "Give your Smart Flow a name",
                     (text) => text && setFormName(text),
                     "plain-text",
                     formName
@@ -615,7 +639,7 @@ export function AutomationsScreen() {
                 loading={creating}
                 disabled={creating}
               >
-                Create Automation
+                Create Smart Flow
               </GlassButton>
 
               <View style={{ height: 32 }} />

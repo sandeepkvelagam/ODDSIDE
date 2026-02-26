@@ -163,7 +163,7 @@ export function GameNightScreen() {
       }
     } catch (e: any) {
       if (reqId === lastReqId.current) {
-        setError(e?.message ?? "Failed to sync game state");
+        setError(e?.message ?? "Game sync unavailable.");
       }
     } finally {
       resyncInFlight.current = false;
@@ -200,7 +200,7 @@ export function GameNightScreen() {
         }
       });
     } catch (e: any) {
-      setError(e?.message ?? "Failed to connect socket");
+      setError(e?.message ?? "Connection unavailable.");
     }
   }, [gameId, resyncGameState]);
 
@@ -226,7 +226,7 @@ export function GameNightScreen() {
       setNewMessage("");
       await loadThread();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || "Failed to send message");
+      setError(e?.response?.data?.detail || "Message not sent.");
     } finally {
       setSendingMessage(false);
     }
@@ -381,7 +381,7 @@ export function GameNightScreen() {
       await api.post(`/games/${gameId}/start`);
       await resyncGameState();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || "Failed to start game");
+      setError(e?.response?.data?.detail || "Couldn't start the game.");
     }
   };
 
@@ -394,7 +394,7 @@ export function GameNightScreen() {
       setShowSettlementPreview(true);
       runSettlementAnimation();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || "Failed to end game");
+      setError(e?.response?.data?.detail || "Couldn't end the game.");
     }
   };
 
@@ -404,7 +404,7 @@ export function GameNightScreen() {
       await api.post(`/games/${gameId}/join`);
       await resyncGameState();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || "Failed to join game");
+      setError(e?.response?.data?.detail || "Couldn't join the game.");
     }
   };
 
@@ -496,7 +496,7 @@ export function GameNightScreen() {
       setSearchResults([]);
       await resyncGameState();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || "Failed to add player");
+      setError(e?.response?.data?.detail || "Couldn't add player.");
     } finally {
       setSubmittingAddPlayer(false);
     }
@@ -518,7 +518,7 @@ export function GameNightScreen() {
               await api.post(`/games/${gameId}/remove-player`, { user_id: playerId });
               await resyncGameState();
             } catch (e: any) {
-              setError(e?.response?.data?.detail || "Failed to remove player");
+              setError(e?.response?.data?.detail || "Couldn't remove player.");
             } finally {
               setSubmittingRemovePlayer(false);
             }
@@ -572,7 +572,7 @@ export function GameNightScreen() {
       setEditChipsValue("");
       await resyncGameState();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || "Failed to edit chips");
+      setError(e?.response?.data?.detail || "Couldn't update chips.");
     } finally {
       setSubmittingEditChips(false);
     }

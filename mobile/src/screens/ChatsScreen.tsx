@@ -70,7 +70,7 @@ export function ChatsScreen() {
       // Show active and ended games — these are the ones with thread activity
       setGames(all.filter((g: any) => g.status !== "scheduled"));
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load chats");
+      setError(e?.response?.data?.detail || e?.message || "Chats aren't available right now.");
     } finally {
       setLoading(false);
       if (skeletonVisible) {

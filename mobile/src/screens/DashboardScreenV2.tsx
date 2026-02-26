@@ -142,7 +142,7 @@ export function DashboardScreenV2() {
       setGroups(Array.isArray(groupsRes.data) ? groupsRes.data : []);
       if (aiUsageRes.data) setAiUsage(aiUsageRes.data);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load");
+      setError(e?.response?.data?.detail || e?.message || "Not available right now.");
     } finally {
       setLoading(false);
       const minWait = setTimeout(() => {

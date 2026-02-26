@@ -96,7 +96,7 @@ export function GroupHubScreen() {
       setGames(g);
       setLeaderboard(statsRes.data?.leaderboard || []);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load group");
+      setError(e?.response?.data?.detail || e?.message || "Group unavailable.");
     }
   }, [groupId]);
 
@@ -127,7 +127,7 @@ export function GroupHubScreen() {
         navigation.navigate("GameNight", { gameId: res.data.game_id });
       }
     } catch (e: any) {
-      setStartError(e?.response?.data?.detail || e?.message || "Failed to start game");
+      setStartError(e?.response?.data?.detail || e?.message || "Couldn't start the game.");
     } finally {
       setStarting(false);
     }

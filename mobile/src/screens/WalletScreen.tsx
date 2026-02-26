@@ -220,18 +220,18 @@ export function WalletScreen() {
       await fetchWallet();
       setSetupStep("pin_setup");
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to create wallet");
+      Alert.alert("Wallet setup unavailable", e?.response?.data?.detail || "Please try again.");
       setSetupStep("intro");
     }
   };
 
   const handleSetPin = async () => {
     if (pin.length < 4 || pin.length > 6) {
-      Alert.alert("Invalid PIN", "PIN must be 4-6 digits");
+      Alert.alert("Review required", "PIN must be 4\u20136 digits.");
       return;
     }
     if (pin !== confirmPin) {
-      Alert.alert("PIN Mismatch", "PINs do not match. Please try again.");
+      Alert.alert("PINs don't match", "Re-enter to confirm.");
       setPin("");
       setConfirmPin("");
       return;
@@ -243,7 +243,7 @@ export function WalletScreen() {
       setSetupStep("done");
       setTimeout(() => setSetupStep("intro"), 2000);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to set PIN");
+      Alert.alert("PIN setup unavailable", e?.response?.data?.detail || "Please try again.");
     } finally {
       setSettingUpPin(false);
     }
@@ -300,7 +300,7 @@ export function WalletScreen() {
       const msg = typeof detail === "object"
         ? detail?.message || "Transfer failed"
         : detail || "Please check your PIN and try again";
-      Alert.alert("Transfer Failed", msg);
+      Alert.alert("Transfer unavailable", msg);
     } finally {
       setSending(false);
     }
@@ -327,7 +327,7 @@ export function WalletScreen() {
   const handleInitiateDeposit = async () => {
     const amountCents = getEffectiveDepositCents();
     if (amountCents < 500 || amountCents > 100000) {
-      Alert.alert("Invalid Amount", "Deposit must be between $5 and $1,000");
+      Alert.alert("Review required", "Deposit must be between $5 and $1,000.");
       return;
     }
     setInitiatingDeposit(true);
@@ -366,7 +366,7 @@ export function WalletScreen() {
         }
       }, 5000);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to initiate deposit");
+      Alert.alert("Deposit unavailable", e?.response?.data?.detail || "Please try again.");
       setDepositStep("amount");
     } finally {
       setInitiatingDeposit(false);
@@ -377,11 +377,11 @@ export function WalletScreen() {
   const handleWithdraw = async () => {
     const amountCents = Math.round(parseFloat(withdrawAmount) * 100);
     if (isNaN(amountCents) || amountCents < 500) {
-      Alert.alert("Invalid Amount", "Minimum withdrawal is $5.00");
+      Alert.alert("Review required", "Minimum withdrawal is $5.00.");
       return;
     }
     if (!withdrawDestination.trim()) {
-      Alert.alert("Required", "Please enter your destination account details");
+      Alert.alert("Details needed", "Enter your destination account details.");
       return;
     }
     setSubmittingWithdraw(true);
@@ -402,7 +402,7 @@ export function WalletScreen() {
       );
       await fetchWallet();
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to submit withdrawal");
+      Alert.alert("Withdrawal unavailable", e?.response?.data?.detail || "Please try again.");
     } finally {
       setSubmittingWithdraw(false);
     }
@@ -689,7 +689,7 @@ export function WalletScreen() {
               onPress={() => {
                 if (wallet?.wallet_id) {
                   Clipboard.setString(wallet.wallet_id);
-                  Alert.alert("Copied!", "Wallet ID copied to clipboard");
+                  Alert.alert("Copied", "Wallet ID copied to clipboard.");
                 }
               }}
             >
@@ -961,7 +961,7 @@ export function WalletScreen() {
                             setDepositStep("success");
                             await fetchWallet();
                           } else {
-                            Alert.alert("Not yet", "Payment not confirmed yet. Try again in a moment.");
+                            Alert.alert("Not confirmed yet", "Give it a moment and try again.");
                           }
                         } catch {}
                       }

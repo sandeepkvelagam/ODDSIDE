@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { View, Text, StyleSheet, Animated } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { KvittLogo } from "../components/ui/KvittLogo";
 import { setupNotificationListeners } from "../services/pushNotifications";
 
 // Screens
@@ -154,22 +155,27 @@ function handleNotificationDeepLink(data: Record<string, any>) {
 }
 
 function SplashOverlay({ onFinish }: { onFinish: () => void }) {
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
   useEffect(() => {
-    Animated.spring(scaleAnim, { toValue: 1, friction: 8, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 8, useNativeDriver: true }),
+    ]).start();
+
     const timer = setTimeout(() => {
-      Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => onFinish());
-    }, 1500);
+      Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true })
+        .start(() => onFinish());
+    }, 600);
+
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]} pointerEvents="none">
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <Text style={styles.splashTitle}>Kvitt</Text>
-        <Text style={styles.splashSubtitle}>Your side, settled.</Text>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }], alignItems: "center" }}>
+        <KvittLogo size="large" showText={false} />
       </Animated.View>
     </Animated.View>
   );
@@ -206,8 +212,8 @@ export default function RootNavigator() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingLogo}>Kvitt</Text>
-        <Text style={styles.loadingText}>Loading...</Text>
+        <KvittLogo size="large" showText={true} />
+        <Text style={styles.loadingText}>Getting things ready{"\u2026"}</Text>
       </View>
     );
   }
@@ -262,13 +268,14 @@ const styles = StyleSheet.create({
     flex: 1, justifyContent: "center", alignItems: "center",
     backgroundColor: "#282B2B",
   },
-  loadingLogo: { fontSize: 36, fontWeight: "bold", color: "#fff", marginBottom: 12 },
-  loadingText: { color: "#666", fontSize: 14 },
+  loadingText: { color: "#666", fontSize: 14, marginTop: 12 },
   splashContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center", alignItems: "center",
     backgroundColor: "#282B2B", zIndex: 100,
+    shadowColor: "#EE6C29",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.10,
+    shadowRadius: 30,
   },
-  splashTitle: { fontSize: 48, fontWeight: "bold", color: "#fff", textAlign: "center" },
-  splashSubtitle: { fontSize: 16, color: "#EE6C29", textAlign: "center", marginTop: 8 },
 });

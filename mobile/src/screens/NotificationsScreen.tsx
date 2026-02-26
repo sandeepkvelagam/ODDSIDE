@@ -102,9 +102,9 @@ export function NotificationsScreen() {
                   value={pushEnabled}
                   onValueChange={(v) => {
                     if (v) {
-                      Alert.alert("Enable Notifications", "Open device Settings to enable.", [
+                      Alert.alert("Enable Alerts", "Open device settings to enable.", [
                         { text: "Cancel", style: "cancel" },
-                        { text: "Settings", onPress: () => Platform.OS === "ios" ? Linking.openURL("app-settings:") : Linking.openSettings() },
+                        { text: "Open Settings", onPress: () => Platform.OS === "ios" ? Linking.openURL("app-settings:") : Linking.openSettings() },
                       ]);
                     }
                     setPushEnabled(v);

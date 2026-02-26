@@ -73,7 +73,7 @@ export function SettingsScreen() {
       // Request permissions
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission Required", "Microphone access is needed for voice commands.");
+        Alert.alert("Microphone access needed", "Enable it in your device settings.");
         return;
       }
 
@@ -94,7 +94,7 @@ export function SettingsScreen() {
       setVoiceCommand(null);
     } catch (error) {
       console.error("Failed to start recording:", error);
-      Alert.alert("Error", "Failed to start recording. Please try again.");
+      Alert.alert("Recording unavailable", "Please try again.");
     }
   };
 
@@ -115,7 +115,7 @@ export function SettingsScreen() {
     } catch (error) {
       console.error("Failed to stop recording:", error);
       setIsProcessing(false);
-      Alert.alert("Error", "Failed to process recording. Please try again.");
+      Alert.alert("Recording unavailable", "Please try again.");
     }
   };
 
@@ -143,7 +143,7 @@ export function SettingsScreen() {
       setVoiceCommand(response.data.command);
     } catch (error) {
       console.error("Transcription error:", error);
-      Alert.alert("Error", "Failed to transcribe audio. Please try again.");
+      Alert.alert("Transcription unavailable", "Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -306,7 +306,7 @@ export function SettingsScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="flash-outline" size={22} color={colors.textPrimary} />
-            <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Automations</Text>
+            <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Smart Flows</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
 

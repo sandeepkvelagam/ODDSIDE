@@ -68,9 +68,9 @@ export function ProfileScreen() {
     try {
       await api.put("/users/me", { name: fullName.trim(), nickname: nickname.trim() });
       await refreshUser?.();
-      Alert.alert("Saved", "Profile updated successfully");
+      Alert.alert("All set", "Profile updated.");
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to update profile");
+      Alert.alert("Update unavailable", e?.response?.data?.detail || "Please try again.");
     } finally { setIsUpdating(false); }
   };
 
@@ -86,7 +86,7 @@ export function ProfileScreen() {
       );
       if (res.data?.optimized > 0) await fetchBalances();
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to optimize");
+      Alert.alert("Not available right now", e?.response?.data?.detail || "Please try again.");
     } finally { setOptimizing(false); }
   };
 
@@ -97,7 +97,7 @@ export function ProfileScreen() {
         text: "Delete", style: "destructive",
         onPress: async () => {
           try { await api.delete("/users/me"); }
-          catch (e: any) { Alert.alert("Error", e?.response?.data?.detail || "Failed"); }
+          catch (e: any) { Alert.alert("Not available right now", e?.response?.data?.detail || "Please try again."); }
         },
       },
     ]);

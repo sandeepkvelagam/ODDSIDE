@@ -47,7 +47,7 @@ export function RequestAndPayScreen() {
       const res = await api.get("/ledger/balances");
       setBalances(res.data);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load balances");
+      setError(e?.response?.data?.detail || e?.message || "Balances unavailable.");
     } finally {
       setLoading(false);
     }
@@ -68,9 +68,9 @@ export function RequestAndPayScreen() {
     setRequestingPayment(ledgerId);
     try {
       await api.post(`/ledger/${ledgerId}/request-payment`);
-      Alert.alert("Sent", "Payment request sent!");
+      Alert.alert("All set", "Payment request sent.");
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to send request");
+      Alert.alert("Request unavailable", e?.response?.data?.detail || "Please try again.");
     } finally {
       setRequestingPayment(null);
     }
@@ -89,15 +89,15 @@ export function RequestAndPayScreen() {
         if (canOpen) {
           await Linking.openURL(res.data.url);
         } else {
-          Alert.alert("Error", "Unable to open payment page.");
+          Alert.alert("Payment page unavailable", "Please try again.");
         }
       } else {
-        Alert.alert("Error", "Failed to create payment link.");
+        Alert.alert("Payment link unavailable", "Please try again.");
       }
     } catch (e: any) {
       Alert.alert(
-        "Payment Error",
-        e?.response?.data?.detail || e?.message || "Failed to initiate payment"
+        "Payment unavailable",
+        e?.response?.data?.detail || e?.message || "Please try again."
       );
     } finally {
       setPayingStripe(null);
@@ -111,7 +111,7 @@ export function RequestAndPayScreen() {
       await api.patch(`/ledger/${ledgerId}`, { paid: !currentPaid });
       await fetchBalances();
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data?.detail || "Failed to update");
+      Alert.alert("Update unavailable", e?.response?.data?.detail || "Please try again.");
     } finally {
       setMarkingPaid(null);
     }

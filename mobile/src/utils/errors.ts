@@ -50,7 +50,7 @@ export function friendlyAuthError(err: any): FriendlyError {
 
   if (msg.includes("network") || msg.includes("failed to fetch")) {
     return {
-      title: "Connection problem",
+      title: "Connection issue",
       detail: "Check your internet connection and try again.",
       code: "NETWORK_ERROR",
     };
@@ -66,8 +66,8 @@ export function friendlyAuthError(err: any): FriendlyError {
 
   // Generic auth error
   return {
-    title: "Login failed",
-    detail: "Please check your credentials and try again.",
+    title: "Sign-in unavailable",
+    detail: "Check your credentials and try again.",
     code: "AUTH_ERROR",
   };
 }
@@ -83,15 +83,15 @@ export function friendlyApiError(err: any): FriendlyError {
   // HTTP status codes
   if (status === 401) {
     return {
-      title: "Session expired",
-      detail: "Please log in again.",
+      title: "Your session has ended",
+      detail: "Sign in again to continue.",
       code: "UNAUTHORIZED",
     };
   }
 
   if (status === 403) {
     return {
-      title: "Not allowed",
+      title: "Access restricted",
       detail: "You don't have permission to do this.",
       code: "FORBIDDEN",
     };
@@ -99,15 +99,15 @@ export function friendlyApiError(err: any): FriendlyError {
 
   if (status === 404 || code === "NOT_FOUND") {
     return {
-      title: "Not found",
-      detail: "That item no longer exists.",
+      title: "Not available",
+      detail: "It may have been removed.",
       code: "NOT_FOUND",
     };
   }
 
   if (status === 409 || code === "CONFLICT") {
     return {
-      title: "Conflict",
+      title: "Action unavailable",
       detail: message || "This action conflicts with existing data.",
       code: "CONFLICT",
     };
@@ -115,16 +115,16 @@ export function friendlyApiError(err: any): FriendlyError {
 
   if (status === 422 || code === "VALIDATION_ERROR") {
     return {
-      title: "Invalid input",
-      detail: message || "Please check your input and try again.",
+      title: "Review required",
+      detail: message || "Check your input and try again.",
       code: "VALIDATION_ERROR",
     };
   }
 
   if (status === 500 || status === 502 || status === 503) {
     return {
-      title: "Server error",
-      detail: "We're having trouble on our end. Try again in a moment.",
+      title: "Temporarily unavailable",
+      detail: "Give it a moment and try again.",
       code: "SERVER_ERROR",
     };
   }
@@ -132,15 +132,15 @@ export function friendlyApiError(err: any): FriendlyError {
   // Network errors
   if (err?.code === "ECONNABORTED" || err?.code === "ETIMEDOUT") {
     return {
-      title: "Request timeout",
-      detail: "The request took too long. Check your connection.",
+      title: "Request timed out",
+      detail: "Check your connection and try again.",
       code: "TIMEOUT",
     };
   }
 
   if (!status && (err?.message?.includes("network") || err?.message?.includes("Network"))) {
     return {
-      title: "Connection problem",
+      title: "Connection issue",
       detail: "Check your internet connection and try again.",
       code: "NETWORK_ERROR",
     };
@@ -148,8 +148,8 @@ export function friendlyApiError(err: any): FriendlyError {
 
   // Generic API error
   return {
-    title: "Oops — we hit a snag",
-    detail: "Please try again in a moment.",
+    title: "Not available right now",
+    detail: "Please try again.",
     code: "UNKNOWN_ERROR",
   };
 }

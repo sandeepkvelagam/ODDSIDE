@@ -75,12 +75,6 @@ function DonutChart({
     return `$${val.toFixed(0)}`;
   };
 
-  // If no data, show a single grey ring
-  const displaySegments =
-    segments.length === 0 || totalValue === 0
-      ? [{ label: "Empty", value: 1, color: "rgba(255,255,255,0.1)" }]
-      : rendered;
-
   return (
     <View style={chartStyles.chartWrapper}>
       <Svg width={SIZE} height={SIZE}>
@@ -94,7 +88,19 @@ function DonutChart({
           strokeWidth={STROKE_WIDTH}
         />
         <G>
-          {(segments.length > 0 && totalValue > 0 ? rendered : displaySegments) as React.ReactNode}
+          {segments.length > 0 && totalValue > 0 ? (
+            rendered
+          ) : (
+            <Circle
+              cx={CENTER}
+              cy={CENTER}
+              r={RADIUS_VAL}
+              fill="transparent"
+              stroke="rgba(255,255,255,0.15)"
+              strokeWidth={STROKE_WIDTH}
+              strokeDasharray="5 6"
+            />
+          )}
         </G>
         {/* Center label */}
         <SvgText
@@ -105,7 +111,7 @@ function DonutChart({
           fontSize={14}
           fontWeight="700"
         >
-          {formatCompact(total)}
+          {total === 0 && segments.length === 0 ? "–" : formatCompact(total)}
         </SvgText>
         <SvgText
           x={CENTER}
@@ -115,7 +121,7 @@ function DonutChart({
           fontSize={9}
           fontWeight="500"
         >
-          {label}
+          {total === 0 && segments.length === 0 ? "Nothing yet" : label}
         </SvgText>
       </Svg>
     </View>

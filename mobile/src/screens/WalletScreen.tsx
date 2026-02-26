@@ -411,7 +411,7 @@ export function WalletScreen() {
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const getUserFirstName = () => {
     const meta = (user as any)?.user_metadata;
-    const fullName = meta?.full_name || meta?.name || (user as any)?.email || "";
+    const fullName = meta?.full_name || meta?.name || user?.name || "";
     return fullName.split(" ")[0] || "there";
   };
 
@@ -640,13 +640,14 @@ export function WalletScreen() {
               onReceive={() => setShowReceiveModal(true)}
               onDeposit={() => setShowDepositModal(true)}
               onMore={() => setShowWithdrawModal(true)}
+              tc={tc}
             />
 
             {/* ── Analytics card ────────────────────────────────────── */}
-            <WalletAnalyticsCard transactions={transactions} />
+            <WalletAnalyticsCard transactions={transactions} tc={tc} />
 
             {/* ── Transactions list ─────────────────────────────────── */}
-            <WalletTransactionList transactions={transactions} wallet={wallet} />
+            <WalletTransactionList transactions={transactions} wallet={wallet} tc={tc} />
 
             <View style={{ height: 40 }} />
           </ScrollView>

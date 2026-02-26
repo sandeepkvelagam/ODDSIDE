@@ -12,14 +12,21 @@ interface ActionItem {
   borderColor?: string;
 }
 
+interface ThemeColors {
+  textSecondary: string;
+  glassBg: string;
+  glassBorder: string;
+}
+
 interface WalletActionRowProps {
   onSend: () => void;
   onReceive: () => void;
   onDeposit: () => void;
   onMore: () => void;
+  tc: ThemeColors;
 }
 
-export function WalletActionRow({ onSend, onReceive, onDeposit, onMore }: WalletActionRowProps) {
+export function WalletActionRow({ onSend, onReceive, onDeposit, onMore, tc }: WalletActionRowProps) {
   const actions: ActionItem[] = [
     {
       icon: "arrow-up-circle-outline",
@@ -47,9 +54,9 @@ export function WalletActionRow({ onSend, onReceive, onDeposit, onMore }: Wallet
       icon: "ellipsis-horizontal",
       label: "More",
       onPress: onMore,
-      bgColor: COLORS.glass.bg,
-      iconColor: COLORS.text.secondary,
-      borderColor: COLORS.glass.border,
+      bgColor: tc.glassBg,
+      iconColor: tc.textSecondary,
+      borderColor: tc.glassBorder,
     },
   ];
 
@@ -72,7 +79,7 @@ export function WalletActionRow({ onSend, onReceive, onDeposit, onMore }: Wallet
               color={action.iconColor ?? "#FFFFFF"}
             />
           </TouchableOpacity>
-          <Text style={styles.label}>{action.label}</Text>
+          <Text style={[styles.label, { color: tc.textSecondary }]}>{action.label}</Text>
         </View>
       ))}
     </View>

@@ -12,9 +12,18 @@ interface Transaction {
   counterparty?: { name?: string; wallet_id?: string };
 }
 
+interface ThemeColors {
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  glassBg: string;
+  glassBorder: string;
+}
+
 interface WalletAnalyticsCardProps {
   transactions: Transaction[];
   dateRange?: string;
+  tc: ThemeColors;
 }
 
 interface ChartSegment {
@@ -30,14 +39,21 @@ const SIZE = 120;
 const CENTER = SIZE / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS_VAL;
 
+interface ChartThemeColors {
+  textPrimary: string;
+  textMuted: string;
+}
+
 function DonutChart({
   segments,
   total,
   label,
+  tc,
 }: {
   segments: ChartSegment[];
   total: number;
   label: string;
+  tc: ChartThemeColors;
 }) {
   // Build dash array for each segment
   const totalValue = segments.reduce((s, seg) => s + seg.value, 0) || 1;
@@ -107,7 +123,7 @@ function DonutChart({
           x={CENTER}
           y={CENTER - 7}
           textAnchor="middle"
-          fill={COLORS.text.primary}
+          fill={tc.textPrimary}
           fontSize={14}
           fontWeight="700"
         >
@@ -117,7 +133,7 @@ function DonutChart({
           x={CENTER}
           y={CENTER + 10}
           textAnchor="middle"
-          fill={COLORS.text.muted}
+          fill={tc.textMuted}
           fontSize={9}
           fontWeight="500"
         >
@@ -128,7 +144,7 @@ function DonutChart({
   );
 }
 
-function LegendItem({ color, label, cents }: { color: string; label: string; cents: number }) {
+function LegendItem({ color, label, cents, tc }: { color: string; label: string; cents: number; tc: { textMuted: string; textSecondary: string } }) {
   const dollars = cents / 100;
   const formatted = dollars >= 1000
     ? `$${Math.round(dollars / 1000)}k`
@@ -136,13 +152,13 @@ function LegendItem({ color, label, cents }: { color: string; label: string; cen
   return (
     <View style={chartStyles.legendItem}>
       <View style={[chartStyles.legendDot, { backgroundColor: color }]} />
-      <Text style={chartStyles.legendLabel} numberOfLines={1}>{label}</Text>
-      <Text style={chartStyles.legendValue}>{formatted}</Text>
+      <Text style={[chartStyles.legendLabel, { color: tc.textMuted }]} numberOfLines={1}>{label}</Text>
+      <Text style={[chartStyles.legendValue, { color: tc.textSecondary }]}>{formatted}</Text>
     </View>
   );
 }
 
-export function WalletAnalyticsCard({ transactions, dateRange }: WalletAnalyticsCardProps) {
+export function WalletAnalyticsCard({ transactions, dateRange, tc }: WalletAnalyticsCardProps) {
   const { incomeSegments, incomeTotal, expenseSegments, expenseTotal } = useMemo(() => {
     // ── Income grouping ──────────────────────────────────────────────────────
     const depositTotal = transactions
@@ -192,15 +208,15 @@ export function WalletAnalyticsCard({ transactions, dateRange }: WalletAnalytics
     <View style={styles.container}>
       {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Total Wealth</Text>
-        <View style={styles.dateBadge}>
-          <Text style={styles.dateBadgeText}>{displayRange}</Text>
-          <Text style={styles.dateBadgeText}> ▾</Text>
+        <Text style={[styles.sectionTitle, { color: tc.textPrimary }]}>Total Wealth</Text>
+        <View style={[styles.dateBadge, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]}>
+          <Text style={[styles.dateBadgeText, { color: tc.textSecondary }]}>{displayRange}</Text>
+          <Text style={[styles.dateBadgeText, { color: tc.textSecondary }]}> ▾</Text>
         </View>
       </View>
 
       {/* Glass analytics card */}
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]}>
         <View style={styles.chartsRow}>
           {/* Income side */}
           <View style={styles.chartCol}>
@@ -208,8 +224,9 @@ export function WalletAnalyticsCard({ transactions, dateRange }: WalletAnalytics
               segments={incomeSegments}
               total={incomeTotal}
               label="Income"
+              tc={tc}
             />
-            <Text style={styles.chartSubLabel}>Total Incomes</Text>
+            <Text style={[styles.chartSubLabel, { color: tc.textSecondary }]}>Total Incomes</Text>
             <View style={styles.legendList}>
               {incomeSegments.length > 0 ? (
                 incomeSegments.map((seg) => (
@@ -218,16 +235,17 @@ export function WalletAnalyticsCard({ transactions, dateRange }: WalletAnalytics
                     color={seg.color}
                     label={seg.label}
                     cents={seg.value}
+                    tc={tc}
                   />
                 ))
               ) : (
-                <Text style={styles.emptyChartLabel}>No income yet</Text>
+                <Text style={[styles.emptyChartLabel, { color: tc.textMuted }]}>No income yet</Text>
               )}
             </View>
           </View>
 
           {/* Divider */}
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: tc.glassBorder }]} />
 
           {/* Expense side */}
           <View style={styles.chartCol}>
@@ -235,8 +253,9 @@ export function WalletAnalyticsCard({ transactions, dateRange }: WalletAnalytics
               segments={expenseSegments}
               total={expenseTotal}
               label="Expenses"
+              tc={tc}
             />
-            <Text style={styles.chartSubLabel}>Total Expenses</Text>
+            <Text style={[styles.chartSubLabel, { color: tc.textSecondary }]}>Total Expenses</Text>
             <View style={styles.legendList}>
               {expenseSegments.length > 0 ? (
                 expenseSegments.map((seg) => (
@@ -245,10 +264,11 @@ export function WalletAnalyticsCard({ transactions, dateRange }: WalletAnalytics
                     color={seg.color}
                     label={seg.label}
                     cents={seg.value}
+                    tc={tc}
                   />
                 ))
               ) : (
-                <Text style={styles.emptyChartLabel}>No expenses yet</Text>
+                <Text style={[styles.emptyChartLabel, { color: tc.textMuted }]}>No expenses yet</Text>
               )}
             </View>
           </View>

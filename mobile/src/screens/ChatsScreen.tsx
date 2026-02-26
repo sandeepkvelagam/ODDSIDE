@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   FlatList,
   RefreshControl,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Animated,
 } from "react-native";
+import { ChatsSkeleton } from "../components/ui/ChatsSkeleton";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -43,6 +44,11 @@ export function ChatsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Skeleton state
+  const [skeletonVisible, setSkeletonVisible] = useState(true);
+  const skeletonOpacity = useRef(new Animated.Value(1)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+
   // Entrance animations
   const headerEntrance = useState(new Animated.Value(0))[0];
   const listEntrance = useState(new Animated.Value(0))[0];
@@ -67,8 +73,17 @@ export function ChatsScreen() {
       setError(e?.response?.data?.detail || e?.message || "Failed to load chats");
     } finally {
       setLoading(false);
+      if (skeletonVisible) {
+        const minWait = setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(skeletonOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+            Animated.timing(contentOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+          ]).start(() => setSkeletonVisible(false));
+        }, 400);
+        return () => clearTimeout(minWait);
+      }
     }
-  }, []);
+  }, [skeletonOpacity, contentOpacity, skeletonVisible]);
 
   useEffect(() => {
     load();
@@ -137,8 +152,18 @@ export function ChatsScreen() {
         <View style={{ width: 40 }} />
       </Animated.View>
 
+      {/* ── Skeleton overlay ─────────────────────────────────────────── */}
+      {skeletonVisible && (
+        <Animated.View
+          style={[StyleSheet.absoluteFill, { opacity: skeletonOpacity, backgroundColor: lc.jetDark, top: 57, zIndex: 10 }]}
+          pointerEvents="none"
+        >
+          <ChatsSkeleton />
+        </Animated.View>
+      )}
+
       {/* List */}
-      <Animated.View style={[styles.listWrapper, { opacity: listEntrance }]}>
+      <Animated.View style={[styles.listWrapper, { opacity: contentOpacity }]}>
         <FlatList
           data={games}
           renderItem={renderItem}

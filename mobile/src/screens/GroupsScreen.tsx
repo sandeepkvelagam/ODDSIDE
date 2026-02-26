@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   FlatList,
   RefreshControl,
@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Animated,
 } from "react-native";
+import { GroupsSkeleton } from "../components/ui/GroupsSkeleton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -64,6 +65,11 @@ export function GroupsScreen() {
   // Favorites state
   const [favorites, setFavorites] = useState<string[]>([]);
 
+  // Skeleton state
+  const [skeletonVisible, setSkeletonVisible] = useState(true);
+  const skeletonOpacity = useRef(new Animated.Value(1)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+
   // Entrance animations
   const entranceAnim = useState(new Animated.Value(0))[0];
   const headerEntrance = useState(new Animated.Value(0))[0];
@@ -110,8 +116,17 @@ export function GroupsScreen() {
       setError(e?.response?.data?.detail || e?.message || "Failed to load groups");
     } finally {
       setLoading(false);
+      if (skeletonVisible) {
+        const minWait = setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(skeletonOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+            Animated.timing(contentOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+          ]).start(() => setSkeletonVisible(false));
+        }, 400);
+        return () => clearTimeout(minWait);
+      }
     }
-  }, []);
+  }, [skeletonOpacity, contentOpacity, skeletonVisible]);
 
   useEffect(() => {
     load();
@@ -219,6 +234,18 @@ export function GroupsScreen() {
         <Text style={[styles.pageTitle, { color: lc.textPrimary }]}>Groups</Text>
         <View style={{ width: 40 }} />
       </View>
+
+      {/* ── Skeleton overlay ──────────────────────────────────────────── */}
+      {skeletonVisible && (
+        <Animated.View
+          style={[StyleSheet.absoluteFill, { opacity: skeletonOpacity, backgroundColor: lc.jetDark, top: 60, zIndex: 10 }]}
+          pointerEvents="none"
+        >
+          <GroupsSkeleton />
+        </Animated.View>
+      )}
+
+      <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
 
       {/* Header Section - Liquid Glass Card */}
       <Animated.View style={[styles.headerCard, {
@@ -474,6 +501,7 @@ export function GroupsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      </Animated.View>
     </View>
   );
 }

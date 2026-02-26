@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   ScrollView,
   Text,
@@ -9,6 +9,7 @@ import {
   Pressable,
   Animated,
 } from "react-native";
+import { DashboardSkeleton } from "../components/ui/DashboardSkeleton";
 import { AnimatedModal } from "../components/AnimatedModal";
 import { AnimatedButton } from "../components/AnimatedButton";
 import { OnboardingAgent, hasCompletedOnboarding } from "../components/OnboardingAgent";
@@ -49,6 +50,9 @@ export function DashboardScreenV2() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [skeletonVisible, setSkeletonVisible] = useState(true);
+  const skeletonOpacity = useRef(new Animated.Value(1)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
   const [error, setError] = useState<string | null>(null);
   const [showOnboardingAgent, setShowOnboardingAgent] = useState(false);
   const [showStatModal, setShowStatModal] = useState<'profit' | 'winrate' | null>(null);
@@ -141,8 +145,15 @@ export function DashboardScreenV2() {
       setError(e?.response?.data?.detail || e?.message || "Failed to load");
     } finally {
       setLoading(false);
+      const minWait = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(skeletonOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.timing(contentOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+        ]).start(() => setSkeletonVisible(false));
+      }, 400);
+      return () => clearTimeout(minWait);
     }
-  }, []);
+  }, [skeletonOpacity, contentOpacity]);
 
   useEffect(() => {
     fetchDashboard();
@@ -356,6 +367,17 @@ export function DashboardScreenV2() {
           </TouchableOpacity>
         </View>
 
+        {/* ── Skeleton overlay ────────────────────────────────────────── */}
+        {skeletonVisible && (
+          <Animated.View
+            style={[StyleSheet.absoluteFill, { opacity: skeletonOpacity, backgroundColor: lc.jetDark, zIndex: 10 }]}
+            pointerEvents="none"
+          >
+            <DashboardSkeleton />
+          </Animated.View>
+        )}
+
+        <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
@@ -797,6 +819,7 @@ export function DashboardScreenV2() {
           {/* Bottom spacing */}
           <View style={{ height: 100 }} />
         </ScrollView>
+        </Animated.View>
 
         {/* Onboarding Agent - Conversational guide */}
         <OnboardingAgent

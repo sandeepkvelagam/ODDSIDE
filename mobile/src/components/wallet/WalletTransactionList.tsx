@@ -124,12 +124,21 @@ const chipStyles = StyleSheet.create({
   },
 });
 
+interface ThemeColors {
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  glassBg: string;
+  glassBorder: string;
+}
+
 interface WalletTransactionListProps {
   transactions: Transaction[];
   wallet: WalletData | null;
+  tc: ThemeColors;
 }
 
-export function WalletTransactionList({ transactions, wallet: _ }: WalletTransactionListProps) {
+export function WalletTransactionList({ transactions, wallet: _, tc }: WalletTransactionListProps) {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("All");
 
   const now = new Date();
@@ -155,10 +164,10 @@ export function WalletTransactionList({ transactions, wallet: _ }: WalletTransac
     <View style={styles.container}>
       {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Transactions history</Text>
-        <View style={styles.monthBadge}>
-          <Text style={styles.monthText}>{monthLabel}</Text>
-          <Text style={styles.monthText}> ▾</Text>
+        <Text style={[styles.sectionTitle, { color: tc.textPrimary }]}>Transactions history</Text>
+        <View style={[styles.monthBadge, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]}>
+          <Text style={[styles.monthText, { color: tc.textSecondary }]}>{monthLabel}</Text>
+          <Text style={[styles.monthText, { color: tc.textSecondary }]}> ▾</Text>
         </View>
       </View>
 
@@ -174,23 +183,27 @@ export function WalletTransactionList({ transactions, wallet: _ }: WalletTransac
           return (
             <TouchableOpacity
               key={f}
-              style={[styles.pill, isActive && styles.pillActive]}
+              style={[
+                styles.pill,
+                { backgroundColor: tc.glassBg, borderColor: tc.glassBorder },
+                isActive && styles.pillActive,
+              ]}
               onPress={() => setSelectedFilter(f)}
               activeOpacity={0.75}
             >
-              <Text style={[styles.pillText, isActive && styles.pillTextActive]}>{f}</Text>
+              <Text style={[styles.pillText, { color: tc.textSecondary }, isActive && styles.pillTextActive]}>{f}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
       {/* List */}
-      <View style={styles.listCard}>
+      <View style={[styles.listCard, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]}>
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={40} color={COLORS.text.muted} />
-            <Text style={styles.emptyTitle}>No transactions yet</Text>
-            <Text style={styles.emptySub}>
+            <Ionicons name="receipt-outline" size={40} color={tc.textMuted} />
+            <Text style={[styles.emptyTitle, { color: tc.textSecondary }]}>No transactions yet</Text>
+            <Text style={[styles.emptySub, { color: tc.textMuted }]}>
               {selectedFilter !== "All"
                 ? `No ${selectedFilter.toLowerCase()} transactions`
                 : "Deposit or receive money to get started"}
@@ -209,7 +222,7 @@ export function WalletTransactionList({ transactions, wallet: _ }: WalletTransac
                 key={tx.transaction_id || idx}
                 style={[
                   styles.txRow,
-                  idx < filtered.length - 1 && styles.txRowBorder,
+                  idx < filtered.length - 1 && [styles.txRowBorder, { borderBottomColor: tc.glassBorder }],
                 ]}
               >
                 {/* Icon */}
@@ -223,8 +236,8 @@ export function WalletTransactionList({ transactions, wallet: _ }: WalletTransac
 
                 {/* Text info */}
                 <View style={styles.txInfo}>
-                  <Text style={styles.txTitle} numberOfLines={1}>{title}</Text>
-                  <Text style={styles.txSubtitle}>{formatDate(tx.created_at)}</Text>
+                  <Text style={[styles.txTitle, { color: tc.textPrimary }]} numberOfLines={1}>{title}</Text>
+                  <Text style={[styles.txSubtitle, { color: tc.textMuted }]}>{formatDate(tx.created_at)}</Text>
                 </View>
 
                 {/* Right: amount + status */}

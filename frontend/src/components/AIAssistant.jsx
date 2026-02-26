@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
@@ -258,45 +258,46 @@ export default function AIAssistant({ currentPage }) {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {msg.role === 'assistant' && (
-                  <div className="flex-shrink-0 mt-1 animate-float" style={{ animationDuration: '5s' }}>
-                    <GradientOrb size="md" animate={false} />
-                  </div>
-                )}
+              <React.Fragment key={i}>
                 <div
-                  className={cn(
-                    "max-w-[78%] px-3 py-2 rounded-2xl text-sm",
-                    msg.role === 'user'
-                      ? 'bg-violet-600 text-white rounded-br-none'
-                      : msg.error
-                        ? 'bg-destructive/10 text-destructive rounded-bl-none'
-                        : 'bg-muted text-foreground rounded-bl-none'
-                  )}
+                  className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                  {msg.source === 'quick_answer' && (
-                    <p className="text-[10px] opacity-60 mt-1">⚡ Quick answer</p>
+                  {msg.role === 'assistant' && (
+                    <div className="flex-shrink-0 mt-1 animate-float" style={{ animationDuration: '5s' }}>
+                      <GradientOrb size="md" animate={false} />
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[78%] px-3 py-2 rounded-2xl text-sm",
+                      msg.role === 'user'
+                        ? 'bg-violet-600 text-white rounded-br-none'
+                        : msg.error
+                          ? 'bg-destructive/10 text-destructive rounded-bl-none'
+                          : 'bg-muted text-foreground rounded-bl-none'
+                    )}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {msg.source === 'quick_answer' && (
+                      <p className="text-[10px] opacity-60 mt-1">⚡ Quick answer</p>
+                    )}
+                  </div>
+                  {msg.role === 'user' && (
+                    <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center flex-shrink-0">
+                      <User className="w-3.5 h-3.5 text-white" />
+                    </div>
                   )}
                 </div>
-                {msg.role === 'user' && (
-                  <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center flex-shrink-0">
-                    <User className="w-3.5 h-3.5 text-white" />
-                  </div>
+                {msg.navigation && WEB_NAV_MAP[msg.navigation.screen] && (
+                  <button
+                    onClick={() => handleNavigation(msg.navigation)}
+                    className="ml-9 mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-orange-500 bg-orange-500/10 hover:bg-orange-500/20 px-3 py-1.5 rounded-full transition-colors"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Go to {msg.navigation.screen} →
+                  </button>
                 )}
-              </div>
-              {msg.navigation && WEB_NAV_MAP[msg.navigation.screen] && (
-                <button
-                  onClick={() => handleNavigation(msg.navigation)}
-                  className="ml-9 mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-orange-500 bg-orange-500/10 hover:bg-orange-500/20 px-3 py-1.5 rounded-full transition-colors"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Go to {msg.navigation.screen} →
-                </button>
-              )}
+              </React.Fragment>
             ))}
 
             {loading && (

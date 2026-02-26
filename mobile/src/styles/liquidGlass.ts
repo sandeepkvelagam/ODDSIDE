@@ -31,6 +31,7 @@ export const COLORS = {
     glowBlue: "rgba(59, 130, 246, 0.15)",
     glowGreen: "rgba(34, 197, 94, 0.15)",
     glowRed: "rgba(239, 68, 68, 0.15)",
+    glowWarning: "rgba(245, 158, 11, 0.15)",
   },
 
   // Text Colors

@@ -10,6 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
+import { COLORS } from "../styles/liquidGlass";
 
 const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 const SUITS = [
@@ -161,14 +162,14 @@ export function PokerAIScreen() {
     <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* BETA Badge */}
-        <View style={[styles.betaBadge, { backgroundColor: "rgba(239,110,89,0.15)" }]}>
+        <View style={[styles.betaBadge, { backgroundColor: COLORS.glass.glowOrange }]}>
           <Text style={[styles.betaText, { color: colors.orange }]}>BETA</Text>
         </View>
 
         {/* Disclaimer Banner */}
-        <View style={[styles.disclaimerBanner, { backgroundColor: "rgba(234,179,8,0.1)", borderColor: "rgba(234,179,8,0.3)" }]}>
-          <Ionicons name="warning" size={18} color="#fbbf24" />
-          <Text style={[styles.disclaimerText, { color: "#fbbf24" }]}>
+        <View style={[styles.disclaimerBanner, { backgroundColor: COLORS.glass.glowWarning, borderColor: "rgba(245, 158, 11, 0.3)" }]}>
+          <Ionicons name="warning" size={18} color={colors.warning} />
+          <Text style={[styles.disclaimerText, { color: colors.warning }]}>
             Suggestions are educational and for entertainment only. They do not guarantee outcomes.
           </Text>
         </View>
@@ -204,7 +205,7 @@ export function PokerAIScreen() {
 
         {/* Duplicate Warning */}
         {hasDuplicates && (
-          <View style={[styles.warningBanner, { backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.3)" }]}>
+          <View style={[styles.warningBanner, { backgroundColor: COLORS.glass.glowRed, borderColor: "rgba(239, 68, 68, 0.3)" }]}>
             <Ionicons name="alert-circle" size={16} color={colors.danger} />
             <Text style={[styles.warningText, { color: colors.danger }]}>Duplicate card detected</Text>
           </View>
@@ -333,15 +334,15 @@ export function PokerAIScreen() {
               {/* Action Badge */}
               <View style={[
                 styles.actionBadge,
-                suggestion.action === "FOLD" && { backgroundColor: "rgba(239,68,68,0.15)" },
-                suggestion.action === "CALL" && { backgroundColor: "rgba(59,130,246,0.15)" },
-                suggestion.action === "RAISE" && { backgroundColor: "rgba(34,197,94,0.15)" },
-                suggestion.action === "CHECK" && { backgroundColor: "rgba(128,128,128,0.15)" },
+                suggestion.action === "FOLD" && { backgroundColor: COLORS.glass.glowRed },
+                suggestion.action === "CALL" && { backgroundColor: COLORS.glass.glowBlue },
+                suggestion.action === "RAISE" && { backgroundColor: COLORS.glass.glowGreen },
+                suggestion.action === "CHECK" && { backgroundColor: "rgba(128, 128, 128, 0.15)" },
               ]}>
                 <Text style={[
                   styles.actionText,
                   suggestion.action === "FOLD" && { color: colors.danger },
-                  suggestion.action === "CALL" && { color: "#3b82f6" },
+                  suggestion.action === "CALL" && { color: colors.trustBlue },
                   suggestion.action === "RAISE" && { color: colors.success },
                   suggestion.action === "CHECK" && { color: colors.textMuted },
                 ]}>
@@ -601,7 +602,7 @@ const styles = StyleSheet.create({
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(239,68,68,0.12)",
+    backgroundColor: COLORS.glass.glowRed,
     padding: 14,
     borderRadius: 12,
     marginBottom: 18,

@@ -493,7 +493,7 @@ export function DashboardScreen() {
               <View
                 style={[
                   styles.actionIconBox,
-                  { backgroundColor: "rgba(232,132,92,0.15)" },
+                  { backgroundColor: colors.liquidGlowOrange },
                 ]}
               >
                 <Ionicons name="people" size={24} color={colors.orange} />
@@ -508,10 +508,10 @@ export function DashboardScreen() {
               <View
                 style={[
                   styles.actionIconBox,
-                  { backgroundColor: "rgba(139,92,246,0.15)" },
+                  { backgroundColor: colors.liquidGlowBlue },
                 ]}
               >
-                <Ionicons name="chatbubbles" size={24} color="#8b5cf6" />
+                <Ionicons name="chatbubbles" size={24} color={colors.trustBlue} />
               </View>
               <Text style={[styles.actionText, { color: colors.textPrimary }]}>AI Chat</Text>
             </TouchableOpacity>
@@ -542,7 +542,7 @@ export function DashboardScreen() {
 
               <View style={styles.helpTipsList}>
                 <View style={styles.helpTip}>
-                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(232,132,92,0.15)" }]}>
+                  <View style={[styles.helpTipIcon, { backgroundColor: colors.liquidGlowOrange }]}>
                     <Ionicons name="people" size={20} color={colors.orange} />
                   </View>
                   <View style={styles.helpTipText}>
@@ -552,8 +552,8 @@ export function DashboardScreen() {
                 </View>
 
                 <View style={styles.helpTip}>
-                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
-                    <Ionicons name="game-controller" size={20} color="#22c55e" />
+                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(34, 197, 94, 0.15)" }]}>
+                    <Ionicons name="game-controller" size={20} color={colors.success} />
                   </View>
                   <View style={styles.helpTipText}>
                     <Text style={[styles.helpTipTitle, { color: colors.textPrimary }]}>Start a Game Night</Text>
@@ -562,8 +562,8 @@ export function DashboardScreen() {
                 </View>
 
                 <View style={styles.helpTip}>
-                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(59,130,246,0.15)" }]}>
-                    <Ionicons name="wallet" size={20} color="#3b82f6" />
+                  <View style={[styles.helpTipIcon, { backgroundColor: colors.liquidGlowBlue }]}>
+                    <Ionicons name="wallet" size={20} color={colors.trustBlue} />
                   </View>
                   <View style={styles.helpTipText}>
                     <Text style={[styles.helpTipTitle, { color: colors.textPrimary }]}>Auto Settlement</Text>
@@ -572,8 +572,8 @@ export function DashboardScreen() {
                 </View>
 
                 <View style={styles.helpTip}>
-                  <View style={[styles.helpTipIcon, { backgroundColor: "rgba(139,92,246,0.15)" }]}>
-                    <Ionicons name="chatbubbles" size={20} color="#8b5cf6" />
+                  <View style={[styles.helpTipIcon, { backgroundColor: colors.liquidGlowBlue }]}>
+                    <Ionicons name="chatbubbles" size={20} color={colors.trustBlue} />
                   </View>
                   <View style={styles.helpTipText}>
                     <Text style={[styles.helpTipTitle, { color: colors.textPrimary }]}>AI Assistant</Text>
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statCardAccent: {
-    borderColor: "rgba(232,132,92,0.3)",
+    borderColor: "rgba(238, 108, 41, 0.3)",
   },
   statIconRow: {
     flexDirection: "row",

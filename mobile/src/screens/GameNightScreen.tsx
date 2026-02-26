@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { api, getGame } from "../api/games";
 import { useTheme } from "../context/ThemeContext";
-import { getThemedColors } from "../styles/liquidGlass";
+import { getThemedColors, COLORS } from "../styles/liquidGlass";
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import type { Socket } from "socket.io-client";
@@ -60,10 +60,10 @@ export function GameNightScreen() {
 
   const lc = getThemedColors(isDark, colors);
 
-  // Host/Admin color - amber that's readable on both themes
-  const hostColor = isDark ? "#fbbf24" : "#b45309"; // amber-400 in dark, amber-700 in light
-  const hostBgColor = isDark ? "rgba(234,179,8,0.15)" : "rgba(180,83,9,0.12)";
-  const hostBorderColor = isDark ? "rgba(234,179,8,0.3)" : "rgba(180,83,9,0.25)";
+  // Host/Admin color - orange brand color (host = primary/featured user)
+  const hostColor = COLORS.orange;
+  const hostBgColor = COLORS.glass.glowOrange;
+  const hostBorderColor = "rgba(238, 108, 41, 0.3)";
 
   const socketRef = useRef<Socket | null>(null);
   const [snapshot, setSnapshot] = useState<any>(null);

@@ -360,7 +360,7 @@ export function AIAssistantScreen() {
           >
             <Text style={styles.welcomeHeading}>
               Your{" "}
-              <Text style={{ color: "#A78BFA" }}>Smart</Text>
+              <Text style={{ color: COLORS.orange }}>Smart</Text>
               {" "}Assistant
             </Text>
             <Text style={styles.welcomeHeading}>for Any Task</Text>
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   betaBadgeText: {
-    color: "#A78BFA",
+    color: COLORS.orange,
     fontSize: 9,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -749,7 +749,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.glass.border,
   },
-  messageBubbleUser: { backgroundColor: "#7C3AED" },
+  messageBubbleUser: {
+    backgroundColor: COLORS.glass.glowOrange,
+    borderWidth: 1,
+    borderColor: COLORS.glass.border,
+  },
   messageBubbleError: {
     backgroundColor: COLORS.glass.glowRed,
     borderWidth: 1,
@@ -838,7 +842,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#7C3AED",
+    backgroundColor: COLORS.orangeDark,
     alignItems: "center",
     justifyContent: "center",
   },

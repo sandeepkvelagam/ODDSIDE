@@ -21,7 +21,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { api } from "../api/client";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import { useTheme } from "../context/ThemeContext";
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION, getThemedColors } from "../styles/liquidGlass";
 import { GlassIconButton } from "../components/ui";
 
 // Enable LayoutAnimation on Android
@@ -118,7 +118,8 @@ export function AIGradientOrb({ size = 28 }: { size?: number }) {
 export function AIAssistantScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const lc = getThemedColors(isDark, colors);
   const scrollRef = useRef<ScrollView>(null);
 
   // Welcome → Chat transition
@@ -309,6 +310,15 @@ export function AIAssistantScreen() {
           </TouchableOpacity>
         </View>
       </Animated.View>
+
+      {/* AI Gradient glow strip below header */}
+      <LinearGradient
+        colors={COLORS.ai.gradientColors as unknown as [string, string, ...string[]]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={{ height: 2.5 }}
+      />
+      <View style={styles.glowShadow} />
 
       {/* ── Welcome Screen ── */}
       {!hasStarted ? (
@@ -517,6 +527,12 @@ export function AIAssistantScreen() {
               )}
 
               {/* Input */}
+              <LinearGradient
+                colors={COLORS.ai.gradientColors as unknown as [string, string, ...string[]]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={{ height: 1.5 }}
+              />
               <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 16 }]}>
                 <View style={styles.inputWrapper}>
                   <TextInput
@@ -560,8 +576,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: SPACING.container,
     paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.glass.border,
+  },
+  glowShadow: {
+    height: 1,
+    shadowColor: "#7848FF",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   headerCenter: {
     flex: 1,
@@ -818,8 +840,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     paddingHorizontal: SPACING.container,
     paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.glass.border,
     backgroundColor: COLORS.jetDark,
   },
   inputWrapper: {

@@ -34,6 +34,14 @@ export const COLORS = {
     glowWarning: "rgba(245, 158, 11, 0.15)",
   },
 
+  // AI Gradient Colors
+  ai: {
+    glowPurple: "#7848FF",
+    glowPink: "#FF6EA8",
+    glowOrange: "#EE6C29",
+    gradientColors: ["#7848FF", "#FF6EA8", "#EE6C29"] as const,
+  },
+
   // Text Colors
   text: {
     primary: "#F5F5F5",

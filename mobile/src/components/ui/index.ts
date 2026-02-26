@@ -9,3 +9,4 @@ export { GlassListItem, GlassListSection, GlassListDivider } from "./GlassListIt
 export { Skeleton, SkeletonCard, SkeletonListItem, SkeletonStats } from "./SkeletonLoader";
 export { KvittLogo } from "./KvittLogo";
 export { PageHeader } from "./PageHeader";
+export { AIGlowBorder } from "./AIGlowBorder";

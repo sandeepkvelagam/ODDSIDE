@@ -8,29 +8,39 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
-import { COLORS } from "../styles/liquidGlass";
+import { getThemedColors, COLORS, SPACING, RADIUS, SHADOWS } from "../styles/liquidGlass";
+import { AIGlowBorder } from "../components/ui";
+import type { RootStackParamList } from "../navigation/RootNavigator";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 const SUITS = [
-  { symbol: "♠", name: "spades", color: "#000" },
-  { symbol: "♥", name: "hearts", color: "#DC2626" },
-  { symbol: "♦", name: "diamonds", color: "#DC2626" },
-  { symbol: "♣", name: "clubs", color: "#000" },
+  { symbol: "\u2660", name: "spades", color: "#000" },
+  { symbol: "\u2665", name: "hearts", color: "#DC2626" },
+  { symbol: "\u2666", name: "diamonds", color: "#DC2626" },
+  { symbol: "\u2663", name: "clubs", color: "#000" },
 ];
 
 type Card = { rank: string; suit: string } | null;
 
 export function PokerAIScreen() {
+  const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const lc = getThemedColors(isDark, colors);
 
   // Card state
   const [handCards, setHandCards] = useState<Card[]>([null, null]);
   const [communityCards, setCommunityCards] = useState<Card[]>([null, null, null, null, null]);
   const [selectedSlot, setSelectedSlot] = useState<{ type: "hand" | "community"; index: number } | null>(null);
   const [selectedRank, setSelectedRank] = useState<string | null>(null);
-  const [showHand, setShowHand] = useState(true); // Toggle to hide/show your hand
+  const [showHand, setShowHand] = useState(true);
 
   // Consent & submission
   const [consentChecked, setConsentChecked] = useState(false);
@@ -47,6 +57,12 @@ export function PokerAIScreen() {
   const handComplete = handCards.every((c) => c !== null);
   const communityCount = communityCards.filter((c) => c !== null).length;
   const canAnalyze = handComplete && communityCount >= 3 && consentChecked && !hasDuplicates;
+
+  // Get suit color - fixes invisible #000 on dark backgrounds
+  const getSuitColor = (color: string | undefined) => {
+    if (!color) return lc.textPrimary;
+    return color === "#000" ? lc.textPrimary : color;
+  };
 
   // Set card at selected slot
   const setCard = (rank: string, suit: string) => {
@@ -126,8 +142,8 @@ export function PokerAIScreen() {
         key={`${type}-${index}`}
         style={[
           styles.cardSlot,
-          { borderColor: isSelected ? colors.orange : colors.glassBorder },
-          isSelected && { borderWidth: 2 },
+          { borderColor: isSelected ? lc.orange : lc.liquidGlassBorder },
+          isSelected && { borderWidth: 2, borderStyle: "solid" as any },
           card && { backgroundColor: isDark ? "#2a2a2a" : "#fff" },
         ]}
         onPress={() => {
@@ -139,255 +155,287 @@ export function PokerAIScreen() {
         {card ? (
           hidden ? (
             <View style={styles.cardContent}>
-              <Ionicons name="eye-off" size={20} color={colors.textMuted} />
+              <Ionicons name="eye-off" size={20} color={lc.textMuted} />
             </View>
           ) : (
             <View style={styles.cardContent}>
-              <Text style={[styles.cardRank, { color: suitData?.color || colors.textPrimary }]}>
+              <Text style={[styles.cardRank, { color: getSuitColor(suitData?.color) }]}>
                 {card.rank}
               </Text>
-              <Text style={[styles.cardSuit, { color: suitData?.color || colors.textPrimary }]}>
+              <Text style={[styles.cardSuit, { color: getSuitColor(suitData?.color) }]}>
                 {suitData?.symbol}
               </Text>
             </View>
           )
         ) : (
-          <Text style={[styles.cardPlaceholder, { color: colors.textMuted }]}>Tap</Text>
+          <Text style={[styles.cardPlaceholder, { color: lc.textMuted }]}>Tap</Text>
         )}
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={[styles.wrapper, { backgroundColor: colors.background }]}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* BETA Badge */}
-        <View style={[styles.betaBadge, { backgroundColor: COLORS.glass.glowOrange }]}>
-          <Text style={[styles.betaText, { color: colors.orange }]}>BETA</Text>
-        </View>
-
-        {/* Disclaimer Banner */}
-        <View style={[styles.disclaimerBanner, { backgroundColor: COLORS.glass.glowWarning, borderColor: "rgba(245, 158, 11, 0.3)" }]}>
-          <Ionicons name="warning" size={18} color={colors.warning} />
-          <Text style={[styles.disclaimerText, { color: colors.warning }]}>
-            Suggestions are educational and for entertainment only. They do not guarantee outcomes.
-          </Text>
-        </View>
-
-        {/* Your Hand */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Your Hand</Text>
-            <TouchableOpacity
-              style={[styles.visibilityToggle, { backgroundColor: colors.glassBg }]}
-              onPress={() => setShowHand(!showHand)}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name={showHand ? "eye" : "eye-off"} 
-                size={18} 
-                color={colors.textMuted} 
-              />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.cardRow}>
-            {handCards.map((card, idx) => renderCardSlot(card, "hand", idx, !showHand))}
-          </View>
-        </View>
-
-        {/* Community Cards */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Community Cards</Text>
-          <View style={styles.cardRow}>
-            {communityCards.map((card, idx) => renderCardSlot(card, "community", idx))}
-          </View>
-        </View>
-
-        {/* Duplicate Warning */}
-        {hasDuplicates && (
-          <View style={[styles.warningBanner, { backgroundColor: COLORS.glass.glowRed, borderColor: "rgba(239, 68, 68, 0.3)" }]}>
-            <Ionicons name="alert-circle" size={16} color={colors.danger} />
-            <Text style={[styles.warningText, { color: colors.danger }]}>Duplicate card detected</Text>
-          </View>
-        )}
-
-        {/* Card Input */}
-        {selectedSlot && (
-          <View style={[styles.inputSection, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
-            <Text style={[styles.inputTitle, { color: colors.textSecondary }]}>
-              Select {selectedRank ? "Suit" : "Rank"}
-            </Text>
-
-            {!selectedRank ? (
-              <View style={styles.rankGrid}>
-                {RANKS.map((rank) => (
-                  <TouchableOpacity
-                    key={rank}
-                    style={[styles.rankButton, { borderColor: colors.glassBorder }]}
-                    onPress={() => setSelectedRank(rank)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.rankButtonText, { color: colors.textPrimary }]}>{rank}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.suitRow}>
-                {SUITS.map((suit) => (
-                  <TouchableOpacity
-                    key={suit.name}
-                    style={[styles.suitButton, { borderColor: colors.glassBorder }]}
-                    onPress={() => setCard(selectedRank, suit.name)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.suitSymbol, { color: suit.color }]}>{suit.symbol}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Consent Checkbox */}
-        <TouchableOpacity
-          style={styles.consentRow}
-          onPress={() => setConsentChecked(!consentChecked)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.checkbox, { borderColor: consentChecked ? colors.orange : colors.glassBorder, backgroundColor: consentChecked ? colors.orange : "transparent" }]}>
-            {consentChecked && <Ionicons name="checkmark" size={16} color="#fff" />}
-          </View>
-          <Text style={[styles.consentText, { color: colors.textSecondary }]}>
-            AI suggestions only - I decide my actions
-          </Text>
-        </TouchableOpacity>
-
-        {/* Action Buttons */}
-        <View style={styles.actionRow}>
+    <AIGlowBorder backgroundColor={lc.jetDark}>
+      <View style={[styles.wrapper, { paddingTop: insets.top }]}>
+        {/* Page Header */}
+        <View style={[styles.pageHeader, { borderBottomColor: lc.liquidGlassBorder }]}>
           <TouchableOpacity
-            style={[styles.resetButton, { borderColor: colors.glassBorder }]}
-            onPress={handleReset}
+            style={[styles.headerButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+            onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Ionicons name="refresh" size={18} color={colors.textSecondary} />
-            <Text style={[styles.resetText, { color: colors.textSecondary }]}>Reset</Text>
+            <Ionicons name="chevron-back" size={22} color={lc.textPrimary} />
           </TouchableOpacity>
+          <Text style={[styles.pageTitle, { color: lc.textPrimary }]}>Poker AI</Text>
           <TouchableOpacity
-            style={[
-              styles.analyzeButton,
-              { backgroundColor: colors.orange },
-              !canAnalyze && styles.buttonDisabled,
-            ]}
-            onPress={handleAnalyze}
-            disabled={!canAnalyze || analyzing}
-            activeOpacity={0.8}
+            style={[styles.headerButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
+            onPress={() => navigation.navigate("Dashboard" as any)}
+            activeOpacity={0.7}
           >
-            {analyzing ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="sparkles" size={18} color="#fff" />
-                <Text style={styles.analyzeText}>Get Suggestion</Text>
-              </>
-            )}
+            <Ionicons name="home-outline" size={20} color={lc.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Validation Hints */}
-        {!canAnalyze && !suggestion && (
-          <View style={styles.hintsContainer}>
-            {!handComplete && (
-              <Text style={[styles.hintText, { color: colors.textMuted }]}>
-                • Need {2 - handCards.filter(Boolean).length} more hand card(s)
-              </Text>
-            )}
-            {communityCount < 3 && (
-              <Text style={[styles.hintText, { color: colors.textMuted }]}>
-                • Need {3 - communityCount} more community card(s) (minimum: flop)
-              </Text>
-            )}
-            {!consentChecked && handComplete && communityCount >= 3 && (
-              <Text style={[styles.hintText, { color: colors.textMuted }]}>
-                • Please accept the consent checkbox
-              </Text>
-            )}
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          {/* BETA Badge */}
+          <View style={[styles.betaBadge, { backgroundColor: COLORS.glass.glowOrange }]}>
+            <Text style={[styles.betaText, { color: lc.orange }]}>BETA</Text>
           </View>
-        )}
 
-        {/* Error */}
-        {error && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={16} color="#fca5a5" />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {/* Suggestion Result */}
-        {suggestion && (
-          <View style={[styles.suggestionCard, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
-            <View style={styles.suggestionHeader}>
-              <Ionicons name="bulb" size={20} color={colors.orange} />
-              <Text style={[styles.suggestionTitle, { color: colors.textPrimary }]}>AI Suggestion</Text>
+          {/* Disclaimer Banner */}
+          <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+            <View style={[styles.liquidInner, { backgroundColor: COLORS.glass.glowWarning }]}>
+              <View style={styles.disclaimerRow}>
+                <Ionicons name="warning" size={18} color={lc.warning} />
+                <Text style={[styles.disclaimerText, { color: lc.warning }]}>
+                  Suggestions are educational and for entertainment only. They do not guarantee outcomes.
+                </Text>
+              </View>
             </View>
+          </View>
 
-            <View style={styles.suggestionContent}>
-              {/* Action Badge */}
-              <View style={[
-                styles.actionBadge,
-                suggestion.action === "FOLD" && { backgroundColor: COLORS.glass.glowRed },
-                suggestion.action === "CALL" && { backgroundColor: COLORS.glass.glowBlue },
-                suggestion.action === "RAISE" && { backgroundColor: COLORS.glass.glowGreen },
-                suggestion.action === "CHECK" && { backgroundColor: "rgba(128, 128, 128, 0.15)" },
-              ]}>
-                <Text style={[
-                  styles.actionText,
-                  suggestion.action === "FOLD" && { color: colors.danger },
-                  suggestion.action === "CALL" && { color: colors.trustBlue },
-                  suggestion.action === "RAISE" && { color: colors.success },
-                  suggestion.action === "CHECK" && { color: colors.textMuted },
-                ]}>
-                  {suggestion.action}
-                </Text>
+          {/* Card Selection Area */}
+          <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+            <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
+              {/* Your Hand */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[styles.sectionTitle, { color: lc.textSecondary }]}>Your Hand</Text>
+                  <TouchableOpacity
+                    style={[styles.visibilityToggle, { backgroundColor: lc.liquidGlassBg }]}
+                    onPress={() => setShowHand(!showHand)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={showHand ? "eye" : "eye-off"}
+                      size={18}
+                      color={lc.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.cardRow}>
+                  {handCards.map((card, idx) => renderCardSlot(card, "hand", idx, !showHand))}
+                </View>
               </View>
 
-              {/* Potential */}
-              <View style={styles.potentialRow}>
-                <Text style={[styles.potentialLabel, { color: colors.textMuted }]}>Potential:</Text>
-                <Text style={[
-                  styles.potentialValue,
-                  suggestion.potential === "High" && { color: colors.success },
-                  suggestion.potential === "Medium" && { color: "#fbbf24" },
-                  suggestion.potential === "Low" && { color: colors.textMuted },
-                ]}>
-                  {suggestion.potential}
-                </Text>
+              {/* Community Cards */}
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: lc.textSecondary }]}>Community Cards</Text>
+                <View style={styles.cardRow}>
+                  {communityCards.map((card, idx) => renderCardSlot(card, "community", idx))}
+                </View>
               </View>
 
-              {/* Reasoning */}
-              <Text style={[styles.reasoningText, { color: colors.textSecondary }]}>
-                {suggestion.reasoning}
-              </Text>
+              {/* Duplicate Warning */}
+              {hasDuplicates && (
+                <View style={[styles.warningBanner, { backgroundColor: COLORS.glass.glowRed, borderColor: "rgba(239, 68, 68, 0.3)" }]}>
+                  <Ionicons name="alert-circle" size={16} color={lc.danger} />
+                  <Text style={[styles.warningText, { color: lc.danger }]}>Duplicate card detected</Text>
+                </View>
+              )}
 
-              {/* Hand Strength */}
-              {suggestion.hand_strength && (
-                <View style={[styles.handStrengthBadge, { backgroundColor: colors.glassBg }]}>
-                  <Text style={[styles.handStrengthText, { color: colors.textPrimary }]}>
-                    {suggestion.hand_strength}
+              {/* Card Input (Rank/Suit Picker) */}
+              {selectedSlot && (
+                <View style={[styles.inputSection, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+                  <Text style={[styles.inputTitle, { color: lc.textSecondary }]}>
+                    Select {selectedRank ? "Suit" : "Rank"}
                   </Text>
+
+                  {!selectedRank ? (
+                    <View style={styles.rankGrid}>
+                      {RANKS.map((rank) => (
+                        <TouchableOpacity
+                          key={rank}
+                          style={[styles.rankButton, { borderColor: lc.liquidGlassBorder }]}
+                          onPress={() => setSelectedRank(rank)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.rankButtonText, { color: lc.textPrimary }]}>{rank}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : (
+                    <View style={styles.suitRow}>
+                      {SUITS.map((suit) => (
+                        <TouchableOpacity
+                          key={suit.name}
+                          style={[styles.suitButton, { borderColor: lc.liquidGlassBorder }]}
+                          onPress={() => setCard(selectedRank, suit.name)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.suitSymbol, { color: getSuitColor(suit.color) }]}>{suit.symbol}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </View>
               )}
             </View>
           </View>
-        )}
 
-        {/* Footer Note */}
-        <Text style={[styles.footerNote, { color: colors.textMuted }]}>
-          For learning and practice only
-        </Text>
+          {/* Consent Checkbox */}
+          <TouchableOpacity
+            style={styles.consentRow}
+            onPress={() => setConsentChecked(!consentChecked)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, { borderColor: consentChecked ? lc.orange : lc.liquidGlassBorder, backgroundColor: consentChecked ? lc.orange : "transparent" }]}>
+              {consentChecked && <Ionicons name="checkmark" size={16} color="#fff" />}
+            </View>
+            <Text style={[styles.consentText, { color: lc.textSecondary }]}>
+              AI suggestions only - I decide my actions
+            </Text>
+          </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
+          {/* Action Buttons */}
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.resetButton, { borderColor: lc.liquidGlassBorder }]}
+              onPress={handleReset}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh" size={18} color={lc.textSecondary} />
+              <Text style={[styles.resetText, { color: lc.textSecondary }]}>Reset</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.analyzeButton,
+                { backgroundColor: lc.orange },
+                !canAnalyze && styles.buttonDisabled,
+              ]}
+              onPress={handleAnalyze}
+              disabled={!canAnalyze || analyzing}
+              activeOpacity={0.8}
+            >
+              {analyzing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={18} color="#fff" />
+                  <Text style={styles.analyzeText}>Get Suggestion</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Validation Hints */}
+          {!canAnalyze && !suggestion && (
+            <View style={styles.hintsContainer}>
+              {!handComplete && (
+                <Text style={[styles.hintText, { color: lc.textMuted }]}>
+                  • Need {2 - handCards.filter(Boolean).length} more hand card(s)
+                </Text>
+              )}
+              {communityCount < 3 && (
+                <Text style={[styles.hintText, { color: lc.textMuted }]}>
+                  • Need {3 - communityCount} more community card(s) (minimum: flop)
+                </Text>
+              )}
+              {!consentChecked && handComplete && communityCount >= 3 && (
+                <Text style={[styles.hintText, { color: lc.textMuted }]}>
+                  • Please accept the consent checkbox
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Error */}
+          {error && (
+            <View style={[styles.errorBanner, { backgroundColor: COLORS.glass.glowRed }]}>
+              <Ionicons name="alert-circle" size={16} color="#fca5a5" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {/* Suggestion Result */}
+          {suggestion && (
+            <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+              <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
+                <View style={styles.suggestionHeader}>
+                  <Ionicons name="bulb" size={20} color={lc.orange} />
+                  <Text style={[styles.suggestionTitle, { color: lc.textPrimary }]}>AI Suggestion</Text>
+                </View>
+
+                <View style={styles.suggestionContent}>
+                  {/* Action Badge */}
+                  <View style={[
+                    styles.actionBadge,
+                    suggestion.action === "FOLD" && { backgroundColor: COLORS.glass.glowRed },
+                    suggestion.action === "CALL" && { backgroundColor: COLORS.glass.glowBlue },
+                    suggestion.action === "RAISE" && { backgroundColor: COLORS.glass.glowGreen },
+                    suggestion.action === "CHECK" && { backgroundColor: "rgba(128, 128, 128, 0.15)" },
+                  ]}>
+                    <Text style={[
+                      styles.actionText,
+                      suggestion.action === "FOLD" && { color: lc.danger },
+                      suggestion.action === "CALL" && { color: lc.trustBlue },
+                      suggestion.action === "RAISE" && { color: lc.success },
+                      suggestion.action === "CHECK" && { color: lc.textMuted },
+                    ]}>
+                      {suggestion.action}
+                    </Text>
+                  </View>
+
+                  {/* Potential */}
+                  <View style={styles.potentialRow}>
+                    <Text style={[styles.potentialLabel, { color: lc.textMuted }]}>Potential:</Text>
+                    <Text style={[
+                      styles.potentialValue,
+                      suggestion.potential === "High" && { color: lc.success },
+                      suggestion.potential === "Medium" && { color: "#fbbf24" },
+                      suggestion.potential === "Low" && { color: lc.textMuted },
+                    ]}>
+                      {suggestion.potential}
+                    </Text>
+                  </View>
+
+                  {/* Reasoning */}
+                  <Text style={[styles.reasoningText, { color: lc.textSecondary }]}>
+                    {suggestion.reasoning}
+                  </Text>
+
+                  {/* Hand Strength */}
+                  {suggestion.hand_strength && (
+                    <View style={[styles.handStrengthBadge, { backgroundColor: lc.liquidGlassBg }]}>
+                      <Text style={[styles.handStrengthText, { color: lc.textPrimary }]}>
+                        {suggestion.hand_strength}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Footer Note */}
+          <Text style={[styles.footerNote, { color: lc.textMuted }]}>
+            For learning and practice only
+          </Text>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </View>
+    </AIGlowBorder>
   );
 }
 
@@ -395,40 +443,72 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
   },
+  pageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pageTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   container: {
     flex: 1,
   },
   content: {
-    padding: 28,
+    padding: SPACING.container,
+    gap: SPACING.sectionGap,
   },
   betaBadge: {
-    position: "absolute",
-    top: 0,
-    right: 28,
+    alignSelf: "flex-end",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: RADIUS.sm,
   },
   betaText: {
     fontSize: 12,
     fontWeight: "700",
   },
-  disclaimerBanner: {
+
+  // Liquid Glass Card pattern
+  liquidCard: {
+    borderRadius: RADIUS.xxl,
+    padding: SPACING.innerPadding,
+    borderWidth: 1.5,
+    ...SHADOWS.glassCard,
+  },
+  liquidInner: {
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+  },
+
+  // Disclaimer
+  disclaimerRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 28,
   },
   disclaimerText: {
     flex: 1,
     fontSize: 13,
     lineHeight: 20,
   },
+
+  // Sections
   section: {
-    marginBottom: 28,
+    marginBottom: SPACING.sectionGap,
   },
   sectionHeaderRow: {
     flexDirection: "row",
@@ -449,14 +529,16 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+
+  // Card slots
   cardRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
     justifyContent: "center",
   },
   cardSlot: {
-    width: 56,
-    height: 80,
+    width: 52,
+    height: 76,
     borderRadius: 10,
     borderWidth: 1,
     borderStyle: "dashed",
@@ -467,15 +549,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cardRank: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
   },
   cardSuit: {
-    fontSize: 20,
+    fontSize: 18,
   },
   cardPlaceholder: {
-    fontSize: 12,
+    fontSize: 11,
   },
+
+  // Warnings
   warningBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -483,16 +567,17 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    marginBottom: 18,
+    marginBottom: 12,
   },
   warningText: {
     fontSize: 14,
   },
+
+  // Card input
   inputSection: {
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
     borderWidth: 1,
-    marginBottom: 28,
   },
   inputTitle: {
     fontSize: 13,
@@ -509,15 +594,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rankButton: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 10,
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
   },
   rankButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
   suitRow: {
@@ -526,21 +611,22 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   suitButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 14,
+    width: 60,
+    height: 60,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
   },
   suitSymbol: {
-    fontSize: 32,
+    fontSize: 30,
   },
+
+  // Consent
   consentRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    marginBottom: 24,
   },
   checkbox: {
     width: 24,
@@ -555,10 +641,11 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
   },
+
+  // Actions
   actionRow: {
     flexDirection: "row",
     gap: 14,
-    marginBottom: 18,
   },
   resetButton: {
     flex: 1,
@@ -566,8 +653,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
   },
   resetText: {
@@ -580,8 +667,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: RADIUS.md,
     minHeight: 52,
   },
   analyzeText: {
@@ -592,20 +679,21 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
+
+  // Hints
   hintsContainer: {
-    marginBottom: 18,
     gap: 6,
   },
   hintText: {
     fontSize: 13,
   },
+
+  // Error
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.glass.glowRed,
     padding: 14,
-    borderRadius: 12,
-    marginBottom: 18,
+    borderRadius: RADIUS.md,
     gap: 10,
   },
   errorText: {
@@ -613,17 +701,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flex: 1,
   },
-  suggestionCard: {
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    marginBottom: 18,
-  },
+
+  // Suggestion
   suggestionHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   suggestionTitle: {
     fontSize: 18,
@@ -636,7 +720,7 @@ const styles = StyleSheet.create({
   actionBadge: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
   },
   actionText: {
     fontSize: 24,
@@ -662,7 +746,7 @@ const styles = StyleSheet.create({
   handStrengthBadge: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: RADIUS.sm,
   },
   handStrengthText: {
     fontSize: 14,

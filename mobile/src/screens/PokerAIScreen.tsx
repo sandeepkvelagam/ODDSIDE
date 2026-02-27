@@ -58,10 +58,10 @@ export function PokerAIScreen() {
   const communityCount = communityCards.filter((c) => c !== null).length;
   const canAnalyze = handComplete && communityCount >= 3 && consentChecked && !hasDuplicates;
 
-  // Get suit color - fixes invisible #000 on dark backgrounds
+  // Get suit color - black suits use theme-aware token
   const getSuitColor = (color: string | undefined) => {
-    if (!color) return lc.textPrimary;
-    return color === "#000" ? lc.textPrimary : color;
+    if (!color) return lc.suitBlack;
+    return color === "#000" ? lc.suitBlack : color;
   };
 
   // Set card at selected slot
@@ -142,9 +142,8 @@ export function PokerAIScreen() {
         key={`${type}-${index}`}
         style={[
           styles.cardSlot,
-          { borderColor: isSelected ? lc.orange : lc.liquidGlassBorder },
+          { borderColor: isSelected ? lc.orange : lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg },
           isSelected && { borderWidth: 2, borderStyle: "solid" as any },
-          card && { backgroundColor: lc.jetSurface },
         ]}
         onPress={() => {
           setSelectedSlot({ type, index });
@@ -192,7 +191,7 @@ export function PokerAIScreen() {
             onPress={() => navigation.navigate("Dashboard" as any)}
             activeOpacity={0.7}
           >
-            <Ionicons name="home-outline" size={20} color={lc.textSecondary} />
+            <Ionicons name="home-outline" size={20} color={lc.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -218,14 +217,14 @@ export function PokerAIScreen() {
           <SnakeGlowBorder
             borderRadius={RADIUS.xxl}
             glowColor={lc.orange}
-            dashedColor={lc.liquidGlassBorder}
+            dashedColor={lc.dashedBorder}
             backgroundColor={lc.liquidGlassBg}
           >
             <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg, borderRadius: RADIUS.xl }]}>
               {/* Your Hand */}
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={[styles.sectionTitle, { color: lc.textSecondary }]}>Your Hand</Text>
+                  <Text style={[styles.sectionTitle, { color: lc.textPrimary }]}>Your Hand</Text>
                   <TouchableOpacity
                     style={[styles.visibilityToggle, { backgroundColor: lc.liquidGlassBg }]}
                     onPress={() => setShowHand(!showHand)}
@@ -245,7 +244,7 @@ export function PokerAIScreen() {
 
               {/* Community Cards */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: lc.textSecondary }]}>Community Cards</Text>
+                <Text style={[styles.sectionTitle, { color: lc.textPrimary }]}>Community Cards</Text>
                 <View style={styles.cardRow}>
                   {communityCards.map((card, idx) => renderCardSlot(card, "community", idx))}
                 </View>
@@ -262,7 +261,7 @@ export function PokerAIScreen() {
               {/* Card Input (Rank/Suit Picker) */}
               {selectedSlot && (
                 <View style={[styles.inputSection, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.inputTitle, { color: lc.textSecondary }]}>
+                  <Text style={[styles.inputTitle, { color: lc.textPrimary }]}>
                     Select {selectedRank ? "Suit" : "Rank"}
                   </Text>
 
@@ -271,7 +270,7 @@ export function PokerAIScreen() {
                       {RANKS.map((rank) => (
                         <TouchableOpacity
                           key={rank}
-                          style={[styles.rankButton, { borderColor: lc.liquidGlassBorder }]}
+                          style={[styles.rankButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
                           onPress={() => setSelectedRank(rank)}
                           activeOpacity={0.7}
                         >
@@ -284,7 +283,7 @@ export function PokerAIScreen() {
                       {SUITS.map((suit) => (
                         <TouchableOpacity
                           key={suit.name}
-                          style={[styles.suitButton, { borderColor: lc.liquidGlassBorder }]}
+                          style={[styles.suitButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
                           onPress={() => setCard(selectedRank, suit.name)}
                           activeOpacity={0.7}
                         >
@@ -307,7 +306,7 @@ export function PokerAIScreen() {
             <View style={[styles.checkbox, { borderColor: consentChecked ? lc.orange : lc.liquidGlassBorder, backgroundColor: consentChecked ? lc.orange : "transparent" }]}>
               {consentChecked && <Ionicons name="checkmark" size={16} color="#fff" />}
             </View>
-            <Text style={[styles.consentText, { color: lc.textSecondary }]}>
+            <Text style={[styles.consentText, { color: lc.textPrimary }]}>
               AI suggestions only - I decide my actions
             </Text>
           </TouchableOpacity>
@@ -319,8 +318,8 @@ export function PokerAIScreen() {
               onPress={handleReset}
               activeOpacity={0.7}
             >
-              <Ionicons name="refresh" size={18} color={lc.textSecondary} />
-              <Text style={[styles.resetText, { color: lc.textSecondary }]}>Reset</Text>
+              <Ionicons name="refresh" size={18} color={lc.textPrimary} />
+              <Text style={[styles.resetText, { color: lc.textPrimary }]}>Reset</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -347,17 +346,17 @@ export function PokerAIScreen() {
           {!canAnalyze && !suggestion && (
             <View style={styles.hintsContainer}>
               {!handComplete && (
-                <Text style={[styles.hintText, { color: lc.textMuted }]}>
+                <Text style={[styles.hintText, { color: lc.textSecondary }]}>
                   • Need {2 - handCards.filter(Boolean).length} more hand card(s)
                 </Text>
               )}
               {communityCount < 3 && (
-                <Text style={[styles.hintText, { color: lc.textMuted }]}>
+                <Text style={[styles.hintText, { color: lc.textSecondary }]}>
                   • Need {3 - communityCount} more community card(s) (minimum: flop)
                 </Text>
               )}
               {!consentChecked && handComplete && communityCount >= 3 && (
-                <Text style={[styles.hintText, { color: lc.textMuted }]}>
+                <Text style={[styles.hintText, { color: lc.textSecondary }]}>
                   • Please accept the consent checkbox
                 </Text>
               )}
@@ -403,7 +402,7 @@ export function PokerAIScreen() {
 
                   {/* Potential */}
                   <View style={styles.potentialRow}>
-                    <Text style={[styles.potentialLabel, { color: lc.textMuted }]}>Potential:</Text>
+                    <Text style={[styles.potentialLabel, { color: lc.textSecondary }]}>Potential:</Text>
                     <Text style={[
                       styles.potentialValue,
                       suggestion.potential === "High" && { color: lc.success },
@@ -415,7 +414,7 @@ export function PokerAIScreen() {
                   </View>
 
                   {/* Reasoning */}
-                  <Text style={[styles.reasoningText, { color: lc.textSecondary }]}>
+                  <Text style={[styles.reasoningText, { color: lc.textPrimary }]}>
                     {suggestion.reasoning}
                   </Text>
 
@@ -433,7 +432,7 @@ export function PokerAIScreen() {
           )}
 
           {/* Footer Note */}
-          <Text style={[styles.footerNote, { color: lc.textMuted }]}>
+          <Text style={[styles.footerNote, { color: lc.textSecondary }]}>
             For learning and practice only
           </Text>
 

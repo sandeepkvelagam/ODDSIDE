@@ -461,7 +461,7 @@ export function AIAssistantScreen() {
               testID="ai-chat-show-bar"
             >
               <Ionicons name="chatbubble-ellipses-outline" size={16} color={lc.orange} />
-              <Text style={[styles.minimizedText, { color: lc.textSecondary }]}>
+              <Text style={[styles.minimizedText, { color: lc.textPrimary }]}>
                 {loading ? "Thinking..." : "Tap to show conversation"}
               </Text>
               {loading && <ActivityIndicator size="small" color={lc.orange} />}
@@ -572,7 +572,7 @@ export function AIAssistantScreen() {
                         onPress={() => sendMessage(s)}
                         activeOpacity={0.7}
                       >
-                        <Text style={[styles.suggestionText, { color: lc.textSecondary }]}>{s}</Text>
+                        <Text style={[styles.suggestionText, { color: lc.textPrimary }]}>{s}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>

@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { getThemedColors, COLORS, SPACING, RADIUS, SHADOWS } from "../styles/liquidGlass";
-import { AIGlowBorder } from "../components/ui";
+import { AIGlowBorder, SnakeGlowBorder } from "../components/ui";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -144,7 +144,7 @@ export function PokerAIScreen() {
           styles.cardSlot,
           { borderColor: isSelected ? lc.orange : lc.liquidGlassBorder },
           isSelected && { borderWidth: 2, borderStyle: "solid" as any },
-          card && { backgroundColor: isDark ? "#2a2a2a" : "#fff" },
+          card && { backgroundColor: lc.jetSurface },
         ]}
         onPress={() => {
           setSelectedSlot({ type, index });
@@ -198,13 +198,13 @@ export function PokerAIScreen() {
 
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
           {/* BETA Badge */}
-          <View style={[styles.betaBadge, { backgroundColor: COLORS.glass.glowOrange }]}>
+          <View style={[styles.betaBadge, { backgroundColor: lc.liquidGlowOrange }]}>
             <Text style={[styles.betaText, { color: lc.orange }]}>BETA</Text>
           </View>
 
           {/* Disclaimer Banner */}
           <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
-            <View style={[styles.liquidInner, { backgroundColor: COLORS.glass.glowWarning }]}>
+            <View style={[styles.liquidInner, { backgroundColor: lc.glowWarning }]}>
               <View style={styles.disclaimerRow}>
                 <Ionicons name="warning" size={18} color={lc.warning} />
                 <Text style={[styles.disclaimerText, { color: lc.warning }]}>
@@ -215,8 +215,13 @@ export function PokerAIScreen() {
           </View>
 
           {/* Card Selection Area */}
-          <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
-            <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
+          <SnakeGlowBorder
+            borderRadius={RADIUS.xxl}
+            glowColor={lc.orange}
+            dashedColor={lc.liquidGlassBorder}
+            backgroundColor={lc.liquidGlassBg}
+          >
+            <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg, borderRadius: RADIUS.xl }]}>
               {/* Your Hand */}
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
@@ -248,7 +253,7 @@ export function PokerAIScreen() {
 
               {/* Duplicate Warning */}
               {hasDuplicates && (
-                <View style={[styles.warningBanner, { backgroundColor: COLORS.glass.glowRed, borderColor: "rgba(239, 68, 68, 0.3)" }]}>
+                <View style={[styles.warningBanner, { backgroundColor: lc.glowRed, borderColor: lc.danger + "30" }]}>
                   <Ionicons name="alert-circle" size={16} color={lc.danger} />
                   <Text style={[styles.warningText, { color: lc.danger }]}>Duplicate card detected</Text>
                 </View>
@@ -291,7 +296,7 @@ export function PokerAIScreen() {
                 </View>
               )}
             </View>
-          </View>
+          </SnakeGlowBorder>
 
           {/* Consent Checkbox */}
           <TouchableOpacity
@@ -361,9 +366,9 @@ export function PokerAIScreen() {
 
           {/* Error */}
           {error && (
-            <View style={[styles.errorBanner, { backgroundColor: COLORS.glass.glowRed }]}>
-              <Ionicons name="alert-circle" size={16} color="#fca5a5" />
-              <Text style={styles.errorText}>{error}</Text>
+            <View style={[styles.errorBanner, { backgroundColor: lc.glowRed }]}>
+              <Ionicons name="alert-circle" size={16} color={lc.danger} />
+              <Text style={[styles.errorText, { color: lc.danger }]}>{error}</Text>
             </View>
           )}
 
@@ -380,10 +385,10 @@ export function PokerAIScreen() {
                   {/* Action Badge */}
                   <View style={[
                     styles.actionBadge,
-                    suggestion.action === "FOLD" && { backgroundColor: COLORS.glass.glowRed },
-                    suggestion.action === "CALL" && { backgroundColor: COLORS.glass.glowBlue },
-                    suggestion.action === "RAISE" && { backgroundColor: COLORS.glass.glowGreen },
-                    suggestion.action === "CHECK" && { backgroundColor: "rgba(128, 128, 128, 0.15)" },
+                    suggestion.action === "FOLD" && { backgroundColor: lc.glowRed },
+                    suggestion.action === "CALL" && { backgroundColor: lc.glowBlue },
+                    suggestion.action === "RAISE" && { backgroundColor: lc.glowGreen },
+                    suggestion.action === "CHECK" && { backgroundColor: lc.glassBg },
                   ]}>
                     <Text style={[
                       styles.actionText,
@@ -402,7 +407,7 @@ export function PokerAIScreen() {
                     <Text style={[
                       styles.potentialValue,
                       suggestion.potential === "High" && { color: lc.success },
-                      suggestion.potential === "Medium" && { color: "#fbbf24" },
+                      suggestion.potential === "Medium" && { color: lc.warning },
                       suggestion.potential === "Low" && { color: lc.textMuted },
                     ]}>
                       {suggestion.potential}
@@ -697,7 +702,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   errorText: {
-    color: "#fca5a5",
     fontSize: 14,
     flex: 1,
   },

@@ -10,3 +10,4 @@ export { Skeleton, SkeletonCard, SkeletonListItem, SkeletonStats } from "./Skele
 export { KvittLogo } from "./KvittLogo";
 export { PageHeader } from "./PageHeader";
 export { AIGlowBorder } from "./AIGlowBorder";
+export { SnakeGlowBorder } from "./SnakeGlowBorder";

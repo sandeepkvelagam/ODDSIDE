@@ -502,7 +502,7 @@ export function AIAssistantScreen() {
                           msg.role === "user"
                             ? [styles.messageBubbleUser, { backgroundColor: lc.liquidGlowOrange, borderColor: lc.glassBorder }]
                             : msg.error
-                            ? styles.messageBubbleError
+                            ? { borderWidth: 1, backgroundColor: lc.glowRed, borderColor: lc.danger + "40" }
                             : [styles.messageBubbleAssistant, { backgroundColor: lc.glassBg, borderColor: lc.glassBorder }],
                         ]}
                       >
@@ -811,11 +811,7 @@ const styles = StyleSheet.create({
   messageBubbleUser: {
     borderWidth: 1,
   },
-  messageBubbleError: {
-    backgroundColor: COLORS.glass.glowRed,
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
-  },
+  messageBubbleError: {},
   messageText: {
     fontSize: TYPOGRAPHY.sizes.bodySmall,
     lineHeight: 20,

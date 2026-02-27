@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query, Path, Body
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -8529,6 +8529,12 @@ class AutomationUpdate(BaseModel):
     execution_options: Optional[Dict[str, Any]] = None
     enabled: Optional[bool] = None
 
+class AutomationToggle(BaseModel):
+    enabled: bool
+
+# Regex for automation IDs: auto_ + 12 hex chars
+AUTOMATION_ID_PATTERN = r"^auto_[a-f0-9]{12}$"
+
 @api_router.get("/automations")
 async def list_automations(current_user: User = Depends(get_current_user)):
     """List all automations for the current user."""
@@ -8560,88 +8566,24 @@ async def create_automation(data: AutomationCreate, current_user: User = Depends
         raise HTTPException(status_code=400, detail=result.error)
     return {"success": True, "data": result.data, "message": result.message}
 
-@api_router.get("/automations/{automation_id}")
-async def get_automation(automation_id: str, current_user: User = Depends(get_current_user)):
-    """Get a single automation by ID."""
-    from ai_service.tools.automation_builder import AutomationBuilderTool
-    builder = AutomationBuilderTool(db=db)
-    result = await builder.execute(action="get", user_id=current_user.user_id, automation_id=automation_id)
-    if not result.success:
-        raise HTTPException(status_code=404, detail=result.error)
-    return {"success": True, "data": result.data}
+# --- Static /automations/* routes MUST come before /{automation_id} ---
 
-@api_router.put("/automations/{automation_id}")
-async def update_automation(automation_id: str, data: AutomationUpdate, current_user: User = Depends(get_current_user)):
-    """Update an existing automation."""
-    from ai_service.tools.automation_builder import AutomationBuilderTool
-    from ai_service.tools.automation_policy import AutomationPolicyTool
-    builder = AutomationBuilderTool(db=db, policy_tool=AutomationPolicyTool(db=db))
-    update_kwargs = {k: v for k, v in data.model_dump().items() if v is not None}
-    result = await builder.execute(
-        action="update",
-        user_id=current_user.user_id,
-        automation_id=automation_id,
-        **update_kwargs,
-    )
-    if not result.success:
-        raise HTTPException(status_code=400, detail=result.error)
-    return {"success": True, "data": result.data, "message": result.message}
-
-@api_router.delete("/automations/{automation_id}")
-async def delete_automation(automation_id: str, current_user: User = Depends(get_current_user)):
-    """Delete an automation."""
-    from ai_service.tools.automation_builder import AutomationBuilderTool
-    builder = AutomationBuilderTool(db=db)
-    result = await builder.execute(action="delete", user_id=current_user.user_id, automation_id=automation_id)
-    if not result.success:
-        raise HTTPException(status_code=400, detail=result.error)
-    return {"success": True, "message": result.message}
-
-@api_router.post("/automations/{automation_id}/toggle")
-async def toggle_automation(automation_id: str, current_user: User = Depends(get_current_user)):
-    """Toggle an automation on/off."""
-    from ai_service.tools.automation_builder import AutomationBuilderTool
-    builder = AutomationBuilderTool(db=db)
-    result = await builder.execute(action="toggle", user_id=current_user.user_id, automation_id=automation_id)
-    if not result.success:
-        raise HTTPException(status_code=400, detail=result.error)
-    return {"success": True, "data": result.data, "message": result.message}
-
-@api_router.post("/automations/{automation_id}/run")
-async def run_automation(automation_id: str, current_user: User = Depends(get_current_user)):
-    """Manually trigger an automation (dry-run)."""
-    from ai_service.tools.automation_runner import AutomationRunnerTool
-    from ai_service.tools.automation_policy import AutomationPolicyTool
-    runner = AutomationRunnerTool(db=db, policy_tool=AutomationPolicyTool(db=db))
-    # Fetch the automation first
-    automation = await db.user_automations.find_one(
-        {"automation_id": automation_id, "user_id": current_user.user_id},
-        {"_id": 0}
-    )
-    if not automation:
-        raise HTTPException(status_code=404, detail="Automation not found")
-    result = await runner.execute(
-        action="dry_run",
-        user_id=current_user.user_id,
-        automation_id=automation_id,
-        event_data={"source": "manual_trigger"},
-    )
-    if not result.success:
-        raise HTTPException(status_code=400, detail=result.error)
-    return {"success": True, "data": result.data, "message": result.message}
-
-@api_router.get("/automations/{automation_id}/history")
-async def get_automation_history(
-    automation_id: str,
-    limit: int = Query(default=20, le=100),
+@api_router.get("/automations/templates")
+async def get_automation_templates(
+    group_id: Optional[str] = None,
     current_user: User = Depends(get_current_user),
 ):
-    """Get execution history for an automation."""
-    runs = await db.automation_runs.find(
-        {"automation_id": automation_id, "user_id": current_user.user_id},
-        {"_id": 0}
-    ).sort("started_at", -1).limit(limit).to_list(length=limit)
-    return {"success": True, "data": runs}
+    """Get suggested automation templates."""
+    from ai_service.tools.automation_builder import AutomationBuilderTool
+    builder = AutomationBuilderTool(db=db)
+    result = await builder.execute(
+        action="suggest_templates",
+        user_id=current_user.user_id,
+        group_id=group_id,
+    )
+    if not result.success:
+        raise HTTPException(status_code=500, detail=result.error)
+    return {"success": True, "data": result.data}
 
 @api_router.get("/automations/triggers/available")
 async def list_available_triggers(current_user: User = Depends(get_current_user)):
@@ -8663,54 +8605,6 @@ async def list_available_actions(current_user: User = Depends(get_current_user))
         raise HTTPException(status_code=500, detail=result.error)
     return {"success": True, "data": result.data}
 
-@api_router.get("/automations/templates")
-async def get_automation_templates(
-    group_id: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
-):
-    """Get suggested automation templates."""
-    from ai_service.tools.automation_builder import AutomationBuilderTool
-    builder = AutomationBuilderTool(db=db)
-    result = await builder.execute(
-        action="suggest_templates",
-        user_id=current_user.user_id,
-        group_id=group_id,
-    )
-    if not result.success:
-        raise HTTPException(status_code=500, detail=result.error)
-    return {"success": True, "data": result.data}
-
-@api_router.post("/automations/{automation_id}/replay")
-async def replay_automation(automation_id: str, current_user: User = Depends(get_current_user)):
-    """Re-run an automation bypassing dedupe (force replay)."""
-    from ai_service.tools.automation_runner import AutomationRunnerTool
-    runner = AutomationRunnerTool(db=db)
-    automation = await db.user_automations.find_one(
-        {"automation_id": automation_id, "user_id": current_user.user_id},
-        {"_id": 0}
-    )
-    if not automation:
-        raise HTTPException(status_code=404, detail="Automation not found")
-    result = await runner.execute(
-        action="run_automation",
-        automation_id=automation_id,
-        event_data={"source": "manual_replay"},
-        force_replay=True,
-    )
-    if not result.success:
-        raise HTTPException(status_code=400, detail=result.error)
-    return {"success": True, "data": result.data, "message": result.message}
-
-@api_router.get("/automations/{automation_id}/health")
-async def get_automation_health(automation_id: str, current_user: User = Depends(get_current_user)):
-    """Get the health score for a single automation."""
-    from ai_service.tools.automation_builder import AutomationBuilderTool
-    builder = AutomationBuilderTool(db=db)
-    result = await builder.execute(action="get", user_id=current_user.user_id, automation_id=automation_id)
-    if not result.success:
-        raise HTTPException(status_code=404, detail=result.error)
-    return {"success": True, "data": {"health": result.data.get("health")}}
-
 @api_router.get("/automations/usage/cost-budget")
 async def get_cost_budget(current_user: User = Depends(get_current_user)):
     """Get the user's action cost budget usage for today."""
@@ -8731,6 +8625,149 @@ async def get_cost_budget(current_user: User = Depends(get_current_user)):
             "max_daily_executions": data.get("max_daily_executions", 50),
         }
     }
+
+# --- Dynamic /automations/{automation_id} routes ---
+
+@api_router.get("/automations/{automation_id}")
+async def get_automation(
+    automation_id: str = Path(..., pattern=AUTOMATION_ID_PATTERN),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a single automation by ID."""
+    from ai_service.tools.automation_builder import AutomationBuilderTool
+    builder = AutomationBuilderTool(db=db)
+    result = await builder.execute(action="get", user_id=current_user.user_id, automation_id=automation_id)
+    if not result.success:
+        raise HTTPException(status_code=404, detail=result.error)
+    return {"success": True, "data": result.data}
+
+@api_router.put("/automations/{automation_id}")
+async def update_automation(
+    data: AutomationUpdate,
+    automation_id: str = Path(..., pattern=AUTOMATION_ID_PATTERN),
+    current_user: User = Depends(get_current_user),
+):
+    """Update an existing automation."""
+    from ai_service.tools.automation_builder import AutomationBuilderTool
+    from ai_service.tools.automation_policy import AutomationPolicyTool
+    builder = AutomationBuilderTool(db=db, policy_tool=AutomationPolicyTool(db=db))
+    update_kwargs = {k: v for k, v in data.model_dump().items() if v is not None}
+    result = await builder.execute(
+        action="update",
+        user_id=current_user.user_id,
+        automation_id=automation_id,
+        **update_kwargs,
+    )
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "data": result.data, "message": result.message}
+
+@api_router.delete("/automations/{automation_id}")
+async def delete_automation(
+    automation_id: str = Path(..., pattern=AUTOMATION_ID_PATTERN),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete an automation."""
+    from ai_service.tools.automation_builder import AutomationBuilderTool
+    builder = AutomationBuilderTool(db=db)
+    result = await builder.execute(action="delete", user_id=current_user.user_id, automation_id=automation_id)
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "message": result.message}
+
+@api_router.post("/automations/{automation_id}/toggle")
+async def toggle_automation(
+    data: AutomationToggle,
+    automation_id: str = Path(..., pattern=AUTOMATION_ID_PATTERN),
+    current_user: User = Depends(get_current_user),
+):
+    """Set an automation's enabled state. Client sends desired enabled boolean."""
+    from ai_service.tools.automation_builder import AutomationBuilderTool
+    builder = AutomationBuilderTool(db=db)
+    result = await builder.execute(
+        action="toggle",
+        user_id=current_user.user_id,
+        automation_id=automation_id,
+        enabled=data.enabled,
+    )
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "data": result.data, "message": result.message}
+
+@api_router.post("/automations/{automation_id}/run")
+async def run_automation(
+    automation_id: str = Path(..., pattern=AUTOMATION_ID_PATTERN),
+    current_user: User = Depends(get_current_user),
+):
+    """Manually trigger an automation (dry-run)."""
+    from ai_service.tools.automation_runner import AutomationRunnerTool
+    from ai_service.tools.automation_policy import AutomationPolicyTool
+    runner = AutomationRunnerTool(db=db, policy_tool=AutomationPolicyTool(db=db))
+    automation = await db.user_automations.find_one(
+        {"automation_id": automation_id, "user_id": current_user.user_id},
+        {"_id": 0}
+    )
+    if not automation:
+        raise HTTPException(status_code=404, detail="Automation not found")
+    result = await runner.execute(
+        action="dry_run",
+        user_id=current_user.user_id,
+        automation_id=automation_id,
+        event_data={"source": "manual_trigger"},
+    )
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "data": result.data, "message": result.message}
+
+@api_router.get("/automations/{automation_id}/history")
+async def get_automation_history(
+    automation_id: str = Path(..., pattern=AUTOMATION_ID_PATTERN),
+    limit: int = Query(default=20, le=100),
+    current_user: User = Depends(get_current_user),
+):
+    """Get execution history for an automation."""
+    runs = await db.automation_runs.find(
+        {"automation_id": automation_id, "user_id": current_user.user_id},
+        {"_id": 0}
+    ).sort("started_at", -1).limit(limit).to_list(length=limit)
+    return {"success": True, "data": runs}
+
+@api_router.post("/automations/{automation_id}/replay")
+async def replay_automation(
+    automation_id: str = Path(..., pattern=AUTOMATION_ID_PATTERN),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-run an automation bypassing dedupe (force replay)."""
+    from ai_service.tools.automation_runner import AutomationRunnerTool
+    runner = AutomationRunnerTool(db=db)
+    automation = await db.user_automations.find_one(
+        {"automation_id": automation_id, "user_id": current_user.user_id},
+        {"_id": 0}
+    )
+    if not automation:
+        raise HTTPException(status_code=404, detail="Automation not found")
+    result = await runner.execute(
+        action="run_automation",
+        automation_id=automation_id,
+        event_data={"source": "manual_replay"},
+        force_replay=True,
+    )
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "data": result.data, "message": result.message}
+
+@api_router.get("/automations/{automation_id}/health")
+async def get_automation_health(
+    automation_id: str = Path(..., pattern=AUTOMATION_ID_PATTERN),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the health score for a single automation."""
+    from ai_service.tools.automation_builder import AutomationBuilderTool
+    builder = AutomationBuilderTool(db=db)
+    result = await builder.execute(action="get", user_id=current_user.user_id, automation_id=automation_id)
+    if not result.success:
+        raise HTTPException(status_code=404, detail=result.error)
+    return {"success": True, "data": {"health": result.data.get("health")}}
 
 
 # Include the router

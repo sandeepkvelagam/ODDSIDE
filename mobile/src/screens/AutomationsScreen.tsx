@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Switch,
   ActivityIndicator,
   RefreshControl,
+  Animated,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -20,6 +22,11 @@ import { useHaptics } from "../context/HapticsContext";
 import { api } from "../api/client";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
 import { GlassButton } from "../components/ui/GlassButton";
+import { CreateAutomationSheet, Template } from "../components/CreateAutomationSheet";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// ── Types ─────────────────────────────────────────────────
 
 type HealthScore = {
   status: "healthy" | "warning" | "critical" | "disabled" | "new";
@@ -74,13 +81,6 @@ const HEALTH_LABELS: Record<string, string> = {
   new: "New",
 };
 
-type Template = {
-  name: string;
-  description: string;
-  trigger: { type: string };
-  actions: Array<{ type: string; params?: any }>;
-};
-
 const TRIGGER_META: Record<string, { emoji: string; label: string }> = {
   game_created: { emoji: "🎮", label: "Game Created" },
   game_ended: { emoji: "🏁", label: "Game Ended" },
@@ -102,15 +102,135 @@ const ACTION_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; label:
   generate_summary: { icon: "document-text-outline", label: "Generate Summary" },
 };
 
-const TRIGGER_OPTIONS = Object.entries(TRIGGER_META).map(([key, val]) => ({
-  key,
-  ...val,
-}));
+// ── Typewriter Hook (matches OnboardingAgent pattern) ─────
 
-const ACTION_OPTIONS = Object.entries(ACTION_META).map(([key, val]) => ({
-  key,
-  ...val,
-}));
+function useTypewriter(text: string, active: boolean, speed = 30, delay = 300) {
+  const [display, setDisplay] = useState("");
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!active) { setDisplay(""); setDone(false); return; }
+    setDisplay(""); setDone(false);
+    let i = 0;
+    const startTimer = setTimeout(() => {
+      const interval = setInterval(() => {
+        if (i < text.length) {
+          setDisplay(text.slice(0, i + 1));
+          i++;
+        } else {
+          clearInterval(interval);
+          setDone(true);
+        }
+      }, speed);
+      return () => clearInterval(interval);
+    }, delay);
+    return () => clearTimeout(startTimer);
+  }, [text, active]);
+
+  return { display, done };
+}
+
+// ── Thinking Dots ─────────────────────────────────────────
+
+function ThinkingDots() {
+  const dots = [
+    useRef(new Animated.Value(0.3)).current,
+    useRef(new Animated.Value(0.3)).current,
+    useRef(new Animated.Value(0.3)).current,
+  ];
+
+  useEffect(() => {
+    const anims = dots.map((dot, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 150),
+          Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+        ])
+      )
+    );
+    anims.forEach((a) => a.start());
+    return () => anims.forEach((a) => a.stop());
+  }, []);
+
+  return (
+    <View style={{ flexDirection: "row", gap: 4, paddingVertical: 8, paddingHorizontal: 4 }}>
+      {dots.map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 6, height: 6, borderRadius: 3,
+            backgroundColor: "#EE6C29",
+            opacity: dot,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+// ── Quick Template Cards for Empty State ──────────────────
+
+const QUICK_TEMPLATES: Array<{
+  emoji: string;
+  title: string;
+  subtitle: string;
+  template: Template;
+}> = [
+  {
+    emoji: "🤚",
+    title: "Auto-RSVP",
+    subtitle: "Auto-confirm when games are created",
+    template: {
+      name: "Auto-RSVP to games",
+      description: "Automatically confirm your attendance when a new game is created",
+      trigger: { type: "game_created" },
+      actions: [{ type: "auto_rsvp", params: { response: "confirmed" } }],
+    },
+  },
+  {
+    emoji: "💸",
+    title: "Payment Reminders",
+    subtitle: "Nudge players who owe you",
+    template: {
+      name: "Payment reminder after 3 days",
+      description: "Remind people who owe you if they haven't paid within 3 days",
+      trigger: { type: "payment_overdue" },
+      actions: [{ type: "send_payment_reminder", params: { urgency: "gentle" } }],
+    },
+  },
+  {
+    emoji: "📊",
+    title: "Game Recaps",
+    subtitle: "Auto-generate summaries after games",
+    template: {
+      name: "Game summary after every game",
+      description: "Automatically generate and share a game summary when a game ends",
+      trigger: { type: "game_ended" },
+      actions: [{ type: "generate_summary", params: { share_to: "group" } }],
+    },
+  },
+  {
+    emoji: "🔔",
+    title: "Self-Reminder",
+    subtitle: "Get notified when you owe money",
+    template: {
+      name: "Self-reminder when I owe",
+      description: "Get a reminder notification when you owe someone money",
+      trigger: { type: "payment_due" },
+      actions: [{ type: "send_notification", params: { title: "You owe money", message: "Don't forget to settle up!", target: "self" } }],
+    },
+  },
+];
+
+// How it works steps
+const HOW_IT_WORKS = [
+  { icon: "flash-outline" as const, title: "Pick a trigger", desc: "Choose what starts the flow" },
+  { icon: "arrow-forward" as const, title: "Set an action", desc: "What should happen automatically" },
+  { icon: "checkmark-circle-outline" as const, title: "Done!", desc: "It runs on autopilot from now on" },
+];
+
+// ── Main Component ────────────────────────────────────────
 
 export function AutomationsScreen() {
   const navigation = useNavigation();
@@ -123,15 +243,12 @@ export function AutomationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
 
-  // Create modal state
+  // Create sheet state
   const [showCreate, setShowCreate] = useState(false);
-  const [formName, setFormName] = useState("");
-  const [formTrigger, setFormTrigger] = useState("");
-  const [formAction, setFormAction] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
-  // Picker modal state
-  const [pickerType, setPickerType] = useState<"trigger" | "action" | null>(null);
+  // Toggle debounce
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // History modal
   const [historyAutomationId, setHistoryAutomationId] = useState<string | null>(null);
@@ -145,17 +262,48 @@ export function AutomationsScreen() {
   // Cost budget
   const [costBudget, setCostBudget] = useState<{ remaining: number; max: number } | null>(null);
 
+  // AI intro animation state
+  const [showIntro, setShowIntro] = useState(true);
+  const introFade = useRef(new Animated.Value(0)).current;
+  const cardsFade = useRef(new Animated.Value(0)).current;
+  const howItWorksFade = useRef(new Animated.Value(0)).current;
+
+  const { display: typedIntro, done: introDone } = useTypewriter(
+    "I can automate things for you. Set up a Smart Flow once and I'll handle the rest — reminders, RSVPs, recaps, all on autopilot.",
+    !loading && !error && automations.length === 0 && showIntro
+  );
+
+  useEffect(() => {
+    if (!loading && !error && automations.length === 0) {
+      Animated.timing(introFade, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    }
+  }, [loading, error, automations.length]);
+
+  useEffect(() => {
+    if (introDone) {
+      Animated.stagger(200, [
+        Animated.timing(cardsFade, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(howItWorksFade, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [introDone]);
+
   useEffect(() => {
     fetchAutomations();
     fetchCostBudget();
   }, []);
 
-  const fetchAutomations = async () => {
+  const fetchAutomations = async (isRetry = false) => {
     try {
       const res = await api.get("/automations");
       setAutomations(res.data?.data?.automations || []);
       setError(false);
-    } catch {
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (!isRetry && !status) {
+        setTimeout(() => fetchAutomations(true), 1000);
+        return;
+      }
       setError(true);
     } finally {
       setLoading(false);
@@ -181,13 +329,16 @@ export function AutomationsScreen() {
     fetchCostBudget();
   }, []);
 
-  const handleToggle = async (id: string) => {
+  const handleToggle = async (id: string, currentEnabled: boolean) => {
     triggerHaptic("light");
+    setTogglingId(id);
     try {
-      await api.post(`/automations/${id}/toggle`);
+      await api.post(`/automations/${id}/toggle`, { enabled: !currentEnabled });
       fetchAutomations();
     } catch {
       Alert.alert("Update unavailable", "Please try again.");
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -256,40 +407,40 @@ export function AutomationsScreen() {
   };
 
   const applyTemplate = (tpl: Template) => {
-    setFormName(tpl.name);
-    setFormTrigger(tpl.trigger?.type || "");
-    setFormAction(tpl.actions?.[0]?.type || "");
+    setSelectedTemplate({
+      ...tpl,
+      name: tpl.name || "",
+      description: tpl.description || "",
+      trigger: tpl.trigger || { type: "" },
+      actions: tpl.actions || [{ type: "", params: {} }],
+      conditions: tpl.conditions || {},
+    });
     setShowTemplates(false);
     setShowCreate(true);
   };
 
-  const handleCreate = async () => {
-    if (!formName.trim() || !formTrigger || !formAction) {
-      Alert.alert("Missing details", "Add a name, trigger, and action.");
-      return;
-    }
-    setCreating(true);
-    try {
-      await api.post("/automations", {
-        name: formName.trim(),
-        trigger: { type: formTrigger },
-        actions: [{ type: formAction, params: {} }],
-      });
-      triggerHaptic("medium");
-      setShowCreate(false);
-      resetForm();
-      fetchAutomations();
-    } catch (err: any) {
-      Alert.alert("Creation unavailable", err?.response?.data?.detail || "Please try again.");
-    } finally {
-      setCreating(false);
-    }
+  const handleCreateClose = () => {
+    setShowCreate(false);
+    setSelectedTemplate(null);
   };
 
-  const resetForm = () => {
-    setFormName("");
-    setFormTrigger("");
-    setFormAction("");
+  const openCreateBlank = () => {
+    triggerHaptic("light");
+    setSelectedTemplate(null);
+    setShowCreate(true);
+  };
+
+  const openWithTemplate = (tpl: Template) => {
+    triggerHaptic("light");
+    setSelectedTemplate({
+      ...tpl,
+      name: tpl.name || "",
+      description: tpl.description || "",
+      trigger: tpl.trigger || { type: "" },
+      actions: tpl.actions || [{ type: "", params: {} }],
+      conditions: tpl.conditions || {},
+    });
+    setShowCreate(true);
   };
 
   const formatDate = (dateStr?: string) => {
@@ -302,6 +453,102 @@ export function AutomationsScreen() {
       minute: "2-digit",
     });
   };
+
+  // ── Render ────────────────────────────────────────────
+
+  const renderEmptyState = () => (
+    <Animated.View style={{ opacity: introFade }}>
+      {/* AI Agent Intro Bubble */}
+      <View style={styles.aiIntroContainer}>
+        <View style={[styles.aiAvatar, { backgroundColor: colors.orange + "20" }]}>
+          <Ionicons name="flash" size={20} color={colors.orange} />
+        </View>
+        <View style={[styles.aiBubble, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+          {typedIntro ? (
+            <Text style={[styles.aiBubbleText, { color: colors.textPrimary }]}>
+              {typedIntro}
+              {!introDone && <Text style={{ color: colors.orange }}>|</Text>}
+            </Text>
+          ) : (
+            <ThinkingDots />
+          )}
+        </View>
+      </View>
+
+      {/* How It Works - 3 step visual */}
+      <Animated.View style={{ opacity: howItWorksFade }}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          How it works
+        </Text>
+        <View style={styles.howItWorksRow}>
+          {HOW_IT_WORKS.map((step, i) => (
+            <React.Fragment key={i}>
+              <View style={styles.howItWorksStep}>
+                <View style={[styles.howItWorksIcon, { backgroundColor: colors.orange + "15" }]}>
+                  <Ionicons name={step.icon} size={22} color={colors.orange} />
+                </View>
+                <Text style={[styles.howItWorksTitle, { color: colors.textPrimary }]}>
+                  {step.title}
+                </Text>
+                <Text style={[styles.howItWorksDesc, { color: colors.textMuted }]}>
+                  {step.desc}
+                </Text>
+              </View>
+              {i < HOW_IT_WORKS.length - 1 && (
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={colors.textMuted}
+                  style={{ marginTop: 16 }}
+                />
+              )}
+            </React.Fragment>
+          ))}
+        </View>
+      </Animated.View>
+
+      {/* Quick Start Templates */}
+      <Animated.View style={{ opacity: cardsFade }}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 28 }]}>
+          Quick start — tap to set up
+        </Text>
+        {QUICK_TEMPLATES.map((qt, i) => (
+          <TouchableOpacity
+            key={i}
+            style={[styles.quickTemplateCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => openWithTemplate(qt.template)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.quickTemplateEmoji}>{qt.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.quickTemplateTitle, { color: colors.textPrimary }]}>
+                {qt.title}
+              </Text>
+              <Text style={[styles.quickTemplateSubtitle, { color: colors.textMuted }]}>
+                {qt.subtitle}
+              </Text>
+            </View>
+            <View style={[styles.oneTapBadge, { backgroundColor: colors.orange + "15" }]}>
+              <Text style={[styles.oneTapText, { color: colors.orange }]}>Set up</Text>
+              <Ionicons name="arrow-forward" size={12} color={colors.orange} />
+            </View>
+          </TouchableOpacity>
+        ))}
+
+        {/* Custom Flow CTA */}
+        <TouchableOpacity
+          style={[styles.customFlowBtn, { borderColor: colors.glassBorder }]}
+          onPress={openCreateBlank}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add-circle-outline" size={20} color={colors.textSecondary} />
+          <Text style={[styles.customFlowText, { color: colors.textSecondary }]}>
+            Build a custom flow from scratch
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </Animated.View>
+  );
 
   return (
     <BottomSheetScreen>
@@ -326,11 +573,7 @@ export function AutomationsScreen() {
               styles.glassButton,
               { backgroundColor: colors.glassBg, borderColor: colors.glassBorder },
             ]}
-            onPress={() => {
-              triggerHaptic("light");
-              resetForm();
-              setShowCreate(true);
-            }}
+            onPress={openCreateBlank}
           >
             <Ionicons name="add" size={22} color={colors.textPrimary} />
           </Pressable>
@@ -343,42 +586,49 @@ export function AutomationsScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {/* Quick Actions */}
-          <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={[styles.quickActionBtn, { backgroundColor: colors.orange + "15", borderColor: colors.orange + "30" }]}
-              onPress={loadTemplates}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="flash-outline" size={18} color={colors.orange} />
-              <Text style={[styles.quickActionLabel, { color: colors.orange }]}>Templates</Text>
-            </TouchableOpacity>
-            {costBudget && (
-              <View style={[styles.quickActionBtn, { backgroundColor: colors.textMuted + "10", borderColor: colors.textMuted + "20" }]}>
-                <Ionicons name="speedometer-outline" size={18} color={colors.textSecondary} />
-                <Text style={[styles.quickActionLabel, { color: colors.textSecondary }]}>
-                  {costBudget.remaining}/{costBudget.max} pts
-                </Text>
-              </View>
-            )}
-          </View>
+          {/* Quick Actions - only show when there are automations */}
+          {automations.length > 0 && (
+            <View style={styles.quickActions}>
+              <TouchableOpacity
+                style={[styles.quickActionBtn, { backgroundColor: colors.orange + "15", borderColor: colors.orange + "30" }]}
+                onPress={loadTemplates}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="flash-outline" size={18} color={colors.orange} />
+                <Text style={[styles.quickActionLabel, { color: colors.orange }]}>Templates</Text>
+              </TouchableOpacity>
+              {costBudget && (
+                <View style={[styles.quickActionBtn, { backgroundColor: colors.textMuted + "10", borderColor: colors.textMuted + "20" }]}>
+                  <Ionicons name="speedometer-outline" size={18} color={colors.textSecondary} />
+                  <Text style={[styles.quickActionLabel, { color: colors.textSecondary }]}>
+                    {costBudget.remaining}/{costBudget.max} pts
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Loading */}
           {loading && (
             <View style={styles.centerContainer}>
               <ActivityIndicator size="large" color={colors.orange} />
+              <Text style={[styles.loadingText, { color: colors.textMuted }]}>
+                Loading your flows...
+              </Text>
             </View>
           )}
 
           {/* Error State */}
           {!loading && error && (
             <View style={styles.emptyContainer}>
-              <Ionicons name="cloud-offline-outline" size={48} color={colors.textMuted} />
+              <View style={[styles.errorIconCircle, { backgroundColor: colors.danger + "15" }]}>
+                <Ionicons name="cloud-offline-outline" size={32} color={colors.danger} />
+              </View>
               <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                Smart Flows aren't available
+                Can't reach Smart Flows
               </Text>
               <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Check your connection and try again.
+                Check your internet connection and try again.
               </Text>
               <View style={{ marginTop: 16 }}>
                 <GlassButton
@@ -392,28 +642,12 @@ export function AutomationsScreen() {
             </View>
           )}
 
-          {/* Empty State */}
-          {!loading && !error && automations.length === 0 && (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="flash-outline" size={48} color={colors.textMuted} />
-              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                No Smart Flows
-              </Text>
-              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Create one to automate your games.
-              </Text>
-              <View style={{ marginTop: 16 }}>
-                <GlassButton onPress={() => { resetForm(); setShowCreate(true); }} variant="primary" size="medium">
-                  Create Smart Flow
-                </GlassButton>
-              </View>
-            </View>
-          )}
+          {/* Empty State - AI Guided Intro */}
+          {!loading && !error && automations.length === 0 && renderEmptyState()}
 
           {/* Automation Cards */}
           {automations.map((auto) => {
             const triggerInfo = TRIGGER_META[auto.trigger?.type] || { emoji: "⚡", label: auto.trigger?.type };
-            const actionInfo = ACTION_META[auto.actions?.[0]?.type] || { icon: "flash-outline" as const, label: auto.actions?.[0]?.type };
             return (
               <View
                 key={auto.automation_id}
@@ -436,7 +670,6 @@ export function AutomationsScreen() {
                     >
                       {auto.name}
                     </Text>
-                    {/* Health indicator */}
                     {auto.health && (() => {
                       const hc = HEALTH_COLORS[auto.health.status] || HEALTH_COLORS.new;
                       return (
@@ -454,9 +687,10 @@ export function AutomationsScreen() {
                   </View>
                   <Switch
                     value={auto.enabled}
-                    onValueChange={() => handleToggle(auto.automation_id)}
+                    onValueChange={() => handleToggle(auto.automation_id, auto.enabled)}
                     trackColor={{ false: "rgba(0,0,0,0.1)", true: colors.orange }}
                     thumbColor="#fff"
+                    disabled={togglingId === auto.automation_id}
                   />
                 </View>
 
@@ -540,156 +774,13 @@ export function AutomationsScreen() {
         </ScrollView>
       </View>
 
-      {/* ==================== CREATE MODAL ==================== */}
-      <Modal visible={showCreate} transparent animationType="slide" onRequestClose={() => setShowCreate(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>New Smart Flow</Text>
-              <TouchableOpacity
-                style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
-                onPress={() => setShowCreate(false)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={22} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-              {/* Name */}
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name</Text>
-              <View style={[styles.inputField, { backgroundColor: colors.inputBg || colors.glassBg, borderColor: colors.border }]}>
-                <Ionicons name="text-outline" size={18} color={colors.textMuted} />
-                <Text
-                  style={[styles.inputText, { color: formName ? colors.textPrimary : colors.textMuted }]}
-                  numberOfLines={1}
-                >
-                  {formName || "e.g., Auto-RSVP to games"}
-                </Text>
-              </View>
-              {/* Simple text input via Alert (matching mobile UX pattern) */}
-              <TouchableOpacity
-                style={[styles.setValueBtn, { backgroundColor: colors.orange + "12" }]}
-                onPress={() => {
-                  Alert.prompt?.(
-                    "Smart Flow Name",
-                    "Give your Smart Flow a name",
-                    (text) => text && setFormName(text),
-                    "plain-text",
-                    formName
-                  ) || (() => {
-                    // Fallback for Android which doesn't support Alert.prompt
-                    // Set a default name based on selections
-                    const trigLabel = TRIGGER_META[formTrigger]?.label || "trigger";
-                    const actLabel = ACTION_META[formAction]?.label || "action";
-                    setFormName(`${actLabel} on ${trigLabel}`);
-                  })();
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.setValueBtnText, { color: colors.orange }]}>
-                  {formName ? "Change Name" : "Set Name"}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Trigger */}
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 20 }]}>
-                When this happens (Trigger)
-              </Text>
-              <TouchableOpacity
-                style={[styles.pickerField, { backgroundColor: colors.inputBg || colors.glassBg, borderColor: colors.border }]}
-                onPress={() => setPickerType("trigger")}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontSize: 18 }}>{TRIGGER_META[formTrigger]?.emoji || "⚡"}</Text>
-                <Text style={[styles.pickerText, { color: formTrigger ? colors.textPrimary : colors.textMuted }]}>
-                  {TRIGGER_META[formTrigger]?.label || "Select a trigger..."}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-
-              {/* Action */}
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 20 }]}>
-                Do this (Action)
-              </Text>
-              <TouchableOpacity
-                style={[styles.pickerField, { backgroundColor: colors.inputBg || colors.glassBg, borderColor: colors.border }]}
-                onPress={() => setPickerType("action")}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={ACTION_META[formAction]?.icon || ("flash-outline" as any)}
-                  size={20}
-                  color={formAction ? colors.orange : colors.textMuted}
-                />
-                <Text style={[styles.pickerText, { color: formAction ? colors.textPrimary : colors.textMuted }]}>
-                  {ACTION_META[formAction]?.label || "Select an action..."}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-
-              <View style={{ height: 24 }} />
-
-              <GlassButton
-                onPress={handleCreate}
-                variant="primary"
-                size="large"
-                fullWidth
-                loading={creating}
-                disabled={creating}
-              >
-                Create Smart Flow
-              </GlassButton>
-
-              <View style={{ height: 32 }} />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ==================== PICKER MODAL ==================== */}
-      <Modal visible={!!pickerType} transparent animationType="fade" onRequestClose={() => setPickerType(null)}>
-        <Pressable style={styles.pickerOverlay} onPress={() => setPickerType(null)}>
-          <Pressable style={[styles.pickerPopup, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
-            <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>
-              {pickerType === "trigger" ? "Select Trigger" : "Select Action"}
-            </Text>
-            <ScrollView style={{ maxHeight: 400 }}>
-              {(pickerType === "trigger" ? TRIGGER_OPTIONS : ACTION_OPTIONS).map((opt) => {
-                const selected = pickerType === "trigger" ? formTrigger === opt.key : formAction === opt.key;
-                return (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={[
-                      styles.pickerOption,
-                      { borderColor: selected ? colors.orange : colors.border },
-                      selected && { backgroundColor: colors.orange + "10" },
-                    ]}
-                    onPress={() => {
-                      triggerHaptic("light");
-                      if (pickerType === "trigger") setFormTrigger(opt.key);
-                      else setFormAction(opt.key);
-                      setPickerType(null);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    {"emoji" in opt ? (
-                      <Text style={{ fontSize: 20 }}>{opt.emoji}</Text>
-                    ) : (
-                      <Ionicons name={(opt as any).icon} size={20} color={selected ? colors.orange : colors.textPrimary} />
-                    )}
-                    <Text style={[styles.pickerOptionText, { color: selected ? colors.orange : colors.textPrimary }]}>
-                      {opt.label}
-                    </Text>
-                    {selected && <Ionicons name="checkmark" size={20} color={colors.orange} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* ==================== CREATE SHEET ==================== */}
+      <CreateAutomationSheet
+        visible={showCreate}
+        onClose={handleCreateClose}
+        onCreated={() => { fetchAutomations(); fetchCostBudget(); }}
+        initialTemplate={selectedTemplate}
+      />
 
       {/* ==================== HISTORY MODAL ==================== */}
       <Modal visible={!!historyAutomationId} transparent animationType="slide" onRequestClose={() => setHistoryAutomationId(null)}>
@@ -771,9 +862,14 @@ export function AutomationsScreen() {
       {/* ==================== TEMPLATES MODAL ==================== */}
       <Modal visible={showTemplates} transparent animationType="slide" onRequestClose={() => setShowTemplates(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: "70%" }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: "80%" }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Templates</Text>
+              <View>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Templates</Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textMuted }]}>
+                  Tap any template to start building
+                </Text>
+              </View>
               <TouchableOpacity
                 style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
                 onPress={() => setShowTemplates(false)}
@@ -785,7 +881,7 @@ export function AutomationsScreen() {
 
             {templates.length === 0 ? (
               <View style={styles.centerContainer}>
-                <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>No templates available</Text>
+                <ActivityIndicator size="large" color={colors.orange} />
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
@@ -796,11 +892,18 @@ export function AutomationsScreen() {
                     onPress={() => applyTemplate(tpl)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.templateName, { color: colors.textPrimary }]}>{tpl.name}</Text>
-                    <Text style={[styles.templateDesc, { color: colors.textSecondary }]} numberOfLines={2}>
-                      {tpl.description}
-                    </Text>
-                    <View style={styles.badgeRow}>
+                    <View style={styles.templateCardHeader}>
+                      <Text style={{ fontSize: 24 }}>
+                        {TRIGGER_META[tpl.trigger?.type]?.emoji || "⚡"}
+                      </Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.templateName, { color: colors.textPrimary }]}>{tpl.name}</Text>
+                        <Text style={[styles.templateDesc, { color: colors.textSecondary }]} numberOfLines={2}>
+                          {tpl.description}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.templateFlowRow, { backgroundColor: colors.contentBg + "80" }]}>
                       <View style={[styles.badge, { backgroundColor: colors.orange + "12" }]}>
                         <Text style={[styles.badgeText, { color: colors.orange }]}>
                           {TRIGGER_META[tpl.trigger?.type]?.label || tpl.trigger?.type}
@@ -814,6 +917,9 @@ export function AutomationsScreen() {
                           </Text>
                         </View>
                       ))}
+                      <View style={{ flex: 1 }} />
+                      <Text style={[styles.useBtnText, { color: colors.orange }]}>Use this</Text>
+                      <Ionicons name="arrow-forward" size={14} color={colors.orange} />
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -825,6 +931,8 @@ export function AutomationsScreen() {
     </BottomSheetScreen>
   );
 }
+
+// ── Styles ─────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -876,10 +984,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 48,
   },
+  loadingText: {
+    fontSize: 14,
+    marginTop: 12,
+  },
   emptyContainer: {
     alignItems: "center",
     paddingVertical: 48,
     paddingHorizontal: 20,
+  },
+  errorIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
   emptyTitle: {
     fontSize: 18,
@@ -892,6 +1012,120 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 20,
   },
+  // AI Intro
+  aiIntroContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginBottom: 24,
+  },
+  aiAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  aiBubble: {
+    flex: 1,
+    borderRadius: 16,
+    borderTopLeftRadius: 4,
+    borderWidth: 1,
+    padding: 14,
+  },
+  aiBubbleText: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  // Section title
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 12,
+  },
+  // How it works
+  howItWorksRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  howItWorksStep: {
+    alignItems: "center",
+    flex: 1,
+  },
+  howItWorksIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  howItWorksTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  howItWorksDesc: {
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  // Quick templates
+  quickTemplateCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 8,
+    gap: 12,
+  },
+  quickTemplateEmoji: {
+    fontSize: 28,
+  },
+  quickTemplateTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  quickTemplateSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  oneTapBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  oneTapText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  customFlowBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    marginTop: 4,
+  },
+  customFlowText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  // Automation cards
   card: {
     borderRadius: 16,
     borderWidth: 1,
@@ -915,15 +1149,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     flex: 1,
-  },
-  errorBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  errorBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
   },
   healthBadge: {
     flexDirection: "row",
@@ -999,7 +1224,7 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     marginBottom: 24,
   },
@@ -1007,87 +1232,9 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
   },
-  fieldLabel: {
+  modalSubtitle: {
     fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  inputField: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    height: 48,
-  },
-  inputText: {
-    fontSize: 15,
-    flex: 1,
-  },
-  setValueBtn: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  setValueBtnText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  pickerField: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    height: 52,
-  },
-  pickerText: {
-    fontSize: 15,
-    flex: 1,
-  },
-  // Picker overlay
-  pickerOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  pickerPopup: {
-    width: 300,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  pickerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  pickerOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 8,
-    gap: 12,
-  },
-  pickerOptionText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "500",
+    marginTop: 4,
   },
   // History
   historyItem: {
@@ -1123,6 +1270,12 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
+  templateCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 10,
+  },
   templateName: {
     fontSize: 15,
     fontWeight: "600",
@@ -1131,5 +1284,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
     lineHeight: 18,
+  },
+  templateFlowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  useBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

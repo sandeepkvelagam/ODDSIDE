@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -46,6 +46,9 @@ const SUGGESTIONS = [
   "What is settlement?",
   "Poker hand rankings",
 ];
+
+const WELCOME_MESSAGE =
+  "Hi! I'm your Kvitt assistant. Ask me anything about the app — creating groups, games, buy-ins, settlements, or poker rules!";
 
 /* ─── Gradient Orb Character ─── */
 export function AIGradientOrb({ size = 28 }: { size?: number }) {
@@ -115,6 +118,48 @@ export function AIGradientOrb({ size = 28 }: { size?: number }) {
   );
 }
 
+/* ─── Typing Text Component ─── */
+function TypingText({ text, style, onComplete }: { text: string; style?: any; onComplete?: () => void }) {
+  const [displayedLength, setDisplayedLength] = useState(0);
+  const cursorOpacity = useRef(new Animated.Value(1)).current;
+  const isComplete = displayedLength >= text.length;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDisplayedLength((prev) => {
+        if (prev >= text.length) {
+          clearInterval(interval);
+          onComplete?.();
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 25);
+
+    return () => clearInterval(interval);
+  }, [text]);
+
+  useEffect(() => {
+    const blink = Animated.loop(
+      Animated.sequence([
+        Animated.timing(cursorOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+        Animated.timing(cursorOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ])
+    );
+    if (!isComplete) blink.start();
+    return () => blink.stop();
+  }, [isComplete]);
+
+  return (
+    <Text style={style}>
+      {text.slice(0, displayedLength)}
+      {!isComplete && (
+        <Animated.Text style={{ opacity: cursorOpacity }}>|</Animated.Text>
+      )}
+    </Text>
+  );
+}
+
 export function AIAssistantScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
@@ -124,12 +169,12 @@ export function AIAssistantScreen() {
 
   // Welcome → Chat transition
   const [hasStarted, setHasStarted] = useState(false);
+  const [welcomeTyped, setWelcomeTyped] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content:
-        "Hi! I'm your Kvitt assistant. Ask me anything about the app — creating groups, games, buy-ins, settlements, or poker rules!",
+      content: WELCOME_MESSAGE,
     },
   ]);
   const [input, setInput] = useState("");
@@ -261,7 +306,7 @@ export function AIAssistantScreen() {
         style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
       >
         <GlassIconButton
-          icon={<Ionicons name="chevron-down" size={22} color={COLORS.text.secondary} />}
+          icon={<Ionicons name="chevron-down" size={22} color={lc.textSecondary} />}
           onPress={() => navigation.goBack()}
           variant="ghost"
         />
@@ -270,12 +315,12 @@ export function AIAssistantScreen() {
           <AIGradientOrb size={32} />
           <View>
             <View style={styles.headerTitleRow}>
-              <Text style={styles.headerTitle}>Kvitt Assistant</Text>
+              <Text style={[styles.headerTitle, { color: lc.textPrimary }]}>Kvitt Assistant</Text>
               <View style={styles.betaBadge}>
-                <Text style={styles.betaBadgeText}>BETA</Text>
+                <Text style={[styles.betaBadgeText, { color: lc.orange }]}>BETA</Text>
               </View>
             </View>
-            <Text style={styles.headerSubtitle}>
+            <Text style={[styles.headerSubtitle, { color: lc.textMuted }]}>
               {requestsRemaining !== null
                 ? `${requestsRemaining} requests left`
                 : chatVisible
@@ -287,7 +332,7 @@ export function AIAssistantScreen() {
 
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={styles.toggleBtn}
+            style={[styles.toggleBtn, { backgroundColor: lc.glassBg, borderColor: lc.glassBorder }]}
             onPress={toggleChatVisibility}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -296,17 +341,17 @@ export function AIAssistantScreen() {
             <Ionicons
               name={chatVisible ? "eye-off-outline" : "eye-outline"}
               size={20}
-              color={COLORS.text.secondary}
+              color={lc.textSecondary}
             />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.pokerAIButton}
+            style={[styles.pokerAIButton, { backgroundColor: lc.liquidGlowOrange }]}
             onPress={() => navigation.navigate("PokerAI")}
             activeOpacity={0.7}
           >
-            <Ionicons name="diamond" size={16} color={COLORS.orange} />
-            <Text style={styles.pokerAIText}>Poker AI</Text>
+            <Ionicons name="diamond" size={16} color={lc.orange} />
+            <Text style={[styles.pokerAIText, { color: lc.orange }]}>Poker AI</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -337,9 +382,9 @@ export function AIAssistantScreen() {
               ],
             }}
           >
-            <View style={styles.speechBubble}>
-              <Text style={styles.speechBubbleText}>Hello!</Text>
-              <View style={styles.speechBubbleTail} />
+            <View style={[styles.speechBubble, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.speechBubbleText, { color: lc.textPrimary }]}>Hello!</Text>
+              <View style={[styles.speechBubbleTail, { backgroundColor: colors.surface }]} />
             </View>
           </Animated.View>
 
@@ -368,13 +413,13 @@ export function AIAssistantScreen() {
               alignItems: "center",
             }}
           >
-            <Text style={styles.welcomeHeading}>
+            <Text style={[styles.welcomeHeading, { color: lc.textPrimary }]}>
               Your{" "}
-              <Text style={{ color: COLORS.orange }}>Smart</Text>
+              <Text style={{ color: lc.orange }}>Smart</Text>
               {" "}Assistant
             </Text>
-            <Text style={styles.welcomeHeading}>for Any Task</Text>
-            <Text style={styles.welcomeSubtext}>
+            <Text style={[styles.welcomeHeading, { color: lc.textPrimary }]}>for Any Task</Text>
+            <Text style={[styles.welcomeSubtext, { color: lc.textMuted }]}>
               Instant help for planning, questions, and quick decisions.
             </Text>
           </Animated.View>
@@ -396,12 +441,12 @@ export function AIAssistantScreen() {
             }}
           >
             <TouchableOpacity
-              style={styles.ctaButton}
+              style={[styles.ctaButton, { backgroundColor: colors.buttonBg }]}
               onPress={() => setHasStarted(true)}
               activeOpacity={0.9}
             >
-              <Text style={styles.ctaButtonText}>Get started</Text>
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
+              <Text style={[styles.ctaButtonText, { color: isDark ? "#1a1a1a" : "#fff" }]}>Get started</Text>
+              <Ionicons name="arrow-forward" size={18} color={isDark ? "#1a1a1a" : "#fff"} />
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -410,16 +455,16 @@ export function AIAssistantScreen() {
           {/* ── Minimized bar ── */}
           {!chatVisible && (
             <TouchableOpacity
-              style={styles.minimizedBar}
+              style={[styles.minimizedBar, { backgroundColor: lc.glassBg, borderColor: lc.orange + "40" }]}
               onPress={toggleChatVisibility}
               activeOpacity={0.8}
               testID="ai-chat-show-bar"
             >
-              <Ionicons name="chatbubble-ellipses-outline" size={16} color={COLORS.orange} />
-              <Text style={styles.minimizedText}>
+              <Ionicons name="chatbubble-ellipses-outline" size={16} color={lc.orange} />
+              <Text style={[styles.minimizedText, { color: lc.textSecondary }]}>
                 {loading ? "Thinking..." : "Tap to show conversation"}
               </Text>
-              {loading && <ActivityIndicator size="small" color={COLORS.orange} />}
+              {loading && <ActivityIndicator size="small" color={lc.orange} />}
             </TouchableOpacity>
           )}
 
@@ -455,21 +500,29 @@ export function AIAssistantScreen() {
                         style={[
                           styles.messageBubble,
                           msg.role === "user"
-                            ? styles.messageBubbleUser
+                            ? [styles.messageBubbleUser, { backgroundColor: lc.liquidGlowOrange, borderColor: lc.glassBorder }]
                             : msg.error
                             ? styles.messageBubbleError
-                            : styles.messageBubbleAssistant,
+                            : [styles.messageBubbleAssistant, { backgroundColor: lc.glassBg, borderColor: lc.glassBorder }],
                         ]}
                       >
-                        <Text style={[styles.messageText, msg.role === "user" && styles.messageTextUser]}>
-                          {msg.content}
-                        </Text>
+                        {i === 0 && msg.role === "assistant" && !welcomeTyped ? (
+                          <TypingText
+                            text={msg.content}
+                            style={[styles.messageText, { color: lc.textPrimary }]}
+                            onComplete={() => setWelcomeTyped(true)}
+                          />
+                        ) : (
+                          <Text style={[styles.messageText, msg.role === "user" ? styles.messageTextUser : { color: lc.textPrimary }]}>
+                            {msg.content}
+                          </Text>
+                        )}
                         {msg.source === "quick_answer" && (
-                          <Text style={styles.quickAnswerTag}>⚡ Quick answer</Text>
+                          <Text style={[styles.quickAnswerTag, { color: lc.textMuted }]}>⚡ Quick answer</Text>
                         )}
                       </View>
                       {msg.role === "user" && (
-                        <View style={styles.avatarUser}>
+                        <View style={[styles.avatarUser, { backgroundColor: lc.orangeDark }]}>
                           <Ionicons name="person" size={12} color="#fff5ee" />
                         </View>
                       )}
@@ -478,12 +531,12 @@ export function AIAssistantScreen() {
                     {/* Navigation button */}
                     {msg.navigation && (
                       <TouchableOpacity
-                        style={styles.navButton}
+                        style={[styles.navButton, { backgroundColor: lc.liquidGlowOrange }]}
                         onPress={() => handleNavigation(msg.navigation!)}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="arrow-forward-circle" size={16} color={COLORS.orange} />
-                        <Text style={styles.navButtonText}>
+                        <Ionicons name="arrow-forward-circle" size={16} color={lc.orange} />
+                        <Text style={[styles.navButtonText, { color: lc.orange }]}>
                           Go to {msg.navigation.screen} →
                         </Text>
                       </TouchableOpacity>
@@ -496,8 +549,8 @@ export function AIAssistantScreen() {
                     <View style={styles.avatarBot}>
                       <AIGradientOrb size={28} />
                     </View>
-                    <View style={styles.messageBubbleAssistant}>
-                      <ActivityIndicator size="small" color={COLORS.text.secondary} />
+                    <View style={[styles.messageBubbleAssistant, { backgroundColor: lc.glassBg, borderColor: lc.glassBorder }]}>
+                      <ActivityIndicator size="small" color={lc.textSecondary} />
                     </View>
                   </View>
                 )}
@@ -505,8 +558,8 @@ export function AIAssistantScreen() {
 
               {/* Suggestions */}
               {messages.length <= 2 && (
-                <View style={styles.suggestionsContainer}>
-                  <Text style={styles.suggestionsLabel}>Quick questions:</Text>
+                <View style={[styles.suggestionsContainer, { borderTopColor: lc.glassBorder }]}>
+                  <Text style={[styles.suggestionsLabel, { color: lc.textMuted }]}>Quick questions:</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -515,11 +568,11 @@ export function AIAssistantScreen() {
                     {SUGGESTIONS.map((s, i) => (
                       <TouchableOpacity
                         key={i}
-                        style={styles.suggestionChip}
+                        style={[styles.suggestionChip, { backgroundColor: lc.glassBg, borderColor: lc.glassBorder }]}
                         onPress={() => sendMessage(s)}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.suggestionText}>{s}</Text>
+                        <Text style={[styles.suggestionText, { color: lc.textSecondary }]}>{s}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -533,20 +586,24 @@ export function AIAssistantScreen() {
                 end={{ x: 1, y: 0.5 }}
                 style={{ height: 1.5 }}
               />
-              <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 16 }]}>
-                <View style={styles.inputWrapper}>
+              <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 16, backgroundColor: colors.contentBg }]}>
+                <View style={[styles.inputWrapper, { backgroundColor: lc.glassBg, borderColor: lc.glassBorder }]}>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { color: lc.textPrimary }]}
                     value={input}
                     onChangeText={setInput}
                     placeholder="Message Kvitt..."
-                    placeholderTextColor={COLORS.text.muted}
+                    placeholderTextColor={lc.textMuted}
                     editable={!loading}
                     onSubmitEditing={() => sendMessage(input)}
                     returnKeyType="send"
                   />
                   <TouchableOpacity
-                    style={[styles.sendButton, (!input.trim() || loading) && styles.sendButtonDisabled]}
+                    style={[
+                      styles.sendButton,
+                      { backgroundColor: lc.orangeDark },
+                      (!input.trim() || loading) && { backgroundColor: lc.glassBg },
+                    ]}
                     onPress={() => sendMessage(input)}
                     disabled={!input.trim() || loading}
                     activeOpacity={0.8}
@@ -554,7 +611,7 @@ export function AIAssistantScreen() {
                     <Ionicons
                       name="send"
                       size={18}
-                      color={!input.trim() || loading ? COLORS.text.muted : "#fff"}
+                      color={!input.trim() || loading ? lc.textMuted : "#fff"}
                     />
                   </TouchableOpacity>
                 </View>
@@ -598,7 +655,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitle: {
-    color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: TYPOGRAPHY.weights.semiBold,
   },
@@ -609,13 +665,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   betaBadgeText: {
-    color: COLORS.orange,
     fontSize: 9,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
   headerSubtitle: {
-    color: COLORS.text.muted,
     fontSize: TYPOGRAPHY.sizes.caption,
   },
   headerActions: {
@@ -627,9 +681,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.glass.bg,
     borderWidth: 1,
-    borderColor: COLORS.glass.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -637,13 +689,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: COLORS.glass.glowOrange,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.full,
   },
   pokerAIText: {
-    color: COLORS.orange,
     fontSize: TYPOGRAPHY.sizes.caption,
     fontWeight: TYPOGRAPHY.weights.semiBold,
   },
@@ -657,7 +707,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   speechBubble: {
-    backgroundColor: "#fff",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -671,7 +720,6 @@ const styles = StyleSheet.create({
   speechBubbleText: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#1a1a2e",
   },
   speechBubbleTail: {
     position: "absolute",
@@ -680,25 +728,21 @@ const styles = StyleSheet.create({
     marginLeft: -6,
     width: 12,
     height: 12,
-    backgroundColor: "#fff",
     transform: [{ rotate: "45deg" }],
   },
   welcomeHeading: {
     fontSize: 26,
     fontWeight: "700",
-    color: COLORS.text.primary,
     textAlign: "center",
     lineHeight: 34,
   },
   welcomeSubtext: {
     fontSize: 14,
-    color: COLORS.text.muted,
     textAlign: "center",
     marginTop: 8,
     lineHeight: 20,
   },
   ctaButton: {
-    backgroundColor: COLORS.text.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -707,7 +751,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   ctaButtonText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
@@ -719,14 +762,11 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     margin: SPACING.container,
     padding: SPACING.lg,
-    backgroundColor: COLORS.glass.bg,
     borderWidth: 1,
-    borderColor: COLORS.orange + "40",
     borderRadius: RADIUS.xl,
   },
   minimizedText: {
     flex: 1,
-    color: COLORS.text.secondary,
     fontSize: TYPOGRAPHY.sizes.bodySmall,
   },
 
@@ -756,7 +796,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: COLORS.orangeDark,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -767,14 +806,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
   },
   messageBubbleAssistant: {
-    backgroundColor: COLORS.glass.bg,
     borderWidth: 1,
-    borderColor: COLORS.glass.border,
   },
   messageBubbleUser: {
-    backgroundColor: COLORS.glass.glowOrange,
     borderWidth: 1,
-    borderColor: COLORS.glass.border,
   },
   messageBubbleError: {
     backgroundColor: COLORS.glass.glowRed,
@@ -782,14 +817,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(239, 68, 68, 0.3)",
   },
   messageText: {
-    color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.bodySmall,
     lineHeight: 20,
   },
   messageTextUser: { color: "#ffffff" },
   quickAnswerTag: {
     fontSize: 9,
-    color: COLORS.text.muted,
     marginTop: 4,
   },
   navButton: {
@@ -800,12 +833,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingVertical: 8,
     paddingHorizontal: 14,
-    backgroundColor: COLORS.glass.glowOrange,
     borderRadius: RADIUS.full,
     alignSelf: "flex-start",
   },
   navButtonText: {
-    color: COLORS.orange,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -815,24 +846,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.container,
     paddingVertical: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.glass.border,
   },
   suggestionsLabel: {
-    color: COLORS.text.muted,
     fontSize: TYPOGRAPHY.sizes.caption,
     marginBottom: SPACING.sm,
   },
   suggestionsList: { gap: SPACING.sm },
   suggestionChip: {
-    backgroundColor: COLORS.glass.bg,
     borderWidth: 1,
-    borderColor: COLORS.glass.border,
     borderRadius: RADIUS.full,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
   },
   suggestionText: {
-    color: COLORS.text.secondary,
     fontSize: TYPOGRAPHY.sizes.caption,
   },
 
@@ -840,21 +866,17 @@ const styles = StyleSheet.create({
   inputContainer: {
     paddingHorizontal: SPACING.container,
     paddingTop: SPACING.md,
-    backgroundColor: COLORS.jetDark,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.glass.bg,
     borderRadius: RADIUS.xxl,
     borderWidth: 1.5,
-    borderColor: COLORS.glass.border,
     paddingLeft: SPACING.lg,
     paddingRight: SPACING.xs,
   },
   input: {
     flex: 1,
-    color: COLORS.text.primary,
     fontSize: TYPOGRAPHY.sizes.body,
     paddingVertical: SPACING.md,
   },
@@ -862,11 +884,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.orangeDark,
     alignItems: "center",
     justifyContent: "center",
   },
-  sendButtonDisabled: { backgroundColor: COLORS.glass.bg },
 });
 
 export default AIAssistantScreen;

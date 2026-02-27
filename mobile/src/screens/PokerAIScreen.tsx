@@ -117,10 +117,10 @@ export function PokerAIScreen() {
     setSuggestion(null);
 
     try {
-      const yourHand = handCards.map((c) => `${c!.rank}${c!.suit}`);
-      const community = communityCards.filter(Boolean).map((c) => `${c!.rank}${c!.suit}`);
+      const yourHand = handCards.map((c) => `${c!.rank} of ${c!.suit}`);
+      const community = communityCards.filter(Boolean).map((c) => `${c!.rank} of ${c!.suit}`);
 
-      const res = await api.post("/ai/poker/analyze", {
+      const res = await api.post("/poker/analyze", {
         your_hand: yourHand,
         community_cards: community,
       });

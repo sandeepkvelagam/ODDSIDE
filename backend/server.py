@@ -1937,65 +1937,122 @@ async def start_game(game_id: str, user: User = Depends(get_current_user)):
     return {"message": "Game started", "player_count": player_count}
 
 
-async def auto_generate_settlement(game_id: str, game: dict, players: list) -> dict:
+def optimize_settlement(net_results: list) -> dict:
     """
-    Smart Settlement Algorithm - Automatically generates optimized settlement.
+    Deterministic minimum-transaction settlement algorithm.
+    All math in integer cents — no float arithmetic.
 
-    Algorithm: Greedy Debt Minimization
-    - Separates players into winners (positive net) and losers (negative net)
-    - Matches losers to winners to minimize total transactions
-    - Consolidates payments to reduce complexity
-
-    Returns: {"settlements": [...]} with minimized payment list
+    Input:  [{"user_id": str, "net_cents": int}]
+            positive = should receive, negative = owes
+    Output: {
+        "transfers": [{"from_user_id", "to_user_id", "amount_cents": int}],
+        "stats": {"possible_payments": int, "optimized_payments": int}
+    }
     """
-    # Calculate net results for each player
-    all_players = []
-    for p in players:
-        buy_in = p.get("total_buy_in", 0)
-        cash_out = p.get("cash_out", 0)
-        net_result = cash_out - buy_in
-        all_players.append({
-            "user_id": p["user_id"],
-            "net_result": net_result
-        })
+    # Build creditor/debtor lists
+    creditors = []  # (user_id, amount_cents) — positive
+    debtors = []    # (user_id, amount_cents) — positive (abs of what they owe)
 
-    # Separate winners and losers
-    winners = [(p["user_id"], p["net_result"]) for p in all_players if p["net_result"] > 0.01]
-    losers = [(p["user_id"], -p["net_result"]) for p in all_players if p["net_result"] < -0.01]
+    for p in net_results:
+        cents = p["net_cents"]
+        if cents > 0:
+            creditors.append((p["user_id"], cents))
+        elif cents < 0:
+            debtors.append((p["user_id"], -cents))
 
-    # Sort for optimal matching (largest first)
-    winners.sort(key=lambda x: -x[1])
-    losers.sort(key=lambda x: -x[1])
+    # Deterministic sort: descending by amount, tie-break by user_id
+    creditors.sort(key=lambda x: (-x[1], x[0]))
+    debtors.sort(key=lambda x: (-x[1], x[0]))
 
-    settlements = []
+    # Verify balance: total debts must equal total credits
+    total_credit = sum(c[1] for c in creditors)
+    total_debt = sum(d[1] for d in debtors)
 
-    # Match losers to winners (greedy algorithm)
+    # Handle tiny rounding remainder (1 cent max) — assign to largest creditor
+    if total_debt != total_credit and abs(total_debt - total_credit) <= 1 and creditors:
+        diff = total_debt - total_credit
+        creditors[0] = (creditors[0][0], creditors[0][1] + diff)
+        total_credit += diff
+
+    # Count active players (non-zero net) for possible payments calc
+    active_players = len(creditors) + len(debtors)
+    possible_payments = (active_players * (active_players - 1)) // 2 if active_players > 1 else 0
+
+    # Greedy matching
+    transfers = []
     i, j = 0, 0
-    while i < len(losers) and j < len(winners):
-        loser_id, loser_debt = losers[i]
-        winner_id, winner_credit = winners[j]
 
-        amount = min(loser_debt, winner_credit)
+    while i < len(debtors) and j < len(creditors):
+        debtor_id, debtor_amt = debtors[i]
+        creditor_id, creditor_amt = creditors[j]
 
-        if amount > 0.01:
-            settlements.append({
-                "from_user_id": loser_id,
-                "to_user_id": winner_id,
-                "amount": round(amount, 2)
+        pay = min(debtor_amt, creditor_amt)
+
+        if pay > 0:
+            transfers.append({
+                "from_user_id": debtor_id,
+                "to_user_id": creditor_id,
+                "amount_cents": pay
             })
 
-        losers[i] = (loser_id, round(loser_debt - amount, 2))
-        winners[j] = (winner_id, round(winner_credit - amount, 2))
+        debtors[i] = (debtor_id, debtor_amt - pay)
+        creditors[j] = (creditor_id, creditor_amt - pay)
 
-        if losers[i][1] <= 0.01:
+        if debtors[i][1] <= 0:
             i += 1
-        if winners[j][1] <= 0.01:
+        if creditors[j][1] <= 0:
             j += 1
+
+    return {
+        "transfers": transfers,
+        "stats": {
+            "possible_payments": possible_payments,
+            "optimized_payments": len(transfers)
+        }
+    }
+
+
+async def auto_generate_settlement(game_id: str, game: dict, players: list, generated_by: str = "system") -> dict:
+    """
+    Smart Settlement — generates optimized settlement using integer cents.
+    Returns: {"settlements": [...], "stats": {...}}
+    """
+    # Build net_results in cents (skip players without cash_out)
+    net_results = []
+    input_snapshot = []
+    for p in players:
+        buy_in = p.get("total_buy_in", 0)
+        cash_out = p.get("cash_out")
+        if cash_out is None:
+            continue
+        net_cents = round((cash_out - buy_in) * 100)
+        net_results.append({"user_id": p["user_id"], "net_cents": net_cents})
+        input_snapshot.append({
+            "user_id": p["user_id"],
+            "buy_in": buy_in,
+            "cash_out": cash_out,
+            "net_cents": net_cents
+        })
+
+    # Run deterministic optimization
+    result = optimize_settlement(net_results)
+    transfers = result["transfers"]
+    stats = result["stats"]
+
+    # Convert cents back to float for storage (backwards compat)
+    settlements = []
+    for t in transfers:
+        settlements.append({
+            "from_user_id": t["from_user_id"],
+            "to_user_id": t["to_user_id"],
+            "amount": round(t["amount_cents"] / 100, 2)
+        })
 
     # Delete any existing settlements for this game
     await db.ledger.delete_many({"game_id": game_id})
 
     # Create ledger entries
+    created_ledger_ids = []
     for s in settlements:
         entry = LedgerEntry(
             group_id=game["group_id"],
@@ -2009,15 +2066,40 @@ async def auto_generate_settlement(game_id: str, game: dict, players: list) -> d
         if entry_dict.get("paid_at"):
             entry_dict["paid_at"] = entry_dict["paid_at"].isoformat()
         await db.ledger.insert_one(entry_dict)
+        created_ledger_ids.append(entry.ledger_id)
 
-    # Update game status to settled
+    # Update game status to settled + locked
     await db.game_nights.update_one(
         {"game_id": game_id},
-        {"$set": {"status": "settled", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        {"$set": {
+            "status": "settled",
+            "is_finalized": True,
+            "is_locked": True,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
     )
 
-    logger.info(f"Smart settlement generated for game {game_id}: {len(settlements)} transactions")
-    return {"settlements": settlements}
+    # Settlement audit trail
+    existing_runs = await db.settlement_runs.count_documents({"game_id": game_id})
+    settlement_version = existing_runs + 1
+
+    audit_record = {
+        "run_id": f"srun_{uuid.uuid4().hex[:12]}",
+        "game_id": game_id,
+        "settlement_version": settlement_version,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_by": generated_by,
+        "algorithm_version": "greedy_v2_cents",
+        "input_snapshot": {"players": input_snapshot},
+        "output_payments_count": len(settlements),
+        "output_total_amount_cents": sum(t["amount_cents"] for t in transfers),
+        "ledger_ids": created_ledger_ids,
+        "stats": stats
+    }
+    await db.settlement_runs.insert_one(audit_record)
+
+    logger.info(f"Settlement v{settlement_version} for game {game_id}: {stats['optimized_payments']} transactions (from {stats['possible_payments']} possible)")
+    return {"settlements": settlements, "stats": stats, "audit": {"version": settlement_version, "algorithm": "greedy_v2_cents"}}
 
 
 @api_router.post("/games/{game_id}/end")
@@ -2080,32 +2162,66 @@ async def end_game(game_id: str, user: User = Depends(get_current_user)):
     # Auto-generate settlement (Smart Settlement)
     settlement_result = await auto_generate_settlement(game_id, game, players_with_buyin)
 
-    # Notify all players about settlement
+    # Build personalized notifications per player
     if settlement_result.get("settlements"):
-        player_ids_for_push = []
+        # Map user_ids to names
+        player_user_ids = [p["user_id"] for p in players_with_buyin]
+        player_users = await db.users.find(
+            {"user_id": {"$in": player_user_ids}},
+            {"_id": 0, "user_id": 1, "name": 1}
+        ).to_list(100)
+        user_name_map = {u["user_id"]: u["name"] for u in player_users}
+
+        # Build per-player debt/credit summary
+        player_debts = {}
+        for s in settlement_result["settlements"]:
+            from_id, to_id, amt = s["from_user_id"], s["to_user_id"], s["amount"]
+            if from_id not in player_debts:
+                player_debts[from_id] = {"owes": [], "owed": []}
+            if to_id not in player_debts:
+                player_debts[to_id] = {"owes": [], "owed": []}
+            player_debts[from_id]["owes"].append((user_name_map.get(to_id, "Unknown"), amt))
+            player_debts[to_id]["owed"].append((user_name_map.get(from_id, "Unknown"), amt))
+
         for player in players_with_buyin:
+            pid = player["user_id"]
+            debts = player_debts.get(pid, {"owes": [], "owed": []})
+            net_result = player.get("net_result") or ((player.get("cash_out") or 0) - player.get("total_buy_in", 0))
+
+            # Personalized in-app message
+            if net_result > 0.01:
+                owed_parts = [f"{name} owes you ${amt:.0f}" for name, amt in debts["owed"]]
+                in_app_msg = f"You won ${net_result:.0f}! {', '.join(owed_parts)}."
+                push_msg = f"You won ${net_result:.0f}. Open Kvitt to collect."
+            elif net_result < -0.01:
+                owes_parts = [f"You owe {name} ${amt:.0f}" for name, amt in debts["owes"]]
+                in_app_msg = f"You lost ${abs(net_result):.0f}. {', '.join(owes_parts)}."
+                push_msg = f"You owe ${abs(net_result):.0f}. Open Kvitt to settle."
+            else:
+                in_app_msg = "You broke even. No payments needed."
+                push_msg = "You broke even. No action needed."
+
             await db.notifications.insert_one({
                 "notification_id": str(uuid.uuid4()),
-                "user_id": player["user_id"],
+                "user_id": pid,
                 "type": "settlement_generated",
                 "title": "Settlement Ready",
-                "message": f"Smart settlement has been generated for the game. View your debts and pay via Stripe.",
+                "message": in_app_msg,
                 "data": {"game_id": game_id, "group_id": game["group_id"]},
                 "read": False,
                 "created_at": datetime.now(timezone.utc).isoformat()
             })
-            player_ids_for_push.append(player["user_id"])
 
-        # Send push notifications for settlement
-        try:
-            await send_push_to_users(
-                player_ids_for_push,
-                "Settlement Ready",
-                "Your poker game ended. Check your settlement — time to pay up!",
-                {"type": "settlement_generated", "game_id": game_id}
-            )
-        except Exception as e:
-            logger.error(f"Push notification error on settlement: {e}")
+            # Push notification per player (short, drives action)
+            try:
+                await send_push_to_users(
+                    [pid],
+                    "Settlement Ready",
+                    push_msg,
+                    {"type": "settlement_generated", "game_id": game_id}
+                )
+            except Exception as e:
+                logger.error(f"Push notification error for {pid}: {e}")
 
     return {
         "message": "Game ended",
@@ -3127,6 +3243,13 @@ async def edit_player_chips(game_id: str, data: EditPlayerChipsRequest, user: Us
     # Can only edit after cash-out (ended or settled status also allowed)
     if game["status"] not in ["active", "ended", "settled"]:
         raise HTTPException(status_code=400, detail="Cannot edit chips in this game state")
+
+    # Settlement lock — host must unlock before editing settled games
+    if game.get("is_locked"):
+        raise HTTPException(
+            status_code=400,
+            detail="Game is locked after settlement. Use unlock to make changes."
+        )
     
     player = await db.players.find_one(
         {"game_id": game_id, "user_id": data.user_id},
@@ -3226,8 +3349,11 @@ async def edit_player_chips(game_id: str, data: EditPlayerChipsRequest, user: Us
     # If game is settled, regenerate settlement and notify all players
     settlement_regenerated = False
     if game["status"] == "settled":
-        # Get all players for regeneration
-        all_players = await db.players.find({"game_id": game_id}).to_list(100)
+        # Get players with buy-ins for regeneration (skip observers)
+        all_players = await db.players.find(
+            {"game_id": game_id, "total_buy_in": {"$gt": 0}},
+            {"_id": 0}
+        ).to_list(100)
 
         # Delete old ledger entries
         await db.ledger.delete_many({"game_id": game_id})
@@ -3322,66 +3448,190 @@ async def generate_settlement(game_id: str, user: User = Depends(get_current_use
             detail=f"All players must cash out before settlement. Waiting for: {', '.join(player_names)}"
         )
     
-    # Validate chip count (optional warning - can be logged)
+    # Validate chip count (optional warning)
     total_distributed = game.get("total_chips_distributed", 0)
     total_returned = sum(p.get("chips_returned", 0) for p in all_players)
     if total_distributed != total_returned:
         logger.warning(f"Chip discrepancy in game {game_id}: distributed={total_distributed}, returned={total_returned}")
-    
-    # Simple settlement algorithm (debt minimization)
-    winners = [(p["user_id"], p["net_result"]) for p in all_players if p.get("net_result", 0) > 0]
-    losers = [(p["user_id"], -p["net_result"]) for p in all_players if p.get("net_result", 0) < 0]
-    
-    settlements = []
-    
-    # Match losers to winners
-    i, j = 0, 0
-    while i < len(losers) and j < len(winners):
-        loser_id, loser_debt = losers[i]
-        winner_id, winner_credit = winners[j]
-        
-        amount = min(loser_debt, winner_credit)
-        
-        if amount > 0:
-            settlements.append({
-                "from_user_id": loser_id,
-                "to_user_id": winner_id,
-                "amount": round(amount, 2)
-            })
-        
-        losers[i] = (loser_id, loser_debt - amount)
-        winners[j] = (winner_id, winner_credit - amount)
-        
-        if losers[i][1] <= 0.01:
-            i += 1
-        if winners[j][1] <= 0.01:
-            j += 1
-    
-    # Delete old settlements for this game
-    await db.ledger.delete_many({"game_id": game_id})
-    
-    # Create ledger entries
-    for s in settlements:
-        entry = LedgerEntry(
-            group_id=game["group_id"],
-            game_id=game_id,
-            from_user_id=s["from_user_id"],
-            to_user_id=s["to_user_id"],
-            amount=s["amount"]
-        )
-        entry_dict = entry.model_dump()
-        entry_dict["created_at"] = entry_dict["created_at"].isoformat()
-        if entry_dict.get("paid_at"):
-            entry_dict["paid_at"] = entry_dict["paid_at"].isoformat()
-        await db.ledger.insert_one(entry_dict)
-    
-    # Update game status
+
+    # Use shared deterministic settlement algorithm
+    result = await auto_generate_settlement(game_id, game, all_players, generated_by=user.user_id)
+
+    return result
+
+
+@api_router.post("/games/{game_id}/unlock")
+async def unlock_game(game_id: str, user: User = Depends(get_current_user)):
+    """Host/admin unlocks a settled game to allow edits. Logs to audit trail."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    is_host = game["host_id"] == user.user_id
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not is_host and (not membership or membership["role"] != "admin"):
+        raise HTTPException(status_code=403, detail="Only host or admin can unlock")
+
+    if not game.get("is_locked"):
+        return {"message": "Game is already unlocked"}
+
     await db.game_nights.update_one(
         {"game_id": game_id},
-        {"$set": {"status": "settled"}}
+        {"$set": {"is_locked": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
-    
-    return {"settlements": settlements}
+
+    # Audit log
+    audit = AuditLog(
+        entity_type="game",
+        entity_id=game_id,
+        action="unlock",
+        old_value={"is_locked": True},
+        new_value={"is_locked": False},
+        changed_by=user.user_id,
+        reason="Host unlocked for edits"
+    )
+    audit_dict = audit.model_dump()
+    audit_dict["timestamp"] = audit_dict["timestamp"].isoformat()
+    await db.audit_logs.insert_one(audit_dict)
+
+    logger.info(f"Game {game_id} unlocked by {user.user_id}")
+    return {"message": "Game unlocked. You can now edit player values."}
+
+
+@api_router.post("/games/{game_id}/settlement/dispute")
+async def create_settlement_dispute(game_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Player reports an issue with the settlement. Notifies host. Pauses payments."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    # Verify player is in the game
+    player = await db.players.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not player:
+        membership = await db.group_members.find_one(
+            {"group_id": game["group_id"], "user_id": user.user_id},
+            {"_id": 0}
+        )
+        if not membership:
+            raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    # Check for existing open dispute
+    existing = await db.settlement_disputes.find_one(
+        {"game_id": game_id, "status": {"$in": ["open", "reviewing"]}},
+        {"_id": 0}
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="An open dispute already exists for this settlement")
+
+    category = data.get("category", "other")
+    message = data.get("message", "")
+    if not message.strip():
+        raise HTTPException(status_code=400, detail="Describe the issue")
+
+    dispute = {
+        "dispute_id": f"dsp_{uuid.uuid4().hex[:12]}",
+        "game_id": game_id,
+        "user_id": user.user_id,
+        "category": category,
+        "message": message.strip(),
+        "status": "open",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "resolved_at": None,
+        "resolved_by": None
+    }
+    await db.settlement_disputes.insert_one(dispute)
+
+    # Notify host
+    host_notification = {
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": game["host_id"],
+        "type": "settlement_dispute",
+        "title": "Settlement Disputed",
+        "message": f"{user.name} reported an issue: {category.replace('_', ' ')}. Payments paused.",
+        "data": {"game_id": game_id, "dispute_id": dispute["dispute_id"]},
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.notifications.insert_one(host_notification)
+
+    logger.info(f"Settlement dispute created for game {game_id} by {user.user_id}")
+    return {"dispute_id": dispute["dispute_id"], "status": "open"}
+
+
+@api_router.get("/games/{game_id}/settlement/disputes")
+async def get_settlement_disputes(game_id: str, user: User = Depends(get_current_user)):
+    """Get all disputes for a game's settlement."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    disputes = await db.settlement_disputes.find(
+        {"game_id": game_id},
+        {"_id": 0}
+    ).to_list(50)
+
+    # Add user names
+    for d in disputes:
+        u = await db.users.find_one({"user_id": d["user_id"]}, {"_id": 0, "name": 1, "picture": 1})
+        d["user"] = u
+
+    return {"disputes": disputes}
+
+
+@api_router.put("/games/{game_id}/settlement/dispute/{dispute_id}/resolve")
+async def resolve_settlement_dispute(game_id: str, dispute_id: str, user: User = Depends(get_current_user)):
+    """Host/admin resolves a settlement dispute."""
+    game = await db.game_nights.find_one({"game_id": game_id}, {"_id": 0})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    is_host = game["host_id"] == user.user_id
+    membership = await db.group_members.find_one(
+        {"group_id": game["group_id"], "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not is_host and (not membership or membership["role"] != "admin"):
+        raise HTTPException(status_code=403, detail="Only host or admin can resolve disputes")
+
+    dispute = await db.settlement_disputes.find_one(
+        {"dispute_id": dispute_id, "game_id": game_id},
+        {"_id": 0}
+    )
+    if not dispute:
+        raise HTTPException(status_code=404, detail="Dispute not found")
+
+    if dispute["status"] not in ["open", "reviewing"]:
+        raise HTTPException(status_code=400, detail="Dispute already resolved")
+
+    await db.settlement_disputes.update_one(
+        {"dispute_id": dispute_id},
+        {"$set": {
+            "status": "resolved",
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_by": user.user_id
+        }}
+    )
+
+    # Notify the disputer
+    await db.notifications.insert_one({
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": dispute["user_id"],
+        "type": "dispute_resolved",
+        "title": "Dispute Resolved",
+        "message": f"Your settlement issue for {game.get('title', 'the game')} has been resolved. Payments are active.",
+        "data": {"game_id": game_id, "dispute_id": dispute_id},
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {"status": "resolved"}
+
 
 @api_router.get("/games/{game_id}/settlement")
 async def get_settlement(game_id: str, user: User = Depends(get_current_user)):
@@ -6235,6 +6485,120 @@ async def get_consolidated_balances(user: User = Depends(get_current_user)):
     }
 
 
+@api_router.get("/ledger/consolidated-detailed")
+async def get_consolidated_balances_detailed(user: User = Depends(get_current_user)):
+    """
+    Enhanced consolidated balances with per-game breakdown.
+    Read-only computation — no mutations. Groups all pending ledger entries
+    by (other_user, game_id) and computes netting explanation.
+    """
+    all_entries = await db.ledger.find(
+        {
+            "$or": [
+                {"from_user_id": user.user_id, "status": "pending"},
+                {"to_user_id": user.user_id, "status": "pending"}
+            ]
+        },
+        {"_id": 0}
+    ).to_list(500)
+
+    # Group entries by (other_person, game_id)
+    person_games = {}  # other_user_id -> {game_id -> {"entries": [], "net": 0}}
+
+    for entry in all_entries:
+        if entry["from_user_id"] == user.user_id:
+            other_user = entry["to_user_id"]
+            amount = -entry["amount"]  # negative = you owe
+        else:
+            other_user = entry["from_user_id"]
+            amount = entry["amount"]  # positive = owed to you
+
+        if other_user not in person_games:
+            person_games[other_user] = {}
+
+        game_id = entry.get("game_id", "unknown")
+        if game_id not in person_games[other_user]:
+            person_games[other_user][game_id] = {"entries": [], "net": 0}
+        person_games[other_user][game_id]["entries"].append(entry)
+        person_games[other_user][game_id]["net"] += amount
+
+    # Build response with user info and game details
+    consolidated = []
+    for other_user_id, games in person_games.items():
+        total_net = sum(g["net"] for g in games.values())
+
+        if abs(total_net) < 0.01:
+            continue  # Settled — skip
+
+        other_user = await db.users.find_one(
+            {"user_id": other_user_id},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
+        )
+
+        # Fetch game details for each game
+        game_breakdown = []
+        for game_id, game_data in games.items():
+            game_info = await db.game_nights.find_one(
+                {"game_id": game_id},
+                {"_id": 0, "game_id": 1, "title": 1, "ended_at": 1, "group_id": 1}
+            )
+            game_breakdown.append({
+                "game_id": game_id,
+                "game_title": game_info.get("title", "Game Night") if game_info else "Game",
+                "game_date": game_info.get("ended_at") if game_info else None,
+                "amount": round(abs(game_data["net"]), 2),
+                "direction": "owed_to_you" if game_data["net"] > 0 else "you_owe",
+                "ledger_ids": [e["ledger_id"] for e in game_data["entries"]]
+            })
+
+        # Sort game breakdown by date (newest first)
+        game_breakdown.sort(key=lambda g: g.get("game_date") or "", reverse=True)
+
+        # Compute offset explanation (only when debts flow both ways)
+        you_owe_games = [g for g in game_breakdown if g["direction"] == "you_owe"]
+        they_owe_games = [g for g in game_breakdown if g["direction"] == "owed_to_you"]
+
+        offset_explanation = None
+        if you_owe_games and they_owe_games:
+            gross_you_owe = sum(g["amount"] for g in you_owe_games)
+            gross_they_owe = sum(g["amount"] for g in they_owe_games)
+            offset_amount = min(gross_you_owe, gross_they_owe)
+            offset_explanation = {
+                "offset_amount": round(offset_amount, 2),
+                "gross_you_owe": round(gross_you_owe, 2),
+                "gross_they_owe": round(gross_they_owe, 2)
+            }
+
+        # Collect all ledger_ids across games for this person
+        all_ledger_ids = []
+        for g in game_breakdown:
+            all_ledger_ids.extend(g["ledger_ids"])
+
+        consolidated.append({
+            "user": other_user,
+            "net_amount": round(total_net, 2),
+            "direction": "owed_to_you" if total_net > 0 else "you_owe",
+            "display_amount": round(abs(total_net), 2),
+            "game_count": len(games),
+            "game_breakdown": game_breakdown,
+            "offset_explanation": offset_explanation,
+            "all_ledger_ids": all_ledger_ids
+        })
+
+    consolidated.sort(key=lambda x: -x["display_amount"])
+
+    total_you_owe = sum(-b["net_amount"] for b in consolidated if b["net_amount"] < 0)
+    total_owed_to_you = sum(b["net_amount"] for b in consolidated if b["net_amount"] > 0)
+
+    return {
+        "consolidated": consolidated,
+        "total_you_owe": round(total_you_owe, 2),
+        "total_owed_to_you": round(total_owed_to_you, 2),
+        "net_balance": round(total_owed_to_you - total_you_owe, 2),
+        "people_count": len(consolidated)
+    }
+
+
 @api_router.post("/ledger/optimize")
 async def optimize_ledger(user: User = Depends(get_current_user)):
     """
@@ -6435,6 +6799,160 @@ async def create_debt_payment(ledger_id: str, data: dict, user: User = Depends(g
     )
     
     return result
+
+
+# ============== PAY NET FLOW (2-PHASE COMMIT) ==============
+
+@api_router.post("/ledger/pay-net/prepare")
+async def prepare_pay_net(data: dict, user: User = Depends(get_current_user)):
+    """
+    Prepare a net payment across multiple ledger entries. Creates a plan
+    and Stripe session but does NOT mutate any ledger entries.
+    Mutations only happen after Stripe webhook confirms success.
+    """
+    from stripe_service import create_debt_payment_link
+
+    other_user_id = data.get("other_user_id")
+    ledger_ids = data.get("ledger_ids", [])
+    origin_url = data.get("origin_url", "")
+
+    if not other_user_id or not ledger_ids or not origin_url:
+        raise HTTPException(status_code=400, detail="other_user_id, ledger_ids, and origin_url required")
+
+    # Validate all ledger entries
+    entries = await db.ledger.find(
+        {"ledger_id": {"$in": ledger_ids}, "status": "pending"},
+        {"_id": 0}
+    ).to_list(100)
+
+    if len(entries) != len(ledger_ids):
+        raise HTTPException(status_code=400, detail="Some ledger entries not found or already paid")
+
+    # Compute net: only entries where current user owes other_user
+    net_cents = 0
+    valid_ids = []
+    for e in entries:
+        if e["from_user_id"] == user.user_id and e["to_user_id"] == other_user_id:
+            net_cents += round(e["amount"] * 100)
+            valid_ids.append(e["ledger_id"])
+        elif e["to_user_id"] == user.user_id and e["from_user_id"] == other_user_id:
+            net_cents -= round(e["amount"] * 100)
+            valid_ids.append(e["ledger_id"])
+
+    if net_cents <= 0:
+        raise HTTPException(status_code=400, detail="Net amount must be positive (you must owe)")
+
+    # Get payee info
+    payee = await db.users.find_one(
+        {"user_id": other_user_id},
+        {"_id": 0, "user_id": 1, "name": 1}
+    )
+    payee_name = payee.get("name", "Unknown") if payee else "Unknown"
+
+    amount_dollars = round(net_cents / 100, 2)
+
+    # Build breakdown for display
+    breakdown = []
+    for e in entries:
+        game_info = await db.game_nights.find_one(
+            {"game_id": e.get("game_id", "")},
+            {"_id": 0, "title": 1, "ended_at": 1}
+        )
+        direction = "you_owe" if e["from_user_id"] == user.user_id else "owed_to_you"
+        breakdown.append({
+            "game_title": game_info.get("title", "Game") if game_info else "Game",
+            "amount": e["amount"],
+            "direction": direction
+        })
+
+    # Create plan record (no mutation yet)
+    plan_id = f"pnp_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+
+    plan = {
+        "plan_id": plan_id,
+        "payer_id": user.user_id,
+        "payee_id": other_user_id,
+        "amount_cents": net_cents,
+        "ledger_ids": valid_ids,
+        "breakdown": breakdown,
+        "status": "pending",
+        "stripe_session_id": None,
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(minutes=30)).isoformat(),
+        "completed_at": None
+    }
+
+    # Create Stripe checkout session
+    import stripe
+    api_key = os.environ.get('STRIPE_API_KEY')
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Payment service not configured")
+
+    stripe.api_key = api_key
+
+    session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[{
+            'price_data': {
+                'currency': 'usd',
+                'product_data': {
+                    'name': f'Net payment to {payee_name}',
+                    'description': f'Consolidated settlement across {len(entries)} game(s)',
+                },
+                'unit_amount': net_cents,
+            },
+            'quantity': 1,
+        }],
+        mode='payment',
+        success_url=f"{origin_url}/profile?payment=success&plan_id={plan_id}",
+        cancel_url=f"{origin_url}/profile?payment=cancelled",
+        customer_email=user.email,
+        metadata={
+            "type": "pay_net",
+            "plan_id": plan_id,
+            "payer_id": user.user_id,
+            "payee_id": other_user_id,
+            "amount_cents": str(net_cents)
+        }
+    )
+
+    plan["stripe_session_id"] = session.id
+    await db.pay_net_plans.insert_one(plan)
+
+    logger.info(f"Pay-net plan {plan_id} created: {user.user_id} → {other_user_id}, ${amount_dollars}")
+
+    return {
+        "plan_id": plan_id,
+        "checkout_url": session.url,
+        "amount_cents": net_cents,
+        "amount": amount_dollars,
+        "payee_name": payee_name,
+        "breakdown": breakdown
+    }
+
+
+@api_router.get("/ledger/pay-net/status")
+async def get_pay_net_status(plan_id: str, user: User = Depends(get_current_user)):
+    """Check status of a pay-net plan."""
+    plan = await db.pay_net_plans.find_one(
+        {"plan_id": plan_id, "payer_id": user.user_id},
+        {"_id": 0}
+    )
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    # Check expiry
+    if plan["status"] == "pending":
+        expires_at = datetime.fromisoformat(plan["expires_at"].replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) > expires_at:
+            await db.pay_net_plans.update_one(
+                {"plan_id": plan_id},
+                {"$set": {"status": "expired"}}
+            )
+            return {"status": "expired"}
+
+    return {"status": plan["status"]}
 
 
 @api_router.post("/webhook/stripe-debt")

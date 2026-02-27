@@ -623,6 +623,131 @@ async def handle_debt_payment_webhook(
                     }
                     await db.notifications.insert_one(notification)
 
+            # Handle Pay-Net plans (consolidated cross-game payments)
+            if not debt_payment and webhook_response.session_id:
+                # Check if this is a pay_net session by looking up the plan
+                plan = await db.pay_net_plans.find_one(
+                    {"stripe_session_id": webhook_response.session_id},
+                    {"_id": 0}
+                )
+
+                if plan and event_type == "checkout.session.completed" and webhook_response.payment_status == "paid":
+                    plan_id = plan["plan_id"]
+
+                    # Idempotency: skip if already completed
+                    if plan["status"] == "completed":
+                        logger.info(f"Pay-net plan {plan_id} already completed — skipping")
+                    else:
+                        # Check expiry
+                        expires_at = datetime.fromisoformat(plan["expires_at"].replace("Z", "+00:00"))
+                        now = datetime.now(timezone.utc)
+
+                        if now > expires_at:
+                            await db.pay_net_plans.update_one(
+                                {"plan_id": plan_id},
+                                {"$set": {"status": "expired"}}
+                            )
+                            logger.warning(f"Pay-net plan {plan_id} expired before webhook")
+                        else:
+                            # Verify all ledger entries are still pending
+                            ledger_ids = plan["ledger_ids"]
+                            pending_entries = await db.ledger.find(
+                                {"ledger_id": {"$in": ledger_ids}, "status": "pending"},
+                                {"_id": 0}
+                            ).to_list(100)
+
+                            if len(pending_entries) != len(ledger_ids):
+                                logger.warning(f"Pay-net plan {plan_id}: ledger entries changed since plan creation")
+                                await db.pay_net_plans.update_one(
+                                    {"plan_id": plan_id},
+                                    {"$set": {"status": "canceled", "cancel_reason": "ledger_entries_changed"}}
+                                )
+                            else:
+                                # Atomic: mark all ledger entries as paid
+                                await db.ledger.update_many(
+                                    {"ledger_id": {"$in": ledger_ids}, "status": "pending"},
+                                    {"$set": {
+                                        "status": "paid",
+                                        "paid_at": now.isoformat(),
+                                        "paid_via": "stripe_net",
+                                        "pay_net_plan_id": plan_id,
+                                        "is_locked": True
+                                    }}
+                                )
+
+                                # Mark plan completed
+                                await db.pay_net_plans.update_one(
+                                    {"plan_id": plan_id},
+                                    {"$set": {
+                                        "status": "completed",
+                                        "completed_at": now.isoformat()
+                                    }}
+                                )
+
+                                # Credit recipient wallet
+                                payee_id = plan["payee_id"]
+                                payer_id = plan["payer_id"]
+                                amount_dollars = round(plan["amount_cents"] / 100, 2)
+
+                                payer_user = await db.users.find_one(
+                                    {"user_id": payer_id},
+                                    {"_id": 0, "name": 1}
+                                )
+                                payer_name = payer_user.get('name', 'Someone') if payer_user else 'Someone'
+
+                                wallet_result = await db.wallets.find_one_and_update(
+                                    {"user_id": payee_id},
+                                    {
+                                        "$inc": {"balance": amount_dollars},
+                                        "$push": {
+                                            "transactions": {
+                                                "transaction_id": f"txn_{now.strftime('%Y%m%d%H%M%S')}_{plan_id[:8]}",
+                                                "type": "credit",
+                                                "amount": amount_dollars,
+                                                "from_user_id": payer_id,
+                                                "from_user_name": payer_name,
+                                                "pay_net_plan_id": plan_id,
+                                                "description": f"Net payment from {payer_name}",
+                                                "created_at": now.isoformat()
+                                            }
+                                        },
+                                        "$setOnInsert": {
+                                            "user_id": payee_id,
+                                            "currency": "usd",
+                                            "created_at": now.isoformat()
+                                        }
+                                    },
+                                    upsert=True,
+                                    return_document=True
+                                )
+
+                                new_balance = wallet_result.get("balance", amount_dollars) if wallet_result else amount_dollars
+
+                                # Notify recipient
+                                await db.notifications.insert_one({
+                                    "notification_id": f"notif_{now.strftime('%Y%m%d%H%M%S')}_{plan_id[:6]}",
+                                    "user_id": payee_id,
+                                    "type": "payment_received",
+                                    "title": "Net Payment Received!",
+                                    "message": f"{payer_name} paid you ${amount_dollars:.2f} (net settlement). Balance: ${new_balance:.2f}",
+                                    "data": {
+                                        "plan_id": plan_id,
+                                        "amount": amount_dollars,
+                                        "new_balance": new_balance
+                                    },
+                                    "read": False,
+                                    "created_at": now.isoformat()
+                                })
+
+                                logger.info(f"Pay-net plan {plan_id} completed: ${amount_dollars} from {payer_id} to {payee_id}")
+
+                elif plan and (event_type == "checkout.session.expired" or webhook_response.payment_status in ["unpaid", "no_payment_required"]):
+                    await db.pay_net_plans.update_one(
+                        {"plan_id": plan["plan_id"]},
+                        {"$set": {"status": "canceled"}}
+                    )
+                    logger.info(f"Pay-net plan {plan['plan_id']} canceled: {event_type}")
+
         return {"status": "success", "event_id": webhook_response.event_id, "event_type": event_type}
 
     except Exception as e:

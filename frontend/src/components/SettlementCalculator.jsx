@@ -69,7 +69,15 @@ export default function SettlementCalculator({
       const resultsTimeout = setTimeout(async () => {
         try {
           const res = await axios.get(`${API}/games/${gameId}/settlement`);
-          setSettlements(res.data.settlements || []);
+          if (!res?.data) {
+            console.warn("Settlement response empty — possible backend issue");
+            setError("Settlement data unavailable. Try again.");
+            setPhase("results");
+            return;
+          }
+          // Backend returns raw array, not {settlements: []}
+          const data = Array.isArray(res.data) ? res.data : (res.data.settlements || []);
+          setSettlements(data);
           setPhase("results");
         } catch (err) {
           console.error("Failed to fetch settlements:", err);

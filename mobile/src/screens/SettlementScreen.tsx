@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
+  TextInput,
 } from "react-native";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +21,7 @@ import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import Constants from "expo-constants";
 import { PostGameSurveyModal } from "../components/feedback/PostGameSurveyModal";
+import { GlassModal } from "../components/ui/GlassModal";
 
 type R = RouteProp<RootStackParamList, "Settlement">;
 
@@ -43,12 +45,28 @@ export function SettlementScreen() {
   const [payingStripe, setPayingStripe] = useState<string | null>(null);
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyChecked, setSurveyChecked] = useState(false);
+  const [dispute, setDispute] = useState<any>(null);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeCategory, setDisputeCategory] = useState("wrong_cashout");
+  const [disputeMessage, setDisputeMessage] = useState("");
+  const [submittingDispute, setSubmittingDispute] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setError(null);
       const res = await api.get(`/games/${gameId}/settlement`);
       setSettlement(res.data);
+
+      // Fetch disputes
+      try {
+        const disputeRes = await api.get(`/games/${gameId}/settlement/disputes`);
+        const openDispute = (disputeRes.data?.disputes || []).find(
+          (d: any) => d.status === "open" || d.status === "reviewing"
+        );
+        setDispute(openDispute || null);
+      } catch {
+        // non-critical
+      }
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Settlement unavailable.");
     } finally {
@@ -115,6 +133,28 @@ export function SettlementScreen() {
     }
   };
 
+  const handleSubmitDispute = async () => {
+    if (!disputeMessage.trim()) {
+      Alert.alert("Missing details", "Describe the issue.");
+      return;
+    }
+    setSubmittingDispute(true);
+    try {
+      await api.post(`/games/${gameId}/settlement/dispute`, {
+        category: disputeCategory,
+        message: disputeMessage.trim(),
+      });
+      Alert.alert("Reported", "Issue reported. Host has been notified.");
+      setShowDisputeModal(false);
+      setDisputeMessage("");
+      await load();
+    } catch (e: any) {
+      Alert.alert("Report unavailable", e?.response?.data?.detail || "Please try again.");
+    } finally {
+      setSubmittingDispute(false);
+    }
+  };
+
   const results = settlement?.results || [];
   const payments = settlement?.payments || [];
   const totalPot = results.reduce((sum: number, r: any) => sum + (r.total_buy_in || 0), 0);
@@ -122,6 +162,15 @@ export function SettlementScreen() {
   const winnersCount = results.filter((r: any) => (r.net_result || 0) > 0).length;
   const losersCount = results.filter((r: any) => (r.net_result || 0) < 0).length;
   const hasDiscrepancy = Math.abs(totalPot - totalOut) > 0.01;
+
+  // Personalized hero data
+  const currentPlayer = results.find((r: any) => r.user_id === user?.user_id);
+  const netResult = currentPlayer?.net_result || 0;
+  const myDebts = payments.filter((p: any) => p.from_user_id === user?.user_id);
+  const myCredits = payments.filter((p: any) => p.to_user_id === user?.user_id);
+  const activePlayers = winnersCount + losersCount;
+  const possiblePayments = activePlayers > 1 ? Math.floor(activePlayers * (activePlayers - 1) / 2) : 0;
+  const hasDisputeOpen = !!dispute;
 
   if (loading) {
     return (
@@ -167,6 +216,19 @@ export function SettlementScreen() {
           </View>
         )}
 
+        {/* Dispute Banner */}
+        {hasDisputeOpen && (
+          <View style={[styles.disputeBanner, { backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)" }]}>
+            <Ionicons name="flag" size={18} color="#f59e0b" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "#f59e0b", fontWeight: "600", fontSize: 14 }}>Settlement under review</Text>
+              <Text style={{ color: lc.textMuted, fontSize: 12, marginTop: 2 }}>
+                {dispute.category?.replace("_", " ")} — payments paused until resolved.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Game Summary Card */}
         <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
           <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
@@ -192,6 +254,36 @@ export function SettlementScreen() {
             </View>
           </View>
         </View>
+
+        {/* Personalized Hero Banner */}
+        {currentPlayer && (
+          <View style={[styles.liquidCard, {
+            backgroundColor: netResult > 0.01 ? "rgba(34,197,94,0.08)" : netResult < -0.01 ? "rgba(239,68,68,0.08)" : lc.liquidGlassBg,
+            borderColor: netResult > 0.01 ? "rgba(34,197,94,0.3)" : netResult < -0.01 ? "rgba(239,68,68,0.3)" : lc.liquidGlassBorder,
+          }]}>
+            <View style={[styles.liquidInner, { backgroundColor: "transparent", alignItems: "center", paddingVertical: 24 }]}>
+              <Text style={{
+                fontSize: 42, fontWeight: "700", fontVariant: ["tabular-nums"],
+                color: netResult > 0.01 ? lc.success : netResult < -0.01 ? lc.danger : lc.textPrimary,
+              }}>
+                {netResult > 0 ? "+" : ""}{netResult !== 0 ? `$${Math.abs(netResult).toFixed(0)}` : "$0"}
+              </Text>
+              <Text style={{ fontSize: 14, color: lc.textMuted, marginTop: 6 }}>
+                {netResult > 0.01 ? "You won." : netResult < -0.01 ? "You lost." : "You broke even."}
+              </Text>
+              {netResult > 0.01 && myCredits.length > 0 && (
+                <Text style={{ fontSize: 11, color: lc.textMuted, marginTop: 4, textAlign: "center" }}>
+                  {myCredits.map((c: any) => `${c.from_name || "Player"} owes you $${(c.amount || 0).toFixed(0)}`).join(" \u00b7 ")}
+                </Text>
+              )}
+              {netResult < -0.01 && myDebts.length > 0 && (
+                <Text style={{ fontSize: 11, color: lc.textMuted, marginTop: 4, textAlign: "center" }}>
+                  {myDebts.map((d: any) => `You owe ${d.to_name || "Player"} $${(d.amount || 0).toFixed(0)}`).join(" \u00b7 ")}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Discrepancy Warning */}
         {hasDiscrepancy && (
@@ -219,9 +311,9 @@ export function SettlementScreen() {
               results
                 .sort((a: any, b: any) => (b.net_result || 0) - (a.net_result || 0))
                 .map((result: any, idx: number) => {
-                  const netResult = result.net_result || 0;
-                  const isWinner = netResult > 0;
-                  const isLoser = netResult < 0;
+                  const resultNet = result.net_result || 0;
+                  const isWinner = resultNet > 0;
+                  const isLoser = resultNet < 0;
                   const isCurrentUser = result.user_id === user?.user_id;
 
                   return (
@@ -250,7 +342,7 @@ export function SettlementScreen() {
                             styles.resultNetValue,
                             { color: isWinner ? lc.success : isLoser ? lc.danger : lc.textMuted }
                           ]}>
-                            {netResult >= 0 ? "+" : ""}${netResult.toFixed(0)}
+                            {resultNet >= 0 ? "+" : ""}${resultNet.toFixed(0)}
                           </Text>
                           {isWinner && <Ionicons name="arrow-up" size={14} color={lc.success} />}
                           {isLoser && <Ionicons name="arrow-down" size={14} color={lc.danger} />}
@@ -264,11 +356,18 @@ export function SettlementScreen() {
           </View>
         </View>
 
-        {/* Payments Card */}
+        {/* Smart Settlement Card */}
         <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: payments.length > 0 ? "rgba(59,130,246,0.25)" : lc.liquidGlassBorder }]}>
           <View style={styles.sectionHeaderRow}>
-            <Ionicons name="lock-closed" size={16} color={lc.trustBlue} />
-            <Text style={[styles.cardSectionTitle, { color: lc.moonstone }]}>PAYMENTS</Text>
+            <Ionicons name="flash" size={16} color={lc.orange} />
+            <Text style={[styles.cardSectionTitle, { color: lc.moonstone }]}>SMART SETTLEMENT</Text>
+            {payments.length > 0 && possiblePayments > payments.length && (
+              <View style={{ backgroundColor: "rgba(34,197,94,0.15)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginLeft: 6 }}>
+                <Text style={{ fontSize: 9, fontWeight: "600", color: lc.success }}>
+                  {possiblePayments} possible \u2192 {payments.length}
+                </Text>
+              </View>
+            )}
           </View>
           <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
             {payments.length === 0 ? (
@@ -284,10 +383,15 @@ export function SettlementScreen() {
                 const isToUser = payment.to_user_id === user?.user_id;
                 const canMarkPaid = isFromUser || isToUser;
                 const isPaid = payment.paid === true;
+                const contextLabel = isFromUser
+                  ? `You pay ${payment.to_name}`
+                  : isToUser
+                    ? `${payment.from_name} pays you`
+                    : `${payment.from_name} pays ${payment.to_name}`;
 
                 return (
                   <View key={payment.ledger_id || idx}>
-                    <View style={styles.paymentEntry}>
+                    <View style={[styles.paymentEntry, hasDisputeOpen && { opacity: 0.6 }]}>
                       <View style={styles.paymentFlow}>
                         <View style={[styles.paymentAvatar, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
                           <Text style={[styles.paymentAvatarText, { color: lc.danger }]}>
@@ -307,15 +411,22 @@ export function SettlementScreen() {
                       </View>
                       <View style={styles.paymentDetails}>
                         <Text style={[styles.paymentNames, { color: lc.textPrimary }]}>
-                          {payment.from_name || "Player"} → {payment.to_name || "Player"}
+                          {payment.from_name || "Player"} \u2192 {payment.to_name || "Player"}
                         </Text>
                         <Text style={[styles.paymentAmount, { color: lc.orange }]}>${payment.amount?.toFixed(2)}</Text>
+                        {/* Context-aware label */}
+                        <Text style={{
+                          fontSize: 10, marginTop: 2, textAlign: "center",
+                          color: isFromUser ? lc.danger : isToUser ? lc.success : lc.textMuted,
+                        }}>
+                          {contextLabel}
+                        </Text>
                         {isPaid && (
-                          <Text style={{ color: lc.success, fontSize: 11, marginTop: 2 }}>✓ Settled</Text>
+                          <Text style={{ color: lc.success, fontSize: 11, marginTop: 2 }}>\u2713 Settled</Text>
                         )}
                       </View>
                       <View style={styles.paymentActions}>
-                        {isFromUser && !isPaid && (
+                        {isFromUser && !isPaid && !hasDisputeOpen && (
                           <TouchableOpacity
                             style={[styles.stripeButton, { backgroundColor: "#635bff" }]}
                             onPress={() => handlePayWithStripe(payment.ledger_id)}
@@ -331,7 +442,7 @@ export function SettlementScreen() {
                             )}
                           </TouchableOpacity>
                         )}
-                        {canMarkPaid && (
+                        {canMarkPaid && !hasDisputeOpen && (
                           <TouchableOpacity
                             style={[
                               styles.markPaidButton,
@@ -368,8 +479,87 @@ export function SettlementScreen() {
           </View>
         </View>
 
+        {/* Report Issue Button */}
+        {!hasDisputeOpen && payments.length > 0 && (
+          <TouchableOpacity
+            style={{ alignItems: "center", paddingVertical: 12 }}
+            onPress={() => setShowDisputeModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="flag-outline" size={14} color={lc.textMuted} />
+              <Text style={{ color: lc.textMuted, fontSize: 12 }}>Report an issue with this settlement</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Dispute Modal */}
+      <GlassModal
+        visible={showDisputeModal}
+        onClose={() => setShowDisputeModal(false)}
+        title="Report Settlement Issue"
+        size="medium"
+      >
+        <Text style={{ color: lc.textMuted, fontSize: 12, marginBottom: 8 }}>What's wrong?</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+          {[
+            { key: "wrong_buyin", label: "Wrong buy-in" },
+            { key: "wrong_cashout", label: "Wrong cash-out" },
+            { key: "missing_player", label: "Missing player" },
+            { key: "other", label: "Other" },
+          ].map(opt => (
+            <TouchableOpacity
+              key={opt.key}
+              style={{
+                paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1,
+                backgroundColor: disputeCategory === opt.key ? "rgba(245,158,11,0.15)" : lc.liquidGlassBg,
+                borderColor: disputeCategory === opt.key ? "rgba(245,158,11,0.4)" : lc.liquidGlassBorder,
+              }}
+              onPress={() => setDisputeCategory(opt.key)}
+            >
+              <Text style={{ fontSize: 12, color: disputeCategory === opt.key ? "#f59e0b" : lc.textSecondary }}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={{ color: lc.textMuted, fontSize: 12, marginBottom: 8 }}>Describe the issue</Text>
+        <TextInput
+          value={disputeMessage}
+          onChangeText={setDisputeMessage}
+          placeholder="E.g., My cash-out was $40 not $30..."
+          placeholderTextColor={lc.textMuted}
+          multiline
+          style={{
+            backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder, borderWidth: 1,
+            borderRadius: 12, padding: 12, color: lc.textPrimary, fontSize: 14,
+            minHeight: 80, textAlignVertical: "top",
+          }}
+        />
+
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+          <TouchableOpacity
+            style={{ flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: lc.liquidGlassBorder, alignItems: "center" }}
+            onPress={() => setShowDisputeModal(false)}
+          >
+            <Text style={{ color: lc.textSecondary, fontWeight: "600" }}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: "#f59e0b", alignItems: "center" }}
+            onPress={handleSubmitDispute}
+            disabled={submittingDispute}
+          >
+            {submittingDispute
+              ? <ActivityIndicator size="small" color="#000" />
+              : <Text style={{ color: "#000", fontWeight: "700" }}>Report Issue</Text>
+            }
+          </TouchableOpacity>
+        </View>
+      </GlassModal>
 
       <PostGameSurveyModal
         visible={showSurvey}
@@ -435,6 +625,14 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     flex: 1,
+  },
+  disputeBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   // Liquid Glass card
   liquidCard: {

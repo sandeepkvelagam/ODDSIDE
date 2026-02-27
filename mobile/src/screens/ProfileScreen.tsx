@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   ScrollView, Text, View, StyleSheet, TouchableOpacity,
-  Alert, ActivityIndicator, RefreshControl, Animated,
+  Alert, ActivityIndicator, RefreshControl, Animated, Linking,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,12 +11,28 @@ import { api } from "../api/client";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION } from "../styles/liquidGlass";
 import { GlassInput, GlassButton, PageHeader } from "../components/ui";
 import { BottomSheetScreen } from "../components/BottomSheetScreen";
+import Constants from "expo-constants";
 
 type Balance = {
-  user: { user_id: string; name: string };
+  user: { user_id: string; name: string; picture?: string };
   net_amount: number;
   direction: "owed_to_you" | "you_owe";
   display_amount: number;
+  game_count?: number;
+  game_breakdown?: Array<{
+    game_id: string;
+    game_title: string;
+    game_date?: string;
+    amount: number;
+    direction: string;
+    ledger_ids: string[];
+  }>;
+  offset_explanation?: {
+    offset_amount: number;
+    gross_you_owe: number;
+    gross_they_owe: number;
+  } | null;
+  all_ledger_ids?: string[];
 };
 
 export function ProfileScreen() {
@@ -32,10 +48,13 @@ export function ProfileScreen() {
     total_you_owe: number;
     total_owed_to_you: number;
     net_balance: number;
+    people_count?: number;
   } | null>(null);
   const [balancesLoading, setBalancesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [optimizing, setOptimizing] = useState(false);
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [payingUserId, setPayingUserId] = useState<string | null>(null);
+  const [requestingUserId, setRequestingUserId] = useState<string | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -50,7 +69,7 @@ export function ProfileScreen() {
 
   const fetchBalances = useCallback(async () => {
     try {
-      const res = await api.get("/ledger/consolidated");
+      const res = await api.get("/ledger/consolidated-detailed");
       setBalances(res.data);
     } catch {}
     finally { setBalancesLoading(false); }
@@ -74,20 +93,45 @@ export function ProfileScreen() {
     } finally { setIsUpdating(false); }
   };
 
-  const handleOptimize = async () => {
-    setOptimizing(true);
+  const handlePayNet = async (person: Balance) => {
+    setPayingUserId(person.user.user_id);
     try {
-      const res = await api.post("/ledger/optimize");
-      Alert.alert(
-        res.data?.optimized > 0 ? "Optimized" : "Already Clean",
-        res.data?.optimized > 0
-          ? `Simplified ${res.data.optimized} debt entries`
-          : "Your debts are already at their simplest form"
-      );
-      if (res.data?.optimized > 0) await fetchBalances();
+      const allLedgerIds = person.all_ledger_ids ||
+        person.game_breakdown?.flatMap(g => g.ledger_ids) || [];
+      const originUrl = Constants.expoConfig?.extra?.apiUrl || "https://kvitt.app";
+      const res = await api.post("/ledger/pay-net/prepare", {
+        other_user_id: person.user.user_id,
+        ledger_ids: allLedgerIds,
+        origin_url: originUrl,
+      });
+      if (res.data?.checkout_url) {
+        await Linking.openURL(res.data.checkout_url);
+      } else {
+        Alert.alert("Payment link unavailable", "Please try again.");
+      }
     } catch (e: any) {
-      Alert.alert("Not available right now", e?.response?.data?.detail || "Please try again.");
-    } finally { setOptimizing(false); }
+      Alert.alert("Payment unavailable", e?.response?.data?.detail || "Please try again.");
+    } finally {
+      setPayingUserId(null);
+    }
+  };
+
+  const handleRequestPayment = async (person: Balance) => {
+    setRequestingUserId(person.user.user_id);
+    try {
+      const firstLedgerId = person.game_breakdown?.[0]?.ledger_ids?.[0] ||
+        person.all_ledger_ids?.[0];
+      if (!firstLedgerId) {
+        Alert.alert("No entry available", "No pending ledger entry to request.");
+        return;
+      }
+      await api.post(`/ledger/${firstLedgerId}/request-payment`);
+      Alert.alert("All set", "Payment request sent.");
+    } catch (e: any) {
+      Alert.alert("Request unavailable", e?.response?.data?.detail || "Please try again.");
+    } finally {
+      setRequestingUserId(null);
+    }
   };
 
   const handleDelete = () => {
@@ -161,14 +205,14 @@ export function ProfileScreen() {
               </Text>
               <View style={styles.heroRow}>
                 <View style={styles.heroStat}>
-                  <Text style={[styles.heroStatLabel, { color: colors.textMuted }]}>You Owe</Text>
+                  <Text style={[styles.heroStatLabel, { color: colors.textMuted }]}>You Owe (Net)</Text>
                   <Text style={[styles.heroStatValue, { color: COLORS.status.danger }]}>
                     ${(balances?.total_you_owe ?? 0).toFixed(2)}
                   </Text>
                 </View>
                 <View style={[styles.heroDivider, { backgroundColor: colors.border }]} />
                 <View style={styles.heroStat}>
-                  <Text style={[styles.heroStatLabel, { color: colors.textMuted }]}>Owed to You</Text>
+                  <Text style={[styles.heroStatLabel, { color: colors.textMuted }]}>Owed to You (Net)</Text>
                   <Text style={[styles.heroStatValue, { color: COLORS.status.success }]}>
                     ${(balances?.total_owed_to_you ?? 0).toFixed(2)}
                   </Text>
@@ -176,46 +220,118 @@ export function ProfileScreen() {
               </View>
             </View>
 
-            {/* ── Balances ── */}
+            {/* ── Smart Balances ── */}
             {!balancesLoading && (balances?.consolidated?.length ?? 0) > 0 && (
               <>
-                <Text style={[styles.sectionLabel, { color: colors.moonstone }]}>OUTSTANDING BALANCES</Text>
-                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  {balances!.consolidated.map((item, i) => (
-                    <View
-                      key={item.user?.user_id || i}
-                      style={[styles.row, i < balances!.consolidated.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
-                    >
-                      <View style={[styles.avatar, { backgroundColor: item.direction === "you_owe" ? COLORS.glass.glowRed : COLORS.glass.glowGreen }]}>
-                        <Text style={[styles.avatarText, { color: colors.textPrimary }]}>
-                          {item.user?.name?.[0]?.toUpperCase() || "?"}
-                        </Text>
-                      </View>
-                      <View style={styles.rowInfo}>
-                        <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>{item.user?.name || "Unknown"}</Text>
-                        <Text style={[styles.rowSub, { color: colors.textMuted }]}>
-                          {item.direction === "you_owe" ? "You owe them" : "They owe you"}
-                        </Text>
-                      </View>
-                      <Text style={[styles.rowAmount, { color: item.direction === "you_owe" ? COLORS.status.danger : COLORS.status.success }]}>
-                        {item.direction === "you_owe" ? "-" : "+"}${item.display_amount.toFixed(2)}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 24, marginBottom: 10 }}>
+                  <Ionicons name="flash" size={14} color={COLORS.orange} />
+                  <Text style={[styles.sectionLabel, { color: colors.moonstone, marginTop: 0, marginBottom: 0 }]}>SMART BALANCES</Text>
+                  {(balances?.people_count ?? 0) > 0 && (
+                    <View style={{ backgroundColor: "rgba(238,108,41,0.15)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                      <Text style={{ fontSize: 10, fontWeight: "600", color: COLORS.orange }}>
+                        {balances!.people_count} {balances!.people_count === 1 ? "person" : "people"}
                       </Text>
                     </View>
-                  ))}
+                  )}
                 </View>
-                {(balances?.consolidated.length ?? 0) > 1 && (
-                  <TouchableOpacity
-                    style={[styles.outlineBtn, { borderColor: colors.glassBorder }]}
-                    onPress={handleOptimize}
-                    disabled={optimizing}
-                    activeOpacity={0.75}
-                  >
-                    {optimizing
-                      ? <ActivityIndicator size="small" color={COLORS.orange} />
-                      : <><Ionicons name="git-merge-outline" size={18} color={COLORS.orange} /><Text style={styles.outlineBtnText}>Optimize Cross-Game Debts</Text></>
-                    }
-                  </TouchableOpacity>
-                )}
+                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  {balances!.consolidated.map((item, i) => {
+                    const isExpanded = expandedUser === item.user?.user_id;
+                    return (
+                      <View key={item.user?.user_id || i}>
+                        {/* Collapsed row — tap to expand */}
+                        <TouchableOpacity
+                          style={[styles.row, i < balances!.consolidated.length - 1 && !isExpanded && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+                          onPress={() => setExpandedUser(isExpanded ? null : item.user?.user_id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.avatar, { backgroundColor: item.direction === "you_owe" ? COLORS.glass.glowRed : COLORS.glass.glowGreen }]}>
+                            <Text style={[styles.avatarText, { color: colors.textPrimary }]}>
+                              {item.user?.name?.[0]?.toUpperCase() || "?"}
+                            </Text>
+                          </View>
+                          <View style={styles.rowInfo}>
+                            <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>
+                              {item.direction === "you_owe" ? `You owe ${item.user?.name}` : `${item.user?.name} owes you`}
+                            </Text>
+                            <Text style={[styles.rowSub, { color: colors.textMuted }]}>
+                              {item.game_count || 1} game{(item.game_count || 1) > 1 ? "s" : ""}
+                              {item.offset_explanation ? " \u00b7 auto-netted" : ""}
+                            </Text>
+                          </View>
+                          <Text style={[styles.rowAmount, { color: item.direction === "you_owe" ? COLORS.status.danger : COLORS.status.success }]}>
+                            ${item.display_amount.toFixed(2)}
+                          </Text>
+                          <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
+                        </TouchableOpacity>
+
+                        {/* Expanded content */}
+                        {isExpanded && (
+                          <View style={{
+                            backgroundColor: item.direction === "you_owe" ? "rgba(239,68,68,0.04)" : "rgba(34,197,94,0.04)",
+                            paddingHorizontal: 16, paddingBottom: 12, paddingTop: 4,
+                            borderBottomWidth: i < balances!.consolidated.length - 1 ? 1 : 0,
+                            borderBottomColor: colors.border,
+                          }}>
+                            {/* Offset explanation */}
+                            {item.offset_explanation && (
+                              <View style={{ backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.25)", borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                                <Text style={{ color: "#f59e0b", fontWeight: "600", fontSize: 12 }}>Auto-netted across {item.game_count} games</Text>
+                                <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 4 }}>
+                                  You owed ${item.offset_explanation.gross_you_owe.toFixed(2)} \u00b7 They owed ${item.offset_explanation.gross_they_owe.toFixed(2)} \u00b7 Offset ${item.offset_explanation.offset_amount.toFixed(2)}
+                                </Text>
+                              </View>
+                            )}
+
+                            {/* Game-by-game rows */}
+                            {item.game_breakdown?.map((game, gi) => (
+                              <View key={game.game_id || gi} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, paddingHorizontal: 4 }}>
+                                <View style={{ flex: 1, marginRight: 12 }}>
+                                  <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "500" }}>{game.game_title}</Text>
+                                  <Text style={{ color: colors.textMuted, fontSize: 10 }}>
+                                    {game.game_date ? new Date(game.game_date).toLocaleDateString() : "Recent"}
+                                  </Text>
+                                </View>
+                                <Text style={{ fontVariant: ["tabular-nums"], fontWeight: "700", fontSize: 13, color: game.direction === "you_owe" ? COLORS.status.danger : COLORS.status.success }}>
+                                  {game.direction === "you_owe" ? "-" : "+"}${game.amount.toFixed(2)}
+                                </Text>
+                              </View>
+                            ))}
+
+                            {/* Action buttons */}
+                            <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                              {item.direction === "you_owe" ? (
+                                <TouchableOpacity
+                                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flex: 1, backgroundColor: "#635bff", paddingVertical: 10, borderRadius: 10 }}
+                                  onPress={() => handlePayNet(item)}
+                                  disabled={payingUserId === item.user?.user_id}
+                                  activeOpacity={0.7}
+                                >
+                                  {payingUserId === item.user?.user_id
+                                    ? <ActivityIndicator size="small" color="#fff" />
+                                    : <><Ionicons name="card-outline" size={14} color="#fff" /><Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>Pay Net ${item.display_amount.toFixed(0)}</Text></>
+                                  }
+                                </TouchableOpacity>
+                              ) : (
+                                <TouchableOpacity
+                                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flex: 1, borderWidth: 1, borderColor: colors.border, paddingVertical: 10, borderRadius: 10 }}
+                                  onPress={() => handleRequestPayment(item)}
+                                  disabled={requestingUserId === item.user?.user_id}
+                                  activeOpacity={0.7}
+                                >
+                                  {requestingUserId === item.user?.user_id
+                                    ? <ActivityIndicator size="small" color={COLORS.orange} />
+                                    : <><Ionicons name="notifications-outline" size={14} color={COLORS.orange} /><Text style={{ color: COLORS.orange, fontWeight: "600", fontSize: 12 }}>Request ${item.display_amount.toFixed(0)}</Text></>
+                                  }
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
               </>
             )}
 
@@ -277,15 +393,9 @@ const styles = StyleSheet.create({
   rowSub: { fontSize: 12, marginTop: 2 },
   rowAmount: { fontSize: 17, fontWeight: "700" },
 
-  outlineBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, paddingVertical: 12, borderRadius: 14, borderWidth: 1, marginTop: 10,
-  },
-  outlineBtnText: { color: COLORS.orange, fontSize: 14, fontWeight: "600" },
-
   emptyCard: {
     borderRadius: 20, borderWidth: 1, padding: 24,
-    alignItems: "center", gap: 8, marginBottom: 4,
+    alignItems: "center", gap: 8, marginBottom: 4, marginTop: 24,
   },
   emptyTitle: { fontSize: 16, fontWeight: "600" },
   emptySub: { fontSize: 13 },

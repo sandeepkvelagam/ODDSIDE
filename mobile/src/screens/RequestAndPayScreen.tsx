@@ -23,6 +23,27 @@ import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+type ConsolidatedPerson = {
+  user: { user_id: string; name: string; picture?: string };
+  net_amount: number;
+  direction: "owed_to_you" | "you_owe";
+  display_amount: number;
+  game_count?: number;
+  game_breakdown?: Array<{
+    game_id: string;
+    game_title: string;
+    game_date?: string;
+    amount: number;
+    direction: string;
+    ledger_ids: string[];
+  }>;
+  offset_explanation?: {
+    offset_amount: number;
+    gross_you_owe: number;
+    gross_they_owe: number;
+  } | null;
+  all_ledger_ids?: string[];
+};
 
 export function RequestAndPayScreen() {
   const { isDark, colors } = useTheme();
@@ -38,13 +59,13 @@ export function RequestAndPayScreen() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"owed" | "owes">("owed");
   const [requestingPayment, setRequestingPayment] = useState<string | null>(null);
-  const [payingStripe, setPayingStripe] = useState<string | null>(null);
-  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [payingUserId, setPayingUserId] = useState<string | null>(null);
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
   const fetchBalances = useCallback(async () => {
     try {
       setError(null);
-      const res = await api.get("/ledger/balances");
+      const res = await api.get("/ledger/consolidated-detailed");
       setBalances(res.data);
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Balances unavailable.");
@@ -63,11 +84,17 @@ export function RequestAndPayScreen() {
     setRefreshing(false);
   }, [fetchBalances]);
 
-  // Creditor sends payment nudge to debtor
-  const handleRequestPayment = async (ledgerId: string) => {
-    setRequestingPayment(ledgerId);
+  // Request payment for a specific person (uses first ledger entry)
+  const handleRequestPayment = async (person: ConsolidatedPerson) => {
+    const firstLedgerId = person.game_breakdown?.[0]?.ledger_ids?.[0] ||
+      person.all_ledger_ids?.[0];
+    if (!firstLedgerId) {
+      Alert.alert("No entry available", "No pending ledger entry to request.");
+      return;
+    }
+    setRequestingPayment(person.user.user_id);
     try {
-      await api.post(`/ledger/${ledgerId}/request-payment`);
+      await api.post(`/ledger/${firstLedgerId}/request-payment`);
       Alert.alert("All set", "Payment request sent.");
     } catch (e: any) {
       Alert.alert("Request unavailable", e?.response?.data?.detail || "Please try again.");
@@ -76,52 +103,36 @@ export function RequestAndPayScreen() {
     }
   };
 
-  // Debtor pays via Stripe
-  const handlePayWithStripe = async (ledgerId: string) => {
-    setPayingStripe(ledgerId);
+  // Pay net via Stripe (cross-game consolidated payment)
+  const handlePayNet = async (person: ConsolidatedPerson) => {
+    setPayingUserId(person.user.user_id);
     try {
+      const allLedgerIds = person.all_ledger_ids ||
+        person.game_breakdown?.flatMap(g => g.ledger_ids) || [];
       const originUrl = Constants.expoConfig?.extra?.apiUrl || "https://kvitt.app";
-      const res = await api.post(`/settlements/${ledgerId}/pay`, {
+      const res = await api.post("/ledger/pay-net/prepare", {
+        other_user_id: person.user.user_id,
+        ledger_ids: allLedgerIds,
         origin_url: originUrl,
       });
-      if (res.data?.url) {
-        const canOpen = await Linking.canOpenURL(res.data.url);
-        if (canOpen) {
-          await Linking.openURL(res.data.url);
-        } else {
-          Alert.alert("Payment page unavailable", "Please try again.");
-        }
+      if (res.data?.checkout_url) {
+        await Linking.openURL(res.data.checkout_url);
       } else {
         Alert.alert("Payment link unavailable", "Please try again.");
       }
     } catch (e: any) {
-      Alert.alert(
-        "Payment unavailable",
-        e?.response?.data?.detail || e?.message || "Please try again."
-      );
+      Alert.alert("Payment unavailable", e?.response?.data?.detail || "Please try again.");
     } finally {
-      setPayingStripe(null);
+      setPayingUserId(null);
     }
   };
 
-  // Toggle paid status
-  const handleMarkPaid = async (ledgerId: string, currentPaid: boolean) => {
-    setMarkingPaid(ledgerId);
-    try {
-      await api.patch(`/ledger/${ledgerId}`, { paid: !currentPaid });
-      await fetchBalances();
-    } catch (e: any) {
-      Alert.alert("Update unavailable", e?.response?.data?.detail || "Please try again.");
-    } finally {
-      setMarkingPaid(null);
-    }
-  };
-
-  const owedToYou = balances?.owed || [];
-  const youOwe = balances?.owes || [];
-  const totalOwed = owedToYou.reduce((s: number, e: any) => s + (e.amount || 0), 0);
-  const totalOwes = youOwe.reduce((s: number, e: any) => s + (e.amount || 0), 0);
-  const netBalance = totalOwed - totalOwes;
+  const allEntries: ConsolidatedPerson[] = balances?.consolidated || [];
+  const owedToYou = allEntries.filter(e => e.direction === "owed_to_you");
+  const youOwe = allEntries.filter(e => e.direction === "you_owe");
+  const totalOwed = balances?.total_owed_to_you || 0;
+  const totalOwes = balances?.total_you_owe || 0;
+  const netBalance = balances?.net_balance || 0;
 
   const activeList = activeTab === "owed" ? owedToYou : youOwe;
 
@@ -353,21 +364,18 @@ export function RequestAndPayScreen() {
                 </Text>
               </View>
             ) : (
-              activeList.map((entry: any, idx: number) => {
-                const isPaid = entry.paid === true || entry.status === "paid";
-                const otherUser =
-                  activeTab === "owed" ? entry.from_user : entry.to_user;
-                const otherName =
-                  otherUser?.name ||
-                  otherUser?.email ||
-                  entry.from_name ||
-                  entry.to_name ||
-                  "Player";
+              activeList.map((person: ConsolidatedPerson, idx: number) => {
+                const otherName = person.user?.name || "Player";
                 const initial = (otherName || "?")[0].toUpperCase();
+                const isExpanded = expandedUser === person.user?.user_id;
 
                 return (
-                  <View key={entry.ledger_id || idx}>
-                    <View style={styles.entryRow}>
+                  <View key={person.user?.user_id || idx}>
+                    <TouchableOpacity
+                      style={styles.entryRow}
+                      onPress={() => setExpandedUser(isExpanded ? null : person.user?.user_id)}
+                      activeOpacity={0.7}
+                    >
                       {/* Avatar */}
                       <View
                         style={[
@@ -407,8 +415,8 @@ export function RequestAndPayScreen() {
                           style={[styles.entryMeta, { color: lc.textMuted }]}
                           numberOfLines={1}
                         >
-                          {entry.game_name || entry.group_name || "Game"}
-                          {isPaid && " · Settled"}
+                          {person.game_count || 1} game{(person.game_count || 1) > 1 ? "s" : ""}
+                          {person.offset_explanation ? " \u00b7 auto-netted" : ""}
                         </Text>
                       </View>
 
@@ -424,188 +432,75 @@ export function RequestAndPayScreen() {
                           },
                         ]}
                       >
-                        ${(entry.amount || 0).toFixed(2)}
+                        ${person.display_amount.toFixed(2)}
                       </Text>
-                    </View>
+                      <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={lc.textMuted} />
+                    </TouchableOpacity>
 
-                    {/* Actions */}
-                    {!isPaid && (
-                      <View style={styles.entryActions}>
-                        {activeTab === "owed" ? (
-                          <>
-                            {/* Creditor: Request Payment */}
-                            <TouchableOpacity
-                              style={[
-                                styles.actionButton,
-                                {
-                                  backgroundColor: lc.orange,
-                                },
-                              ]}
-                              onPress={() =>
-                                handleRequestPayment(entry.ledger_id)
-                              }
-                              disabled={requestingPayment === entry.ledger_id}
-                            >
-                              {requestingPayment === entry.ledger_id ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                              ) : (
-                                <>
-                                  <Ionicons
-                                    name="notifications-outline"
-                                    size={14}
-                                    color="#fff"
-                                  />
-                                  <Text style={styles.actionButtonText}>
-                                    Request
-                                  </Text>
-                                </>
-                              )}
-                            </TouchableOpacity>
-                            {/* Creditor: Mark Paid */}
-                            <TouchableOpacity
-                              style={[
-                                styles.actionButton,
-                                {
-                                  backgroundColor: lc.liquidGlassBg,
-                                  borderWidth: 1,
-                                  borderColor: lc.liquidGlassBorder,
-                                },
-                              ]}
-                              onPress={() =>
-                                handleMarkPaid(entry.ledger_id, false)
-                              }
-                              disabled={markingPaid === entry.ledger_id}
-                            >
-                              {markingPaid === entry.ledger_id ? (
-                                <ActivityIndicator
-                                  size="small"
-                                  color={lc.textMuted}
-                                />
-                              ) : (
-                                <>
-                                  <Ionicons
-                                    name="checkmark-circle-outline"
-                                    size={14}
-                                    color={lc.textMuted}
-                                  />
-                                  <Text
-                                    style={[
-                                      styles.actionButtonText,
-                                      { color: lc.textMuted },
-                                    ]}
-                                  >
-                                    Mark Paid
-                                  </Text>
-                                </>
-                              )}
-                            </TouchableOpacity>
-                          </>
-                        ) : (
-                          <>
-                            {/* Debtor: Pay with Stripe */}
-                            <TouchableOpacity
-                              style={[
-                                styles.actionButton,
-                                { backgroundColor: "#635bff" },
-                              ]}
-                              onPress={() =>
-                                handlePayWithStripe(entry.ledger_id)
-                              }
-                              disabled={payingStripe === entry.ledger_id}
-                            >
-                              {payingStripe === entry.ledger_id ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                              ) : (
-                                <>
-                                  <Ionicons
-                                    name="card-outline"
-                                    size={14}
-                                    color="#fff"
-                                  />
-                                  <Text style={styles.actionButtonText}>
-                                    Pay
-                                  </Text>
-                                </>
-                              )}
-                            </TouchableOpacity>
-                            {/* Debtor: Mark Paid */}
-                            <TouchableOpacity
-                              style={[
-                                styles.actionButton,
-                                {
-                                  backgroundColor: lc.liquidGlassBg,
-                                  borderWidth: 1,
-                                  borderColor: lc.liquidGlassBorder,
-                                },
-                              ]}
-                              onPress={() =>
-                                handleMarkPaid(entry.ledger_id, false)
-                              }
-                              disabled={markingPaid === entry.ledger_id}
-                            >
-                              {markingPaid === entry.ledger_id ? (
-                                <ActivityIndicator
-                                  size="small"
-                                  color={lc.textMuted}
-                                />
-                              ) : (
-                                <>
-                                  <Ionicons
-                                    name="checkmark-circle-outline"
-                                    size={14}
-                                    color={lc.textMuted}
-                                  />
-                                  <Text
-                                    style={[
-                                      styles.actionButtonText,
-                                      { color: lc.textMuted },
-                                    ]}
-                                  >
-                                    Mark Paid
-                                  </Text>
-                                </>
-                              )}
-                            </TouchableOpacity>
-                          </>
+                    {/* Expanded: game breakdown + actions */}
+                    {isExpanded && (
+                      <View style={{ paddingLeft: 52, paddingBottom: 12 }}>
+                        {/* Offset explanation */}
+                        {person.offset_explanation && (
+                          <View style={{ backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.25)", borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 8 }}>
+                            <Text style={{ color: "#f59e0b", fontWeight: "600", fontSize: 11 }}>Auto-netted across {person.game_count} games</Text>
+                            <Text style={{ color: lc.textMuted, fontSize: 10, marginTop: 3 }}>
+                              You owed ${person.offset_explanation.gross_you_owe.toFixed(2)} \u00b7 They owed ${person.offset_explanation.gross_they_owe.toFixed(2)} \u00b7 Offset ${person.offset_explanation.offset_amount.toFixed(2)}
+                            </Text>
+                          </View>
                         )}
-                      </View>
-                    )}
 
-                    {/* Paid badge */}
-                    {isPaid && (
-                      <View style={styles.paidBadgeRow}>
-                        <View
-                          style={[
-                            styles.paidBadge,
-                            {
-                              backgroundColor: "rgba(34,197,94,0.15)",
-                              borderColor: "rgba(34,197,94,0.3)",
-                            },
-                          ]}
-                        >
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={14}
-                            color={lc.success}
-                          />
-                          <Text style={{ color: lc.success, fontSize: 12, fontWeight: "600" }}>
-                            Settled
-                          </Text>
+                        {/* Game rows */}
+                        {person.game_breakdown?.map((game, gi) => (
+                          <View key={game.game_id || gi} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 }}>
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                              <Text style={{ color: lc.textPrimary, fontSize: 12, fontWeight: "500" }}>{game.game_title}</Text>
+                              <Text style={{ color: lc.textMuted, fontSize: 10 }}>
+                                {game.game_date ? new Date(game.game_date).toLocaleDateString() : "Recent"}
+                              </Text>
+                            </View>
+                            <Text style={{ fontVariant: ["tabular-nums"], fontWeight: "700", fontSize: 12, color: game.direction === "you_owe" ? lc.danger : lc.success }}>
+                              {game.direction === "you_owe" ? "-" : "+"}${game.amount.toFixed(2)}
+                            </Text>
+                          </View>
+                        ))}
+
+                        {/* Action buttons */}
+                        <View style={styles.entryActions}>
+                          {activeTab === "owed" ? (
+                            <TouchableOpacity
+                              style={[styles.actionButton, { backgroundColor: lc.orange }]}
+                              onPress={() => handleRequestPayment(person)}
+                              disabled={requestingPayment === person.user.user_id}
+                              activeOpacity={0.7}
+                            >
+                              {requestingPayment === person.user.user_id ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                              ) : (
+                                <>
+                                  <Ionicons name="notifications-outline" size={14} color="#fff" />
+                                  <Text style={styles.actionButtonText}>Request ${person.display_amount.toFixed(0)}</Text>
+                                </>
+                              )}
+                            </TouchableOpacity>
+                          ) : (
+                            <TouchableOpacity
+                              style={[styles.actionButton, { backgroundColor: "#635bff" }]}
+                              onPress={() => handlePayNet(person)}
+                              disabled={payingUserId === person.user.user_id}
+                              activeOpacity={0.7}
+                            >
+                              {payingUserId === person.user.user_id ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                              ) : (
+                                <>
+                                  <Ionicons name="card-outline" size={14} color="#fff" />
+                                  <Text style={styles.actionButtonText}>Pay Net ${person.display_amount.toFixed(0)}</Text>
+                                </>
+                              )}
+                            </TouchableOpacity>
+                          )}
                         </View>
-                        <TouchableOpacity
-                          onPress={() => handleMarkPaid(entry.ledger_id, true)}
-                          disabled={markingPaid === entry.ledger_id}
-                        >
-                          <Text
-                            style={{
-                              color: lc.textMuted,
-                              fontSize: 11,
-                              textDecorationLine: "underline",
-                            }}
-                          >
-                            Undo
-                          </Text>
-                        </TouchableOpacity>
                       </View>
                     )}
 
@@ -770,8 +665,7 @@ const styles = StyleSheet.create({
   entryActions: {
     flexDirection: "row",
     gap: 8,
-    paddingBottom: 8,
-    paddingLeft: 52,
+    paddingTop: 8,
   },
   actionButton: {
     flexDirection: "row",
@@ -781,25 +675,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10,
-    minWidth: 90,
+    flex: 1,
   },
   actionButtonText: { color: "#fff", fontSize: 12, fontWeight: "600" },
-  paidBadgeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingBottom: 8,
-    paddingLeft: 52,
-  },
-  paidBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
   divider: { height: 1, marginLeft: 52 },
   emptyContainer: { alignItems: "center", paddingVertical: 32, gap: 8 },
   emptyTitle: { fontSize: 16, fontWeight: "600" },

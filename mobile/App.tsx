@@ -6,6 +6,7 @@ import { DrawerProvider } from "./src/context/DrawerContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { LanguageProvider } from "./src/context/LanguageContext";
 import { HapticsProvider } from "./src/context/HapticsContext";
+import { PokerAIProvider } from "./src/context/PokerAIContext";
 import RootNavigator from "./src/navigation/RootNavigator";
 
 function AppContent() {
@@ -27,7 +28,9 @@ export default function App() {
             <AuthProvider>
               <DrawerProvider>
                 <HapticsProvider>
-                  <AppContent />
+                  <PokerAIProvider>
+                    <AppContent />
+                  </PokerAIProvider>
                 </HapticsProvider>
               </DrawerProvider>
             </AuthProvider>

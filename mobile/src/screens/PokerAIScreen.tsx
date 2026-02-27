@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ScrollView,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -13,8 +14,10 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
+import { usePokerAI } from "../context/PokerAIContext";
 import { getThemedColors, COLORS, SPACING, RADIUS, SHADOWS } from "../styles/liquidGlass";
 import { AIGlowBorder, SnakeGlowBorder } from "../components/ui";
+import { AnimatedModal } from "../components/AnimatedModal";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -27,26 +30,143 @@ const SUITS = [
   { symbol: "\u2663", name: "clubs", color: "#000" },
 ];
 
+const STRONG_HANDS = ["Royal Flush", "Straight Flush", "Four of a Kind", "Full House", "Flush", "Straight"];
+const CONFETTI_COLORS = ["#EE6C29", "#FF6EA8", "#7848FF", "#3B82F6", "#22C55E"];
+
 type Card = { rank: string; suit: string } | null;
 
+/* ─── Confetti Burst Component ─── */
+function ConfettiBurst({ active }: { active: boolean }) {
+  const particles = useRef(
+    Array.from({ length: 24 }, () => ({
+      x: new Animated.Value(0),
+      y: new Animated.Value(0),
+      rotate: new Animated.Value(0),
+      opacity: new Animated.Value(0),
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      targetX: (Math.random() - 0.5) * 300,
+      targetY: (Math.random() - 0.7) * 400,
+      size: 6 + Math.random() * 6,
+    }))
+  ).current;
+
+  useEffect(() => {
+    if (!active) return;
+
+    // Reset all particles
+    particles.forEach((p) => {
+      p.x.setValue(0);
+      p.y.setValue(0);
+      p.rotate.setValue(0);
+      p.opacity.setValue(1);
+    });
+
+    // Burst animation
+    Animated.parallel(
+      particles.map((p) =>
+        Animated.parallel([
+          Animated.timing(p.x, { toValue: p.targetX, duration: 1200, useNativeDriver: true }),
+          Animated.timing(p.y, { toValue: p.targetY, duration: 1200, useNativeDriver: true }),
+          Animated.timing(p.rotate, { toValue: 360, duration: 1200, useNativeDriver: true }),
+          Animated.timing(p.opacity, { toValue: 0, duration: 1200, useNativeDriver: true }),
+        ])
+      )
+    ).start();
+  }, [active]);
+
+  if (!active) return null;
+
+  return (
+    <View style={confettiStyles.container} pointerEvents="none">
+      {particles.map((p, i) => (
+        <Animated.View
+          key={i}
+          style={[
+            confettiStyles.particle,
+            {
+              width: p.size,
+              height: p.size,
+              backgroundColor: p.color,
+              borderRadius: Math.random() > 0.5 ? p.size / 2 : 2,
+              opacity: p.opacity,
+              transform: [
+                { translateX: p.x },
+                { translateY: p.y },
+                {
+                  rotate: p.rotate.interpolate({
+                    inputRange: [0, 360],
+                    outputRange: ["0deg", "360deg"],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+const confettiStyles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  particle: {
+    position: "absolute",
+  },
+});
+
+/* ─── PokerAI Screen ─── */
 export function PokerAIScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const lc = getThemedColors(isDark, colors);
 
-  // Card state
-  const [handCards, setHandCards] = useState<Card[]>([null, null]);
-  const [communityCards, setCommunityCards] = useState<Card[]>([null, null, null, null, null]);
+  // Persistent state from context (survives navigation)
+  const {
+    handCards, setHandCards,
+    communityCards, setCommunityCards,
+    consentChecked, setConsentChecked,
+    suggestion, setSuggestion,
+    showHand, setShowHand,
+    resetAll,
+  } = usePokerAI();
+
+  // Transient UI state (local only)
   const [selectedSlot, setSelectedSlot] = useState<{ type: "hand" | "community"; index: number } | null>(null);
   const [selectedRank, setSelectedRank] = useState<string | null>(null);
-  const [showHand, setShowHand] = useState(true);
-
-  // Consent & submission
-  const [consentChecked, setConsentChecked] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [suggestion, setSuggestion] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Auto-hide timer for hand privacy
+  const revealTimer = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (revealTimer.current) clearTimeout(revealTimer.current);
+    };
+  }, []);
+
+  const revealHand = () => {
+    setShowHand(true);
+    if (revealTimer.current) clearTimeout(revealTimer.current);
+    revealTimer.current = setTimeout(() => setShowHand(false), 5000);
+  };
+
+  const toggleHandVisibility = () => {
+    if (showHand) {
+      setShowHand(false);
+      if (revealTimer.current) clearTimeout(revealTimer.current);
+    } else {
+      revealHand();
+    }
+  };
 
   // Check for duplicate cards
   const allCards = [...handCards, ...communityCards].filter(Boolean) as { rank: string; suit: string }[];
@@ -58,7 +178,7 @@ export function PokerAIScreen() {
   const communityCount = communityCards.filter((c) => c !== null).length;
   const canAnalyze = handComplete && communityCount >= 3 && consentChecked && !hasDuplicates;
 
-  // Get suit color - black suits use theme-aware token
+  // Get suit color — black suits always dark (#1a1a1a) since card bg is white
   const getSuitColor = (color: string | undefined) => {
     if (!color) return lc.suitBlack;
     return color === "#000" ? lc.suitBlack : color;
@@ -100,11 +220,9 @@ export function PokerAIScreen() {
 
   // Clear all cards
   const handleReset = () => {
-    setHandCards([null, null]);
-    setCommunityCards([null, null, null, null, null]);
+    resetAll();
     setSelectedSlot(null);
     setSelectedRank(null);
-    setSuggestion(null);
     setError(null);
   };
 
@@ -125,11 +243,25 @@ export function PokerAIScreen() {
         community_cards: community,
       });
       setSuggestion(res.data);
+      setShowResultModal(true);
+
+      // Check for strong hand → confetti
+      const strength = res.data?.hand_strength || "";
+      if (STRONG_HANDS.some((h) => strength.toLowerCase().includes(h.toLowerCase()))) {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 1500);
+      }
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Analysis failed");
     } finally {
       setAnalyzing(false);
     }
+  };
+
+  // Cancel picker
+  const cancelPicker = () => {
+    setSelectedSlot(null);
+    setSelectedRank(null);
   };
 
   // Render card slot
@@ -146,6 +278,7 @@ export function PokerAIScreen() {
           isSelected && { borderWidth: 2, borderStyle: "solid" as any },
         ]}
         onPress={() => {
+          if (type === "hand" && !showHand) revealHand();
           setSelectedSlot({ type, index });
           setSelectedRank(null);
         }}
@@ -172,6 +305,77 @@ export function PokerAIScreen() {
       </TouchableOpacity>
     );
   };
+
+  // Suggestion modal content (reused in modal and inline)
+  const renderSuggestionContent = (inModal: boolean) => (
+    <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+      <View style={[styles.liquidInner, { backgroundColor: inModal ? (isDark ? "#282B2B" : "#FFFFFF") : lc.liquidInnerBg }]}>
+        <View style={styles.suggestionHeader}>
+          <Ionicons name="bulb" size={20} color={lc.orange} />
+          <Text style={[styles.suggestionTitle, { color: lc.textPrimary }]}>AI Suggestion</Text>
+        </View>
+
+        <View style={styles.suggestionContent}>
+          {/* Action Badge */}
+          <View style={[
+            styles.actionBadge,
+            suggestion?.action === "FOLD" && { backgroundColor: lc.glowRed },
+            suggestion?.action === "CALL" && { backgroundColor: lc.glowBlue },
+            suggestion?.action === "RAISE" && { backgroundColor: lc.glowGreen },
+            suggestion?.action === "CHECK" && { backgroundColor: lc.glassBg },
+          ]}>
+            <Text style={[
+              styles.actionText,
+              suggestion?.action === "FOLD" && { color: lc.danger },
+              suggestion?.action === "CALL" && { color: lc.trustBlue },
+              suggestion?.action === "RAISE" && { color: lc.success },
+              suggestion?.action === "CHECK" && { color: lc.textMuted },
+            ]}>
+              {suggestion?.action}
+            </Text>
+          </View>
+
+          {/* Potential */}
+          <View style={styles.potentialRow}>
+            <Text style={[styles.potentialLabel, { color: lc.textSecondary }]}>Potential:</Text>
+            <Text style={[
+              styles.potentialValue,
+              suggestion?.potential === "High" && { color: lc.success },
+              suggestion?.potential === "Medium" && { color: lc.warning },
+              suggestion?.potential === "Low" && { color: lc.textMuted },
+            ]}>
+              {suggestion?.potential}
+            </Text>
+          </View>
+
+          {/* Reasoning */}
+          <Text style={[styles.reasoningText, { color: lc.textPrimary }]}>
+            {suggestion?.reasoning}
+          </Text>
+
+          {/* Hand Strength */}
+          {suggestion?.hand_strength && (
+            <View style={[styles.handStrengthBadge, { backgroundColor: lc.liquidGlassBg }]}>
+              <Text style={[styles.handStrengthText, { color: lc.textPrimary }]}>
+                {suggestion.hand_strength}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* "Got it" button — only in modal */}
+        {inModal && (
+          <TouchableOpacity
+            style={[styles.gotItButton, { backgroundColor: lc.orangeDark }]}
+            onPress={() => setShowResultModal(false)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.gotItText}>Got it</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
 
   return (
     <AIGlowBorder backgroundColor={lc.jetDark}>
@@ -216,7 +420,7 @@ export function PokerAIScreen() {
           {/* Card Selection Area */}
           <SnakeGlowBorder
             borderRadius={RADIUS.xxl}
-            glowColor={lc.orange}
+            glowColors={["#EE6C29", "#FF6EA8", "#7848FF"]}
             dashedColor={lc.dashedBorder}
             backgroundColor={lc.liquidGlassBg}
           >
@@ -227,7 +431,7 @@ export function PokerAIScreen() {
                   <Text style={[styles.sectionTitle, { color: lc.textPrimary }]}>Your Hand</Text>
                   <TouchableOpacity
                     style={[styles.visibilityToggle, { backgroundColor: lc.liquidGlassBg }]}
-                    onPress={() => setShowHand(!showHand)}
+                    onPress={toggleHandVisibility}
                     activeOpacity={0.7}
                   >
                     <Ionicons
@@ -261,36 +465,54 @@ export function PokerAIScreen() {
               {/* Card Input (Rank/Suit Picker) */}
               {selectedSlot && (
                 <View style={[styles.inputSection, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
-                  <Text style={[styles.inputTitle, { color: lc.textPrimary }]}>
-                    Select {selectedRank ? "Suit" : "Rank"}
-                  </Text>
-
                   {!selectedRank ? (
-                    <View style={styles.rankGrid}>
-                      {RANKS.map((rank) => (
-                        <TouchableOpacity
-                          key={rank}
-                          style={[styles.rankButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
-                          onPress={() => setSelectedRank(rank)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.rankButtonText, { color: lc.textPrimary }]}>{rank}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                    <>
+                      <Text style={[styles.inputTitle, { color: lc.textPrimary }]}>
+                        Select Rank
+                      </Text>
+                      <View style={styles.rankGrid}>
+                        {RANKS.map((rank) => (
+                          <TouchableOpacity
+                            key={rank}
+                            style={[styles.rankButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
+                            onPress={() => setSelectedRank(rank)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.rankButtonText, { color: lc.cardText }]}>{rank}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <TouchableOpacity onPress={cancelPicker} style={styles.cancelButton} activeOpacity={0.7}>
+                        <Text style={[styles.cancelText, { color: lc.textMuted }]}>Cancel</Text>
+                      </TouchableOpacity>
+                    </>
                   ) : (
-                    <View style={styles.suitRow}>
-                      {SUITS.map((suit) => (
-                        <TouchableOpacity
-                          key={suit.name}
-                          style={[styles.suitButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
-                          onPress={() => setCard(selectedRank, suit.name)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.suitSymbol, { color: getSuitColor(suit.color) }]}>{suit.symbol}</Text>
+                    <>
+                      {/* Back + title row */}
+                      <View style={styles.pickerHeaderRow}>
+                        <TouchableOpacity onPress={() => setSelectedRank(null)} activeOpacity={0.7}>
+                          <Ionicons name="chevron-back" size={20} color={lc.textSecondary} />
                         </TouchableOpacity>
-                      ))}
-                    </View>
+                        <Text style={[styles.inputTitle, { color: lc.textPrimary, marginBottom: 0 }]}>
+                          Suit for {selectedRank}
+                        </Text>
+                      </View>
+                      <View style={styles.suitRow}>
+                        {SUITS.map((suit) => (
+                          <TouchableOpacity
+                            key={suit.name}
+                            style={[styles.suitButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
+                            onPress={() => setCard(selectedRank, suit.name)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.suitSymbol, { color: getSuitColor(suit.color) }]}>{suit.symbol}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <TouchableOpacity onPress={cancelPicker} style={styles.cancelButton} activeOpacity={0.7}>
+                        <Text style={[styles.cancelText, { color: lc.textMuted }]}>Cancel</Text>
+                      </TouchableOpacity>
+                    </>
                   )}
                 </View>
               )}
@@ -324,7 +546,7 @@ export function PokerAIScreen() {
             <TouchableOpacity
               style={[
                 styles.analyzeButton,
-                { backgroundColor: lc.orange },
+                { backgroundColor: lc.orangeDark },
                 !canAnalyze && styles.buttonDisabled,
               ]}
               onPress={handleAnalyze}
@@ -371,65 +593,8 @@ export function PokerAIScreen() {
             </View>
           )}
 
-          {/* Suggestion Result */}
-          {suggestion && (
-            <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
-              <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg }]}>
-                <View style={styles.suggestionHeader}>
-                  <Ionicons name="bulb" size={20} color={lc.orange} />
-                  <Text style={[styles.suggestionTitle, { color: lc.textPrimary }]}>AI Suggestion</Text>
-                </View>
-
-                <View style={styles.suggestionContent}>
-                  {/* Action Badge */}
-                  <View style={[
-                    styles.actionBadge,
-                    suggestion.action === "FOLD" && { backgroundColor: lc.glowRed },
-                    suggestion.action === "CALL" && { backgroundColor: lc.glowBlue },
-                    suggestion.action === "RAISE" && { backgroundColor: lc.glowGreen },
-                    suggestion.action === "CHECK" && { backgroundColor: lc.glassBg },
-                  ]}>
-                    <Text style={[
-                      styles.actionText,
-                      suggestion.action === "FOLD" && { color: lc.danger },
-                      suggestion.action === "CALL" && { color: lc.trustBlue },
-                      suggestion.action === "RAISE" && { color: lc.success },
-                      suggestion.action === "CHECK" && { color: lc.textMuted },
-                    ]}>
-                      {suggestion.action}
-                    </Text>
-                  </View>
-
-                  {/* Potential */}
-                  <View style={styles.potentialRow}>
-                    <Text style={[styles.potentialLabel, { color: lc.textSecondary }]}>Potential:</Text>
-                    <Text style={[
-                      styles.potentialValue,
-                      suggestion.potential === "High" && { color: lc.success },
-                      suggestion.potential === "Medium" && { color: lc.warning },
-                      suggestion.potential === "Low" && { color: lc.textMuted },
-                    ]}>
-                      {suggestion.potential}
-                    </Text>
-                  </View>
-
-                  {/* Reasoning */}
-                  <Text style={[styles.reasoningText, { color: lc.textPrimary }]}>
-                    {suggestion.reasoning}
-                  </Text>
-
-                  {/* Hand Strength */}
-                  {suggestion.hand_strength && (
-                    <View style={[styles.handStrengthBadge, { backgroundColor: lc.liquidGlassBg }]}>
-                      <Text style={[styles.handStrengthText, { color: lc.textPrimary }]}>
-                        {suggestion.hand_strength}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </View>
-          )}
+          {/* Inline Suggestion Result (persistent, shown after modal dismissal) */}
+          {suggestion && !showResultModal && renderSuggestionContent(false)}
 
           {/* Footer Note */}
           <Text style={[styles.footerNote, { color: lc.textSecondary }]}>
@@ -438,6 +603,17 @@ export function PokerAIScreen() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+
+        {/* Suggestion Preview Modal */}
+        <AnimatedModal
+          visible={showResultModal}
+          onClose={() => setShowResultModal(false)}
+        >
+          <View style={{ position: "relative" }}>
+            <ConfettiBurst active={showConfetti} />
+            {renderSuggestionContent(true)}
+          </View>
+        </AnimatedModal>
       </View>
     </AIGlowBorder>
   );
@@ -583,6 +759,13 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     borderWidth: 1,
   },
+  pickerHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 14,
+    justifyContent: "center",
+  },
   inputTitle: {
     fontSize: 13,
     fontWeight: "600",
@@ -624,6 +807,13 @@ const styles = StyleSheet.create({
   },
   suitSymbol: {
     fontSize: 30,
+  },
+  cancelButton: {
+    marginTop: 12,
+    alignItems: "center",
+  },
+  cancelText: {
+    fontSize: 13,
   },
 
   // Consent
@@ -753,6 +943,17 @@ const styles = StyleSheet.create({
   },
   handStrengthText: {
     fontSize: 14,
+    fontWeight: "600",
+  },
+  gotItButton: {
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: RADIUS.md,
+    alignItems: "center",
+  },
+  gotItText: {
+    color: "#fff",
+    fontSize: 15,
     fontWeight: "600",
   },
   footerNote: {

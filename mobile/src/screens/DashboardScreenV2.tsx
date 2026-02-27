@@ -205,16 +205,6 @@ export function DashboardScreenV2() {
           onPress: () => setShowNotificationsPanel(true),
           badge: notifications.length > 0 ? notifications.length : undefined,
         },
-      ],
-    },
-    {
-      key: "preferences",
-      label: "PREFERENCES",
-      collapsible: true,
-      items: [
-        { icon: "wallet-outline" as const, label: t.nav.wallet, onPress: () => navigation.navigate("Wallet") },
-        { icon: "cash-outline" as const, label: t.nav.requestPay, onPress: () => navigation.navigate("RequestAndPay" as any) },
-        { icon: "flash-outline" as const, label: "Smart Flows", onPress: () => navigation.navigate("Automations") },
         { icon: "document-text-outline" as const, label: "View Requests", onPress: () => navigation.navigate("PendingRequests") },
       ],
     },

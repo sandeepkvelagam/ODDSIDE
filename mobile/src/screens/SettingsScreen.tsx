@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Audio } from "expo-av";
+import * as Haptics from "expo-haptics";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -243,6 +244,17 @@ export function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
 
+          <TouchableOpacity
+            testID="settings-requestpay-button"
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => navigation.navigate("RequestAndPay" as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="cash-outline" size={22} color={colors.textPrimary} />
+            <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>Request & Pay</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
           <View style={styles.spacer} />
 
           {/* Section 2: Appearance, Language, Voice, Notifications, Privacy */}
@@ -336,7 +348,7 @@ export function SettingsScreen() {
               value={hapticsEnabled}
               onValueChange={(value) => {
                 setHapticsEnabled(value);
-                if (value) triggerHaptic("selection");
+                if (value) Haptics.selectionAsync().catch(() => {});
               }}
               trackColor={{ false: "rgba(0,0,0,0.1)", true: colors.orange }}
               thumbColor="#fff"
@@ -646,7 +658,7 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 18,
+    height: 58,
     borderBottomWidth: 1,
     gap: 14,
   },

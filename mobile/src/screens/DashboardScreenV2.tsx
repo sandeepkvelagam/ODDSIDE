@@ -192,46 +192,29 @@ export function DashboardScreenV2() {
 
   const menuSections = [
     {
-      key: "main",
+      key: "primary",
       items: [
         { icon: "home-outline" as const, label: t.nav.dashboard, onPress: () => {} },
-      ],
-    },
-    {
-      key: "social",
-      label: "Social",
-      items: [
         { icon: "people-outline" as const, label: t.nav.groups, onPress: () => navigation.navigate("Groups") },
         { icon: "chatbubbles-outline" as const, label: t.nav.chats, onPress: () => navigation.navigate("Chats") },
-      ],
-    },
-    {
-      key: "gaming",
-      label: "Gaming",
-      items: [
         { icon: "game-controller-outline" as const, label: t.nav.games, onPress: () => navigation.navigate("Groups") },
         { icon: "receipt-outline" as const, label: t.nav.settlements, onPress: () => navigation.navigate("SettlementHistory" as any) },
-      ],
-    },
-    {
-      key: "finance",
-      label: "Finance",
-      items: [
-        { icon: "wallet-outline" as const, label: t.nav.wallet, onPress: () => navigation.navigate("Wallet") },
-        { icon: "cash-outline" as const, label: t.nav.requestPay, onPress: () => navigation.navigate("RequestAndPay" as any) },
-      ],
-    },
-    {
-      key: "system",
-      label: "System",
-      items: [
         {
           icon: "notifications-outline" as const,
-          label: t.nav.notifications,
+          label: "Alerts",
           onPress: () => setShowNotificationsPanel(true),
           badge: notifications.length > 0 ? notifications.length : undefined,
         },
-        { icon: "flash-outline" as const, label: t.nav.automations, onPress: () => navigation.navigate("Automations") },
+      ],
+    },
+    {
+      key: "preferences",
+      label: "PREFERENCES",
+      collapsible: true,
+      items: [
+        { icon: "wallet-outline" as const, label: t.nav.wallet, onPress: () => navigation.navigate("Wallet") },
+        { icon: "cash-outline" as const, label: t.nav.requestPay, onPress: () => navigation.navigate("RequestAndPay" as any) },
+        { icon: "flash-outline" as const, label: "Smart Flows", onPress: () => navigation.navigate("Automations") },
         { icon: "document-text-outline" as const, label: "View Requests", onPress: () => navigation.navigate("PendingRequests") },
       ],
     },
@@ -361,7 +344,7 @@ export function DashboardScreenV2() {
             accessibilityLabel={`Notifications${notifications.length > 0 ? `, ${notifications.length} unread` : ''}`}
             accessibilityRole="button"
           >
-            <Ionicons name="notifications-outline" size={22} color={lc.textSecondary} />
+            <Ionicons name="notifications-outline" size={18} color={lc.textSecondary} />
             {notifications.length > 0 && <View style={[styles.notifDot, { backgroundColor: lc.orange }]} />}
           </Pressable>
         </View>
@@ -1149,10 +1132,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   glassButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    borderWidth: 1.5,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1168,7 +1151,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   hamburgerLine: {
-    width: 18,
+    width: 14,
     height: 2,
     borderRadius: 1,
   },
@@ -1617,13 +1600,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   aiBetaBadge: {
-    backgroundColor: "rgba(124,58,237,0.2)",
+    backgroundColor: "rgba(238,108,41,0.15)",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
   aiBetaBadgeText: {
-    color: "#A78BFA",
+    color: "#FFA05C",
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -1642,7 +1625,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   aiCardButton: {
-    backgroundColor: "#7C3AED",
+    backgroundColor: "#EE6C29",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 12,

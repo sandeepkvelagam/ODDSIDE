@@ -36,10 +36,10 @@ export const COLORS = {
 
   // AI Gradient Colors
   ai: {
-    glowPurple: "#7848FF",
-    glowPink: "#FF6EA8",
     glowOrange: "#EE6C29",
-    gradientColors: ["#7848FF", "#FF6EA8", "#EE6C29"] as const,
+    glowPink: "#FF6EA8",
+    glowLight: "#FF8C42",
+    gradientColors: ["#FF8C42", "#FF6EA8", "#EE6C29"] as const,
   },
 
   // Text Colors

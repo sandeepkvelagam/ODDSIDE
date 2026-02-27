@@ -33,7 +33,7 @@ export function AIGlowBorder({
 const styles = StyleSheet.create({
   gradient: {
     flex: 1,
-    shadowColor: "#7848FF",
+    shadowColor: "#EE6C29",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

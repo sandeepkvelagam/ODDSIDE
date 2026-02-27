@@ -10,6 +10,7 @@ import {
   Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDrawer } from "../context/DrawerContext";
 import { useTheme } from "../context/ThemeContext";
@@ -27,6 +28,7 @@ type MenuItem = {
 type MenuSection = {
   key: string;
   label?: string;
+  collapsible?: boolean;
   items: MenuItem[];
 };
 
@@ -64,6 +66,7 @@ export function AppDrawer({
   const slideAnim = useRef(new Animated.Value(0)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const [recentsCollapsed, setRecentsCollapsed] = useState(false);
+  const [prefsCollapsed, setPrefsCollapsed] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
@@ -121,41 +124,57 @@ export function AppDrawer({
         <View style={styles.navSection}>
           {menuSections.map((section) => (
             <View key={section.key}>
-              {section.label && (
+              {section.collapsible ? (
+                <TouchableOpacity
+                  style={styles.sectionToggle}
+                  onPress={() => setPrefsCollapsed((v) => !v)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.sectionHeaderText, { color: colors.textMuted }]}>
+                    {section.label}
+                  </Text>
+                  <Ionicons
+                    name={prefsCollapsed ? "chevron-forward" : "chevron-down"}
+                    size={14}
+                    color={colors.textMuted}
+                  />
+                </TouchableOpacity>
+              ) : section.label ? (
                 <View style={styles.sectionHeader}>
                   <Text style={[styles.sectionHeaderText, { color: colors.textMuted }]}>
                     {section.label}
                   </Text>
                 </View>
-              )}
-              {section.items.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.navItem}
-                  onPress={() => {
-                    item.onPress();
-                    closeDrawer();
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={item.icon}
-                    size={22}
-                    color={colors.textSecondary}
-                    style={styles.navIcon}
-                  />
-                  <Text style={[styles.navLabel, { color: colors.textSecondary }]}>
-                    {item.label}
-                  </Text>
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <View style={[styles.badge, { backgroundColor: colors.orange }]}>
-                      <Text style={styles.badgeText}>
-                        {item.badge > 99 ? "99+" : item.badge}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+              ) : null}
+              {(!section.collapsible || !prefsCollapsed) &&
+                section.items.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.navItem}
+                    onPress={() => {
+                      item.onPress();
+                      closeDrawer();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={item.icon}
+                      size={22}
+                      color={colors.textSecondary}
+                      style={styles.navIcon}
+                    />
+                    <Text style={[styles.navLabel, { color: colors.textSecondary }]}>
+                      {item.label}
+                    </Text>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <View style={[styles.badge, { backgroundColor: colors.orange }]}>
+                        <Text style={styles.badgeText}>
+                          {item.badge > 99 ? "99+" : item.badge}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
             </View>
           ))}
         </View>
@@ -241,15 +260,22 @@ export function AppDrawer({
 
             {/* FAB — pill with sparkles icon + "AI" label */}
             <TouchableOpacity
-              style={[styles.fab, { backgroundColor: colors.orange }]}
+              style={styles.fab}
               onPress={() => {
                 onNewPress();
                 closeDrawer();
               }}
               activeOpacity={0.9}
             >
-              <Ionicons name="sparkles-outline" size={17} color="#fff" />
-              <Text style={styles.fabLabel}>AI</Text>
+              <LinearGradient
+                colors={["#FF8C42", "#EE6C29", "#C45A22"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.fabGradient}
+              >
+                <Ionicons name="sparkles-outline" size={13} color="#fff" />
+                <Text style={styles.fabLabel}>AI</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -311,6 +337,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   sectionHeader: {
+    paddingHorizontal: 14,
+    paddingTop: 18,
+    paddingBottom: 4,
+  },
+  sectionToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 14,
     paddingTop: 18,
     paddingBottom: 4,
@@ -398,17 +432,17 @@ const styles = StyleSheet.create({
   profilePill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
     borderRadius: 999,
     paddingVertical: 4,
-    paddingLeft: 4,
-    paddingRight: 16,
+    paddingLeft: 3,
+    paddingRight: 12,
     borderWidth: 1,
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: "#000",
     alignItems: "center",
     justifyContent: "center",
@@ -416,23 +450,27 @@ const styles = StyleSheet.create({
   avatarText: {
     color: "#fff",
     fontWeight: "600",
-    fontSize: 15,
+    fontSize: 12,
   },
   profileName: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "500",
   },
   fab: {
-    height: 44,
-    borderRadius: 22,
-    paddingHorizontal: 14,
+    height: 36,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  fabGradient: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    paddingHorizontal: 10,
+    gap: 5,
   },
   fabLabel: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
   contentPanel: {

@@ -61,7 +61,7 @@ export function AIGradientOrb({ size = 28 }: { size?: number }) {
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <LinearGradient
-        colors={["#FF6EA8", "#7848FF", "#281A5A"]}
+        colors={["#FF8C42", "#FF6EA8", "#EE6C29"]}
         start={{ x: 0.3, y: 0.3 }}
         end={{ x: 0.7, y: 0.9 }}
         style={{
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
   },
   glowShadow: {
     height: 1,
-    shadowColor: "#7848FF",
+    shadowColor: "#EE6C29",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

@@ -429,6 +429,8 @@ export function WalletScreen() {
             <TouchableOpacity
               style={[styles.closeBtn, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]}
               onPress={() => navigation.goBack()}
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
             >
               <Ionicons name="chevron-back" size={24} color={tc.textPrimary} />
             </TouchableOpacity>
@@ -546,6 +548,8 @@ export function WalletScreen() {
           <TouchableOpacity
             style={[styles.closeBtn, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]}
             onPress={() => navigation.goBack()}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
           >
             <Ionicons name="chevron-back" size={24} color={tc.textPrimary} />
           </TouchableOpacity>
@@ -553,6 +557,8 @@ export function WalletScreen() {
           <TouchableOpacity
             style={[styles.closeBtn, { backgroundColor: tc.glassBg, borderColor: tc.glassBorder }]}
             onPress={() => navigation.navigate("Notifications" as never)}
+            accessibilityLabel="Notifications"
+            accessibilityRole="button"
           >
             <View>
               <Ionicons name="notifications-outline" size={22} color={tc.textPrimary} />
@@ -767,6 +773,8 @@ export function WalletScreen() {
                     <TouchableOpacity
                       style={styles.qrScanButton}
                       onPress={() => setSendStep("scanner")}
+                      accessibilityLabel="Scan QR code"
+                      accessibilityRole="button"
                     >
                       <Ionicons name="qr-code-outline" size={22} color={COLORS.orange} />
                     </TouchableOpacity>

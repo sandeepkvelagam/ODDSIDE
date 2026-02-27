@@ -586,8 +586,8 @@ export function AutomationsScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {/* Quick Actions - only show when there are automations */}
-          {automations.length > 0 && (
+          {/* Quick Actions - always visible */}
+          {!loading && (
             <View style={styles.quickActions}>
               <TouchableOpacity
                 style={[styles.quickActionBtn, { backgroundColor: colors.orange + "15", borderColor: colors.orange + "30" }]}
@@ -596,6 +596,14 @@ export function AutomationsScreen() {
               >
                 <Ionicons name="flash-outline" size={18} color={colors.orange} />
                 <Text style={[styles.quickActionLabel, { color: colors.orange }]}>Templates</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickActionBtn, { backgroundColor: colors.orange + "15", borderColor: colors.orange + "30" }]}
+                onPress={openCreateBlank}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add-circle-outline" size={18} color={colors.orange} />
+                <Text style={[styles.quickActionLabel, { color: colors.orange }]}>New Flow</Text>
               </TouchableOpacity>
               {costBudget && (
                 <View style={[styles.quickActionBtn, { backgroundColor: colors.textMuted + "10", borderColor: colors.textMuted + "20" }]}>
@@ -625,18 +633,25 @@ export function AutomationsScreen() {
                 <Ionicons name="cloud-offline-outline" size={32} color={colors.danger} />
               </View>
               <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                Can't reach Smart Flows
+                Can't load your flows right now
               </Text>
               <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Check your internet connection and try again.
+                You can still create new flows or use a template while we reconnect.
               </Text>
-              <View style={{ marginTop: 16 }}>
+              <View style={{ marginTop: 16, flexDirection: "row", gap: 10 }}>
                 <GlassButton
                   onPress={() => { setError(false); setLoading(true); fetchAutomations(); }}
+                  variant="secondary"
+                  size="medium"
+                >
+                  Retry
+                </GlassButton>
+                <GlassButton
+                  onPress={openCreateBlank}
                   variant="primary"
                   size="medium"
                 >
-                  Try Again
+                  New Flow
                 </GlassButton>
               </View>
             </View>

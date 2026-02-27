@@ -28,6 +28,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { AppDrawer } from "../components/AppDrawer";
 import { AIChatFab } from "../components/AIChatFab";
 import { AIGradientOrb } from "./AIAssistantScreen";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -37,6 +38,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export function DashboardScreenV2() {
   const { isDark, colors } = useTheme();
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
 
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
@@ -72,6 +74,18 @@ export function DashboardScreenV2() {
   const sectionsEntrance = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
+    // When reduced motion is enabled, skip all looping/entrance animations
+    if (reduceMotion) {
+      pulseAnim.setValue(1);
+      glowAnim.setValue(1);
+      entranceAnim.setValue(1);
+      statsEntrance.setValue(1);
+      aiCardEntrance.setValue(1);
+      perfEntrance.setValue(1);
+      sectionsEntrance.setValue(1);
+      return;
+    }
+
     // Pulse animation for live games
     const pulse = Animated.loop(
       Animated.sequence([
@@ -119,7 +133,7 @@ export function DashboardScreenV2() {
       pulse.stop();
       glow.stop();
     };
-  }, [pulseAnim, glowAnim, entranceAnim, statsEntrance, aiCardEntrance, perfEntrance, sectionsEntrance]);
+  }, [reduceMotion, pulseAnim, glowAnim, entranceAnim, statsEntrance, aiCardEntrance, perfEntrance, sectionsEntrance]);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -320,6 +334,8 @@ export function DashboardScreenV2() {
               pressed && [styles.glassButtonPressed, { shadowColor: lc.orange }]
             ]}
             onPress={toggleDrawer}
+            accessibilityLabel="Open menu"
+            accessibilityRole="button"
           >
             <View style={styles.hamburgerLines}>
               <View style={[styles.hamburgerLine, { backgroundColor: lc.textSecondary }]} />
@@ -342,17 +358,22 @@ export function DashboardScreenV2() {
               pressed && styles.glassButtonPressed
             ]}
             onPress={() => setShowNotificationsPanel(true)}
+            accessibilityLabel={`Notifications${notifications.length > 0 ? `, ${notifications.length} unread` : ''}`}
+            accessibilityRole="button"
           >
             <Ionicons name="notifications-outline" size={22} color={lc.textSecondary} />
             {notifications.length > 0 && <View style={[styles.notifDot, { backgroundColor: lc.orange }]} />}
           </Pressable>
         </View>
 
-        {/* Welcome Section - Sticky, outside ScrollView */}
+        {/* Welcome Section - Editorial Style */}
         <View style={[styles.welcomeRow, styles.welcomeRowSticky]}>
           <View style={styles.welcomeTextContainer}>
+            <Text style={[styles.welcomeLabel, { color: lc.textMuted }]}>
+              OVERVIEW
+            </Text>
             <Text style={[styles.welcomeTitle, { color: lc.textPrimary }]}>
-              Welcome back, {userName.split(' ')[0]}
+              Welcome back, <Text style={{ color: lc.orange }}>{userName.split(' ')[0]}</Text>
             </Text>
             <Text style={[styles.welcomeSubtitle, { color: lc.moonstone }]}>
               Here's your poker overview
@@ -362,10 +383,20 @@ export function DashboardScreenV2() {
             style={[styles.helpButtonSmall, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
             onPress={() => setShowOnboardingAgent(true)}
             activeOpacity={0.7}
+            accessibilityLabel="Show help guide"
+            accessibilityRole="button"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="help-circle-outline" size={14} color={lc.moonstone} />
+            <Ionicons name="help-circle-outline" size={16} color={lc.moonstone} />
           </TouchableOpacity>
         </View>
+        {/* Gradient divider line */}
+        <LinearGradient
+          colors={[`${lc.orange}66`, 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradientDivider}
+        />
 
         {/* ── Skeleton overlay ────────────────────────────────────────── */}
         {skeletonVisible && (
@@ -1180,13 +1211,28 @@ const styles = StyleSheet.create({
   welcomeTextContainer: {
     flex: 1,
   },
+  welcomeLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 3,
+    marginBottom: 4,
+    fontFamily: undefined, // uses system monospace on each platform
+  },
   welcomeTitle: {
     fontSize: 24,
     fontWeight: "700",
+    lineHeight: 31,
   },
   welcomeSubtitle: {
     fontSize: 14,
     marginTop: 4,
+    lineHeight: 21,
+  },
+  gradientDivider: {
+    height: 1.5,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 1,
   },
   helpButton: {
     width: 44,
@@ -1197,9 +1243,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   helpButtonSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -1261,9 +1307,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   statLabelSmall: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: "700",
     letterSpacing: 0.5,
+    lineHeight: 14,
   },
   statValueSmall: {
     fontSize: 18,
@@ -1272,7 +1319,8 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   statSubtextSmall: {
-    fontSize: 9,
+    fontSize: 10,
+    lineHeight: 14,
   },
   // Liquid Glass Cards - 2 Column (legacy)
   statsRow: {
@@ -1366,9 +1414,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   perfLabel: {
-    fontSize: 9,
+    fontSize: 10,
     marginTop: 4,
     letterSpacing: 0.5,
+    lineHeight: 14,
   },
   // ROI Progress Bar
   roiBarContainer: {

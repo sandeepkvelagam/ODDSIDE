@@ -109,6 +109,16 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
+      {/* Switch to Redesign toggle */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3">
+        <button
+          onClick={() => navigate('/dashboard-redesign')}
+          className="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer border border-primary/20"
+        >
+          Try new design →
+        </button>
+      </div>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Welcome */}
         <div className="mb-6 flex items-center justify-between">

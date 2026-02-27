@@ -6,7 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import asyncio
-from pathlib import Path
+from pathlib import Path as FilePath
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 import uuid
@@ -22,7 +22,7 @@ import wallet_service
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-ROOT_DIR = Path(__file__).parent
+ROOT_DIR = FilePath(__file__).parent
 
 # Fun poker-themed default names
 GROUP_NAME_PREFIXES = ["High Rollers", "Royal Flush", "Pocket Aces", "All In", "Full House", 

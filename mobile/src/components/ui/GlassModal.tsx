@@ -277,8 +277,6 @@ export function GlassBottomSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -331,8 +329,10 @@ const styles = StyleSheet.create({
   bottomSheetWrapper: {
     flex: 1,
     justifyContent: "flex-end",
+    width: "100%",
   },
   bottomSheet: {
+    width: "100%",
     backgroundColor: COLORS.jetDark,
     borderTopLeftRadius: RADIUS.xxxl,
     borderTopRightRadius: RADIUS.xxxl,

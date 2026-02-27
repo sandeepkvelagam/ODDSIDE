@@ -46,7 +46,7 @@ export const COLORS = {
   text: {
     primary: "#F5F5F5",
     secondary: "#B8B8B8",
-    muted: "#7A7A7A",
+    muted: "#8E8E8E",
     inverse: "#1a1a1a",
   },
 
@@ -80,7 +80,7 @@ export const TYPOGRAPHY = {
     body: 16,
     bodySmall: 14,
     caption: 12,
-    micro: 10,
+    micro: 11,
   },
 
   // Font Weights

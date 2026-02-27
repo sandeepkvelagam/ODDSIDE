@@ -210,8 +210,10 @@ export function GroupsScreen() {
         <TouchableOpacity
           style={styles.heartButton}
           onPress={(e) => { e.stopPropagation(); toggleFavorite(item.group_id); }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={isFav ? `Remove ${item.name} from favourites` : `Add ${item.name} to favourites`}
         >
           <Ionicons name={isFav ? "heart" : "heart-outline"} size={18} color={isFav ? lc.orange : lc.textMuted} />
         </TouchableOpacity>

@@ -127,6 +127,7 @@ export function GlassButton({
         disabled={isDisabled}
         activeOpacity={0.9}
         testID={testID}
+        accessibilityRole="button"
         style={[
           styles.base,
           getVariantStyle(),
@@ -173,6 +174,7 @@ interface GlassIconButtonProps {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  accessibilityLabel?: string;
 }
 
 export function GlassIconButton({
@@ -183,6 +185,7 @@ export function GlassIconButton({
   disabled = false,
   style,
   testID,
+  accessibilityLabel,
 }: GlassIconButtonProps) {
   const { colors } = useTheme();
   const scale = useSharedValue(1);
@@ -239,6 +242,8 @@ export function GlassIconButton({
         disabled={disabled}
         activeOpacity={0.9}
         testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
         style={[
           styles.iconButton,
           getVariantStyle(),

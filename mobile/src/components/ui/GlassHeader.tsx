@@ -112,6 +112,7 @@ export function GlassHeader({
               onPress={onClose}
               size="small"
               variant="ghost"
+              accessibilityLabel="Close"
             />
           )}
         </View>

@@ -26,6 +26,7 @@ import Premium from "@/pages/Premium";
 import SpotifyCallback from "@/pages/SpotifyCallback";
 import Wallet from "@/pages/Wallet";
 import Automations from "@/pages/Automations";
+import DashboardRedesign from "@/pages/DashboardRedesign";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -160,6 +161,11 @@ function App() {
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard-redesign" element={
+              <ProtectedRoute>
+                <DashboardRedesign />
               </ProtectedRoute>
             } />
             <Route path="/groups" element={

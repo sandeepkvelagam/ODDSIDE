@@ -173,6 +173,8 @@ export function SettingsScreen() {
               pressed && styles.glassButtonPressed
             ]}
             onPress={() => navigation.goBack()}
+            accessibilityLabel="Close settings"
+            accessibilityRole="button"
           >
             <Ionicons name="close" size={22} color={colors.textPrimary} />
           </Pressable>
@@ -190,6 +192,8 @@ export function SettingsScreen() {
               triggerHaptic("light");
               setShowInfoPopup(true);
             }}
+            accessibilityLabel="App info"
+            accessibilityRole="button"
           >
             <Ionicons name="information-circle-outline" size={22} color={colors.textPrimary} />
           </Pressable>
@@ -442,6 +446,8 @@ export function SettingsScreen() {
                 onPress={() => setShowVoiceModal(false)}
                 style={[styles.glassButton, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
                 activeOpacity={0.7}
+                accessibilityLabel="Close voice commands"
+                accessibilityRole="button"
               >
                 <Ionicons name="close" size={22} color={colors.textPrimary} />
               </TouchableOpacity>

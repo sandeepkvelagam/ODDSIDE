@@ -30,11 +30,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const syncUserToBackend = async (s: Session) => {
+    const fallbackName = s.user.user_metadata?.name || s.user.user_metadata?.full_name || s.user.email?.split("@")[0] || "";
     try {
       await api.post("/auth/sync-user", {
         supabase_id: s.user.id,
         email: s.user.email,
-        name: s.user.user_metadata?.name || s.user.email?.split("@")[0],
+        name: fallbackName,
         picture: s.user.user_metadata?.avatar_url,
       });
       // Fetch user profile from backend
@@ -49,6 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Error syncing user:", error);
+      // Fall back to Supabase session data so the user isn't shown as "Player"
+      setUser({
+        user_id: s.user.id,
+        email: s.user.email || "",
+        name: fallbackName,
+        supabase_id: s.user.id,
+      });
     }
   };
 

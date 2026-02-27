@@ -132,7 +132,12 @@ export default function LoginScreen() {
     return (
       <View style={styles.container}>
         {/* Background Pattern */}
-        <View style={styles.patternOverlay} />
+        <ImageBackground
+          source={{ uri: SUIT_PATTERN }}
+          style={StyleSheet.absoluteFillObject}
+          imageStyle={{ opacity: 0.05 }}
+          resizeMode="repeat"
+        />
         
         <SafeAreaView style={styles.safeArea}>
           <KeyboardAvoidingView
@@ -355,13 +360,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.deepBlack,
-  },
-  patternOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.05,
-    // Recreating the poker suit pattern effect
-    // In production, use an actual SVG/Image
     backgroundColor: COLORS.deepBlack,
   },
   safeArea: {

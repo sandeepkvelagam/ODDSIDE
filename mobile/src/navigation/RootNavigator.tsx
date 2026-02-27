@@ -1,11 +1,11 @@
 import React, { useRef, useEffect } from "react";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { View, Text, StyleSheet, Animated, Easing } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { KvittLogo } from "../components/ui/KvittLogo";
 import { setupNotificationListeners } from "../services/pushNotifications";
+import Svg, { Rect, Path } from "react-native-svg";
 
 // Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -154,43 +154,40 @@ function handleNotificationDeepLink(data: Record<string, any>) {
   }
 }
 
-function SplashOverlay({ onFinish }: { onFinish: () => void }) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+function AppSplash() {
+  const scaleAnim = useRef(new Animated.Value(0.08)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, friction: 8, useNativeDriver: true }),
-    ]).start();
-
-    const timer = setTimeout(() => {
-      Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true })
-        .start(() => onFinish());
-    }, 600);
-
-    return () => clearTimeout(timer);
+    Animated.timing(scaleAnim, {
+      toValue: 1,
+      duration: 1000,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
   }, []);
 
   return (
-    <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]} pointerEvents="none">
-      <Animated.View style={{ transform: [{ scale: scaleAnim }], alignItems: "center" }}>
-        <KvittLogo size="large" showText={false} />
+    <View style={styles.splashContainer}>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Svg width={120} height={120} viewBox="0 0 40 40">
+          <Rect x="2" y="2" width="36" height="36" rx="8" fill="#262626" />
+          <Path
+            d="M12 10V30M12 20L24 10M12 20L24 30"
+            stroke="#EF6E59"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
       </Animated.View>
-    </Animated.View>
+      <Text style={styles.splashCaption}>TRACK. PLAY. SQUARE UP</Text>
+    </View>
   );
 }
 
 export default function RootNavigator() {
   const { session, isLoading } = useAuth();
   const { colors } = useTheme();
-  const [showSplash, setShowSplash] = React.useState(false);
-  const prevSession = useRef(session);
-
-  useEffect(() => {
-    if (!prevSession.current && session) setShowSplash(true);
-    prevSession.current = session;
-  }, [session]);
 
   // Setup push notification deep link listener (only when logged in)
   useEffect(() => {
@@ -210,12 +207,7 @@ export default function RootNavigator() {
   }, [session]);
 
   if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <KvittLogo size="large" showText={true} />
-        <Text style={styles.loadingText}>Getting things ready{"\u2026"}</Text>
-      </View>
-    );
+    return <AppSplash />;
   }
 
   return (
@@ -258,24 +250,22 @@ export default function RootNavigator() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
-      {showSplash && session && <SplashOverlay onFinish={() => setShowSplash(false)} />}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1, justifyContent: "center", alignItems: "center",
-    backgroundColor: "#282B2B",
-  },
-  loadingText: { color: "#666", fontSize: 14, marginTop: 12 },
   splashContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center", alignItems: "center",
-    backgroundColor: "#282B2B", zIndex: 100,
-    shadowColor: "#EE6C29",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.10,
-    shadowRadius: 30,
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#0a0a0a",
+  },
+  splashCaption: {
+    position: "absolute",
+    bottom: 52,
+    color: "#444",
+    fontSize: 11,
+    letterSpacing: 2,
   },
 });

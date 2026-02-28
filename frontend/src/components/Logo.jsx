@@ -38,7 +38,7 @@ export const Logo = ({ className, size = "default", showText = true, showTagline
           </span>
           {showTagline && (
             <span className={cn("absolute left-0 top-full mt-0.5 whitespace-nowrap text-muted-foreground leading-none", tagline)}>
-              Your side, <span className="text-primary font-medium">settled.</span>
+              Play <span className="text-primary font-medium">smarter.</span>
             </span>
           )}
         </div>

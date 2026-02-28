@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ScrollView,
   Text,
@@ -11,7 +11,11 @@ import {
   Pressable,
   Linking,
   ActivityIndicator,
+  Image,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -39,6 +43,15 @@ export function SettingsScreen() {
   const [showAppearancePopup, setShowAppearancePopup] = useState(false);
   const [showInfoPopup, setShowInfoPopup] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [badgeData, setBadgeData] = useState<{
+    level: { name: string; icon: string };
+    badges: { id: string; icon: string; name: string; earned: boolean }[];
+    earned_count: number;
+    total_badges?: number;
+    stats?: { total_games: number; wins: number; win_rate: number; total_profit: number };
+    progress?: { next_level: string; games_needed: number; profit_needed: number; games_progress: number };
+  } | null>(null);
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -48,6 +61,38 @@ export function SettingsScreen() {
   const recordingRef = useRef<Audio.Recording | null>(null);
 
   const userName = user?.name || user?.email?.split("@")[0] || "Player";
+
+  useEffect(() => {
+    if (user?.user_id) {
+      AsyncStorage.getItem(`kvitt-avatar-${user.user_id}`)
+        .then(uri => { if (uri) setAvatarUri(uri); })
+        .catch(() => {});
+    }
+    api.get("/users/me/badges")
+      .then(res => setBadgeData(res.data))
+      .catch(() => {});
+  }, [user?.user_id]);
+
+  const handlePickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Enable photo library access in settings.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]?.uri) {
+      const uri = result.assets[0].uri;
+      setAvatarUri(uri);
+      if (user?.user_id) {
+        await AsyncStorage.setItem(`kvitt-avatar-${user.user_id}`, uri);
+      }
+    }
+  };
   
   // Get current language display name
   const currentLangInfo = supportedLanguages.find(l => l.code === language);
@@ -201,10 +246,95 @@ export function SettingsScreen() {
         </View>
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Profile Box */}
-          <View style={[styles.profileBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.nameText, { color: colors.textPrimary }]}>{userName}</Text>
-            <Text style={[styles.emailText, { color: colors.textSecondary }]}>{user?.email || ""}</Text>
+          {/* Profile Card - Compact Horizontal */}
+          <View style={[styles.profileCardOuter, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.profileCardRow}>
+              {/* Left: Avatar */}
+              <View style={styles.profileAvatarWrap}>
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.profileAvatar} />
+                ) : (
+                  <LinearGradient
+                    colors={['#EE6C29', '#C45A22', '#8B3A15']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.profileAvatar}
+                  >
+                    <Text style={styles.profileAvatarInitial}>
+                      {userName.charAt(0).toUpperCase()}
+                    </Text>
+                  </LinearGradient>
+                )}
+                <TouchableOpacity
+                  style={styles.profileCameraButton}
+                  onPress={handlePickAvatar}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="camera" size={11} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Right: Info */}
+              <View style={styles.profileInfoCol}>
+                <View style={styles.profileOverlayNameRow}>
+                  <Text style={[styles.profileOverlayName, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {userName}
+                  </Text>
+                  {badgeData?.level && (
+                    <View style={[styles.profileLevelChip, { backgroundColor: colors.orange + "20" }]}>
+                      <Text style={[styles.profileLevelChipText, { color: colors.orange }]}>
+                        {badgeData.level.icon} {badgeData.level.name}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.profileOverlayEmail, { color: colors.textMuted }]} numberOfLines={1}>
+                  {user?.email || ""}
+                </Text>
+
+                {/* Stats inline */}
+                <View style={styles.profileStatsRow}>
+                  <View style={styles.profileStatItem}>
+                    <Text style={[styles.profileStatValue, { color: colors.textPrimary }]}>
+                      {badgeData?.stats?.total_games ?? 0}
+                    </Text>
+                    <Text style={[styles.profileStatLabel, { color: colors.textSecondary }]}>Games</Text>
+                  </View>
+                  <View style={[styles.profileStatDivider, { backgroundColor: colors.border }]} />
+                  <View style={styles.profileStatItem}>
+                    <Text style={[styles.profileStatValue, { color: colors.textPrimary }]}>
+                      {badgeData?.stats?.win_rate?.toFixed(0) ?? 0}%
+                    </Text>
+                    <Text style={[styles.profileStatLabel, { color: colors.textSecondary }]}>Win Rate</Text>
+                  </View>
+                  <View style={[styles.profileStatDivider, { backgroundColor: colors.border }]} />
+                  <View style={styles.profileStatItem}>
+                    <Text style={[styles.profileStatValue, { color: colors.textPrimary }]}>
+                      {badgeData?.earned_count ?? 0}
+                    </Text>
+                    <Text style={[styles.profileStatLabel, { color: colors.textSecondary }]}>Badges</Text>
+                  </View>
+                </View>
+
+                {/* Earned badges inline */}
+                {badgeData && badgeData.earned_count > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.profileBadgesScroll}>
+                    {badgeData.badges.filter(b => b.earned).map(badge => (
+                      <View key={badge.id} style={[styles.profileBadgePill, { backgroundColor: colors.orange + "14" }]}>
+                        <Text style={styles.profileBadgeEmoji}>{badge.icon}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            </View>
+
+            {/* Bottom gradient overlay across full card */}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.15)']}
+              style={styles.profileGradientOverlay}
+              pointerEvents="none"
+            />
           </View>
 
           {/* Section 1: Profile & Billing */}
@@ -640,20 +770,123 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  profileBox: {
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 28,
+  profileCardOuter: {
+    borderRadius: 16,
+    marginBottom: 24,
     borderWidth: 1,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  nameText: {
-    fontSize: 17,
+  profileCardRow: {
+    flexDirection: "row",
+    padding: 14,
+    gap: 14,
+  },
+  profileAvatarWrap: {
+    position: "relative",
+  },
+  profileAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileAvatarInitial: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "rgba(255,255,255,0.9)",
+  },
+  profileCameraButton: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  profileInfoCol: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 4,
+  },
+  profileOverlayNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  profileOverlayName: {
+    fontSize: 18,
+    fontWeight: "700",
+    flexShrink: 1,
+  },
+  profileLevelChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  profileLevelChipText: {
+    fontSize: 11,
     fontWeight: "600",
-    marginBottom: 2,
   },
-  emailText: {
-    fontSize: 15,
+  profileOverlayEmail: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  profileGradientOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 32,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  profileStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 0,
+  },
+  profileStatItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  profileStatValue: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  profileStatLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: 1,
+  },
+  profileStatDivider: {
+    width: 1,
+    height: 20,
+  },
+  profileBadgesScroll: {
+    flexDirection: "row",
+    gap: 5,
+    marginTop: 4,
+  },
+  profileBadgePill: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileBadgeEmoji: {
+    fontSize: 14,
   },
   menuItem: {
     flexDirection: "row",

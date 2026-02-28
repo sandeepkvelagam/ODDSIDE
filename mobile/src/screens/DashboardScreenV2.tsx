@@ -320,7 +320,7 @@ export function DashboardScreenV2() {
           {/* Center - Logo with orange tagline */}
           <View style={styles.headerCenter}>
             <Text style={[styles.logoText, { color: lc.textPrimary }]}>Kvitt</Text>
-            <Text style={[styles.logoSubtext, { color: lc.orange }]}>your side, settled</Text>
+            <Text style={[styles.logoSubtext, { color: lc.textSecondary }]}>Play <Text style={{ color: lc.orange }}>smarter</Text></Text>
           </View>
 
           {/* Notification Button - Glass style */}

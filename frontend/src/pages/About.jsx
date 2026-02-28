@@ -162,7 +162,7 @@ export default function About() {
               <div className="aspect-square bg-gradient-to-br from-primary/20 to-primary/5 rounded-3xl flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-8xl mb-4">🃏</div>
-                  <p className="text-xl font-bold text-primary">Your side, settled.</p>
+                  <p className="text-xl font-bold text-primary">Play smarter.</p>
                 </div>
               </div>
               <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-primary/10 rounded-2xl -z-10" />

@@ -229,8 +229,13 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       {/* Background Pattern */}
-      <View style={styles.patternOverlay} />
-      
+      <ImageBackground
+        source={{ uri: SUIT_PATTERN }}
+        style={StyleSheet.absoluteFillObject}
+        imageStyle={{ opacity: 0.05 }}
+        resizeMode="repeat"
+      />
+
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.keyboardView}

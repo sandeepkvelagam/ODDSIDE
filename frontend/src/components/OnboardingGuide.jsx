@@ -42,7 +42,7 @@ function useTypewriter(text, speed = 50, startDelay = 500) {
 
 // Demo components for each step
 function WelcomeDemo() {
-  const { displayText } = useTypewriter('Your side, settled.', 80, 300);
+  const { displayText } = useTypewriter('Play smarter.', 80, 300);
   
   return (
     <div className="bg-zinc-900 rounded-xl p-4 min-h-[100px]">

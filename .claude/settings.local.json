@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(supervisorctl restart:*)",
+      "Bash(supervisorctl status:*)"
     ]
   }
 }

@@ -55,7 +55,7 @@ export function KvittLogo({
           <Text style={[styles.logoText, { fontSize: text }]}>Kvitt</Text>
           {showTagline && (
             <Text style={[styles.tagline, { fontSize: tagline }]}>
-              Your side, <Text style={styles.taglineAccent}>settled.</Text>
+              Play <Text style={styles.taglineAccent}>smarter.</Text>
             </Text>
           )}
         </View>

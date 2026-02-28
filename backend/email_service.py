@@ -53,7 +53,7 @@ def get_base_template(content: str, preview_text: str = "") -> str:
                                             <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #1a1a1a;">
                                                 K<span style="color: #f97316;">vitt</span>
                                             </h1>
-                                            <p style="margin: 4px 0 0; font-size: 12px; color: #666;">Your side, settled.</p>
+                                            <p style="margin: 4px 0 0; font-size: 12px; color: #666;">Play smarter.</p>
                                         </td>
                                     </tr>
                                 </table>

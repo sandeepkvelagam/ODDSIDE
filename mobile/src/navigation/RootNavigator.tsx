@@ -180,7 +180,9 @@ function AppSplash() {
           />
         </Svg>
       </Animated.View>
-      <Text style={styles.splashCaption}>TRACK. PLAY. SQUARE UP</Text>
+      <Text style={styles.splashCaption}>
+        Play <Text style={styles.splashCaptionAccent}>smarter.</Text>
+      </Text>
     </View>
   );
 }
@@ -188,6 +190,13 @@ function AppSplash() {
 export default function RootNavigator() {
   const { session, isLoading } = useAuth();
   const { colors } = useTheme();
+  const [splashDone, setSplashDone] = React.useState(false);
+
+  // Always show splash for a minimum duration regardless of how fast auth resolves
+  useEffect(() => {
+    const timer = setTimeout(() => setSplashDone(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Setup push notification deep link listener (only when logged in)
   useEffect(() => {
@@ -206,12 +215,12 @@ export default function RootNavigator() {
     return cleanup;
   }, [session]);
 
-  if (isLoading) {
+  if (isLoading || !splashDone) {
     return <AppSplash />;
   }
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
       <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
@@ -250,7 +259,7 @@ export default function RootNavigator() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
-    </>
+    </View>
   );
 }
 
@@ -264,8 +273,11 @@ const styles = StyleSheet.create({
   splashCaption: {
     position: "absolute",
     bottom: 52,
-    color: "#444",
-    fontSize: 11,
-    letterSpacing: 2,
+    color: "#888",
+    fontSize: 13,
+    letterSpacing: 1,
+  },
+  splashCaptionAccent: {
+    color: "#EF6E59",
   },
 });

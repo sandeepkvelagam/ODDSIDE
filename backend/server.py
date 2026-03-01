@@ -4984,6 +4984,7 @@ class AskAssistantRequest(BaseModel):
     message: str
     context: Optional[Dict[str, Any]] = None
     conversation_history: Optional[List[Dict[str, str]]] = None
+    flow_event: Optional[Dict[str, Any]] = None
 
 class PokerAnalyzeRequest(BaseModel):
     your_hand: List[str]  # ["A of spades", "K of spades"]
@@ -5187,6 +5188,52 @@ async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_curr
             resp["navigation"] = quick["navigation"]
         return resp
 
+    # Step 4.5: Flow continuation — if flow_event present, advance the flow
+    if data.flow_event:
+        try:
+            from ai_service.flows import get_flow
+            import ai_service.flows.issue_report_flow  # noqa: F401
+
+            fe = data.flow_event
+            flow = get_flow(fe.get("flow_id", ""))
+            if flow:
+                result = await flow.advance(
+                    step=fe.get("step", 0),
+                    action=fe.get("action", ""),
+                    value=fe.get("value", ""),
+                    flow_data=fe.get("flow_data", {}),
+                    user_id=user.user_id,
+                    interaction_id=fe.get("interaction_id", ""),
+                    db=db,
+                )
+                remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
+                resp = {
+                    "response": result.text,
+                    "source": result.source,
+                    "requests_remaining": remaining,
+                }
+                if result.structured_content:
+                    resp["structured_content"] = result.structured_content
+                if result.follow_ups:
+                    resp["follow_ups"] = result.follow_ups
+
+                try:
+                    await db.assistant_events.insert_one({
+                        "user_id": user.user_id,
+                        "message": data.message or f"[flow:{fe.get('flow_id')}:step:{fe.get('step')}]",
+                        "intent": f"flow_{fe.get('flow_id')}",
+                        "confidence": 1.0,
+                        "tier": "flow",
+                        "timestamp": datetime.now(timezone.utc),
+                    })
+                except Exception:
+                    pass
+
+                return resp
+        except Exception as e:
+            logger.warning(f"Flow advance error: {e}")
+            # Fall through to normal processing
+
     # Step 5: IntentRouter — local classification (no LLM)
     try:
         from ai_service.intent_router import IntentRouter
@@ -5206,12 +5253,14 @@ async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_curr
 
             resp = {
                 "response": answer.text,
-                "source": "fast_answer",
+                "source": answer.source if answer.source != "fast_answer" else "fast_answer",
                 "follow_ups": answer.follow_ups,
                 "requests_remaining": remaining,
             }
             if navigation:
                 resp["navigation"] = navigation
+            if answer.structured_content:
+                resp["structured_content"] = answer.structured_content
 
             # Log for analytics (non-blocking)
             try:

@@ -28,6 +28,7 @@ class FastAnswer:
     follow_ups: List[str] = field(default_factory=list)
     navigation: Optional[Dict] = None
     source: str = "fast_answer"
+    structured_content: Optional[Dict] = None
 
 
 # Follow-up suggestion pools per intent
@@ -91,6 +92,11 @@ FOLLOW_UP_POOLS = {
         "How do I cash out?",
         "What is settlement?",
         "How do I create a group?",
+    ],
+    "REPORT_ISSUE": [
+        "What are my stats?",
+        "Show my groups",
+        "Any active games?",
     ],
 }
 
@@ -531,6 +537,28 @@ class FastAnswerEngine:
                 "• Poker hand rankings"
             ),
             follow_ups=self._pick_follow_ups("HOW_TO"),
+        )
+
+    async def _handle_report_issue(self, user_id: str, params: Dict) -> FastAnswer:
+        """Start the issue report flow."""
+        from .flows import get_flow
+        # Ensure the issue_report_flow module is imported so it self-registers
+        import ai_service.flows.issue_report_flow  # noqa: F401
+
+        flow = get_flow("report_issue")
+        if not flow:
+            return FastAnswer(
+                text="Issue reporting is not available right now. Please try again later.",
+                follow_ups=self._pick_follow_ups("REPORT_ISSUE"),
+            )
+
+        result = await flow.start(user_id=user_id, db=self.db)
+
+        return FastAnswer(
+            text=result.text,
+            structured_content=result.structured_content,
+            follow_ups=result.follow_ups if result.follow_ups else self._pick_follow_ups("REPORT_ISSUE"),
+            source="flow",
         )
 
     # ==================== Helpers ====================

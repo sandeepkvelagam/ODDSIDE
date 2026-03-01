@@ -12,6 +12,7 @@ import {
   Animated,
   LayoutAnimation,
   UIManager,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +25,9 @@ import type { RootStackParamList } from "../navigation/RootNavigator";
 import { useTheme } from "../context/ThemeContext";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, ANIMATION, getThemedColors } from "../styles/liquidGlass";
 import { GlassIconButton } from "../components/ui";
+import { RichTextRenderer } from "../components/chat/RichTextRenderer";
+import { StructuredMessageRenderer } from "../components/chat/StructuredMessageRenderer";
+import type { StructuredContent, FlowEvent } from "../components/chat/messageTypes";
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -39,17 +43,47 @@ type Message = {
   source?: string;
   navigation?: { screen: string; params?: Record<string, any> };
   followUps?: string[];
+  structuredContent?: StructuredContent;
+  flowInteraction?: {
+    selectedValue?: string;
+    submittedText?: string;
+    actedAction?: string;
+  };
 };
 
 const CHAT_STORAGE_KEY = "kvitt_assistant_chat";
 
-const SUGGESTIONS = [
+// Full pool of suggestions — shuffled per session, 5 shown at a time
+const ALL_SUGGESTIONS = [
   "How do I create a group?",
   "How does buy-in work?",
   "How do I cash out?",
   "What is settlement?",
   "Poker hand rankings",
+  "How do I start a game?",
+  "What are my stats?",
+  "Who owes me money?",
+  "What do I owe?",
+  "Any active games?",
+  "Show my groups",
+  "Any upcoming games?",
+  "What's my total profit?",
+  "How do rebuys work?",
+  "How do I invite friends?",
+  "Report an issue",
 ];
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Shuffled once per module load (= per session / page refresh)
+const SUGGESTIONS = shuffleArray(ALL_SUGGESTIONS).slice(0, 5);
 
 const WELCOME_MESSAGE =
   "Hi! I'm your Kvitt assistant. Ask me anything about the app — creating groups, games, buy-ins, settlements, or poker rules!";
@@ -275,12 +309,32 @@ export function AIAssistantScreen() {
     setChatVisible((v) => !v);
   };
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || loading) return;
+  const sendMessage = async (text: string, flowEvent?: FlowEvent) => {
+    if ((!text.trim() && !flowEvent) || loading) return;
     if (!hasStarted) setHasStarted(true);
 
-    const userMessage: Message = { role: "user", content: text };
-    setMessages((prev) => [...prev, userMessage]);
+    // For flow actions, mark the previous card's interaction state (read-only)
+    if (flowEvent) {
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIdx = updated.length - 1;
+        if (lastIdx >= 0 && updated[lastIdx].structuredContent) {
+          updated[lastIdx] = {
+            ...updated[lastIdx],
+            flowInteraction: {
+              selectedValue: flowEvent.action === "option_selected" ? flowEvent.value : undefined,
+              submittedText: flowEvent.action === "text_submitted" ? flowEvent.value : undefined,
+              actedAction: ["submit", "cancel"].includes(flowEvent.action) ? flowEvent.action : undefined,
+            },
+          };
+        }
+        return updated;
+      });
+    } else {
+      const userMessage: Message = { role: "user", content: text };
+      setMessages((prev) => [...prev, userMessage]);
+    }
+
     setInput("");
     setLoading(true);
 
@@ -299,12 +353,13 @@ export function AIAssistantScreen() {
         message: text,
         context: { current_page: "mobile_app" },
         conversation_history: conversationHistory,
+        ...(flowEvent && { flow_event: flowEvent }),
       });
       const data = response.data;
       if (!data?.response) throw new Error("Invalid assistant response");
 
-      // Thinking delay only for successful fast responses
-      if (data.source === "quick_answer" || data.source === "fast_answer") {
+      // Thinking delay only for non-flow fast responses
+      if (!flowEvent && (data.source === "quick_answer" || data.source === "fast_answer")) {
         await new Promise((r) => setTimeout(r, 1200));
       }
 
@@ -316,6 +371,7 @@ export function AIAssistantScreen() {
           source: data.source,
           navigation: data.navigation,
           followUps: data.follow_ups,
+          structuredContent: data.structured_content || undefined,
         },
       ]);
       if (data.requests_remaining !== undefined) {
@@ -578,6 +634,11 @@ export function AIAssistantScreen() {
                             style={[styles.messageText, { color: lc.textPrimary }]}
                             onComplete={() => setWelcomeTyped(true)}
                           />
+                        ) : msg.role === "assistant" && !msg.error ? (
+                          <RichTextRenderer
+                            text={msg.content}
+                            baseStyle={[styles.messageText, { color: lc.textPrimary }]}
+                          />
                         ) : (
                           <Text style={[styles.messageText, { color: msg.role === "user" ? (isDark ? "#ffffff" : lc.textPrimary) : lc.textPrimary }]}>
                             {msg.content}
@@ -593,6 +654,31 @@ export function AIAssistantScreen() {
                         </View>
                       )}
                     </Animated.View>
+
+                    {/* Structured content card */}
+                    {msg.structuredContent && (
+                      <View style={styles.structuredCardContainer}>
+                        <StructuredMessageRenderer
+                          content={msg.structuredContent}
+                          isLatest={i === messages.length - 1 && !loading}
+                          onFlowAction={(event) => {
+                            // Handle email/link actions directly
+                            if (event.action.startsWith("email:")) {
+                              Linking.openURL(`mailto:${event.action.replace("email:", "")}`);
+                              return;
+                            }
+                            if (event.action.startsWith("link:")) {
+                              Linking.openURL(event.action.replace("link:", ""));
+                              return;
+                            }
+                            sendMessage(event.value, event);
+                          }}
+                          selectedValue={msg.flowInteraction?.selectedValue}
+                          submittedText={msg.flowInteraction?.submittedText}
+                          actedAction={msg.flowInteraction?.actedAction}
+                        />
+                      </View>
+                    )}
 
                     {/* Navigation button */}
                     {msg.navigation && (
@@ -904,6 +990,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   // messageTextUser removed — now theme-aware inline
+  structuredCardContainer: {
+    marginTop: SPACING.sm,
+    marginLeft: 36,
+    maxWidth: "88%",
+  },
   quickAnswerTag: {
     fontSize: 9,
     marginTop: 4,

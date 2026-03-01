@@ -141,6 +141,21 @@ INTENT_DEFINITIONS = {
         "required_data": [],
     },
 
+    "REPORT_ISSUE": {
+        "patterns": [
+            (r"\breport (an? )?(issue|bug|problem)\b", 0.95),
+            (r"\b(file|submit|log) (an? )?(issue|bug|complaint|feedback)\b", 0.90),
+            (r"\bsomething('s| is) (broken|wrong|not working)\b", 0.85),
+            (r"\bi (found|have) (a |an )?(bug|issue|problem)\b", 0.90),
+            (r"\b(app|kvitt) (crashed?|not working|broken|buggy)\b", 0.85),
+            (r"\bcomplaint\b", 0.80),
+            (r"\bfeature request\b", 0.90),
+            (r"\bfeedback\b", 0.70),
+        ],
+        "requires_llm": False,
+        "required_data": [],
+    },
+
     # --- Tier 2: LLM needed ---
     "PLAN_GAME": {
         "patterns": [

@@ -8098,23 +8098,50 @@ class SurveySubmit(BaseModel):
     group_id: Optional[str] = None
 
 
-@api_router.post("/feedback")
-async def submit_feedback(data: FeedbackSubmit, current_user: User = Depends(get_current_user)):
-    """Submit user feedback (bug report, feature request, complaint, etc.)."""
-    from ai_service.agents.feedback_agent import FeedbackAgent
-    from ai_service.tools.registry import ToolRegistry
-    agent = FeedbackAgent(
-        tool_registry=ToolRegistry(),
-        db=db,
-        llm_client=None
-    )
-    # Try to use the global orchestrator's agent if available
+def _build_feedback_agent(db):
+    """
+    Always returns a FeedbackAgent with required tools registered.
+    Tries orchestrator first; falls back to local registry with explicit registration.
+    """
+    # 1) Try orchestrator (preferred — has all tools pre-registered)
     try:
         from ai_service.orchestrator import AIOrchestrator
         orchestrator = AIOrchestrator(db=db)
         agent = orchestrator.agent_registry.get("feedback")
-    except Exception:
-        pass
+        if agent:
+            return agent
+        logger.warning("AIOrchestrator loaded but 'feedback' agent not in agent_registry")
+    except Exception as e:
+        logger.exception("AIOrchestrator init failed, falling back to local FeedbackAgent: %s", e)
+
+    # 2) Fallback — register tools explicitly so agent always works
+    from ai_service.tools.registry import ToolRegistry
+    from ai_service.tools.feedback_collector import FeedbackCollectorTool
+    from ai_service.tools.feedback_classifier import FeedbackClassifierTool
+    from ai_service.tools.feedback_policy import FeedbackPolicyTool
+    from ai_service.tools.auto_fixer import AutoFixerTool
+    from ai_service.tools.notification_sender import NotificationSenderTool
+    from ai_service.agents.feedback_agent import FeedbackAgent
+
+    registry = ToolRegistry()
+    if not registry.get("feedback_collector"):
+        registry.register(FeedbackCollectorTool(db=db))
+    if not registry.get("feedback_classifier"):
+        registry.register(FeedbackClassifierTool(db=db, llm_client=None))
+    if not registry.get("feedback_policy"):
+        registry.register(FeedbackPolicyTool(db=db))
+    if not registry.get("auto_fixer"):
+        registry.register(AutoFixerTool(db=db, tool_registry=registry))
+    if not registry.get("notification_sender"):
+        registry.register(NotificationSenderTool(db=db))
+
+    return FeedbackAgent(tool_registry=registry, db=db, llm_client=None)
+
+
+@api_router.post("/feedback")
+async def submit_feedback(data: FeedbackSubmit, current_user: User = Depends(get_current_user)):
+    """Submit user feedback (bug report, feature request, complaint, etc.)."""
+    agent = _build_feedback_agent(db)
 
     result = await agent.execute(
         "Submit feedback",

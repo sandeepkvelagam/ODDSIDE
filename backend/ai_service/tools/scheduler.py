@@ -126,7 +126,7 @@ class SchedulerTool(BaseTool):
                 error="game_id and scheduled_time are required"
             )
 
-        if self.db:
+        if self.db is not None:
             result = await self.db.game_nights.update_one(
                 {"game_id": game_id},
                 {"$set": {"scheduled_time": scheduled_time}}
@@ -151,7 +151,7 @@ class SchedulerTool(BaseTool):
                 error="game_id is required"
             )
 
-        if self.db:
+        if self.db is not None:
             game = await self.db.game_nights.find_one(
                 {"game_id": game_id},
                 {"_id": 0, "players": 1, "title": 1, "scheduled_time": 1}
@@ -193,7 +193,7 @@ class SchedulerTool(BaseTool):
                 error="game_id is required"
             )
 
-        if self.db:
+        if self.db is not None:
             game = await self.db.game_nights.find_one(
                 {"game_id": game_id},
                 {"_id": 0, "players": 1}
@@ -226,7 +226,7 @@ class SchedulerTool(BaseTool):
                 error="game_id is required"
             )
 
-        if self.db:
+        if self.db is not None:
             game = await self.db.game_nights.find_one(
                 {"game_id": game_id},
                 {"_id": 0, "scheduled_time": 1, "players": 1}
@@ -270,7 +270,7 @@ class SchedulerTool(BaseTool):
 
     async def _get_upcoming_games(self, group_id: str = None, user_id: str = None) -> ToolResult:
         """Get upcoming games for a group or user"""
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"

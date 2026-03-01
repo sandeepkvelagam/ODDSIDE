@@ -890,7 +890,7 @@ class EngagementAgent(BaseAgent):
         }
 
         # 2. Check inactive users per group
-        if self.db:
+        if self.db is not None:
             groups = await self.db.groups.find(
                 {},
                 {"_id": 0, "group_id": 1}
@@ -977,7 +977,7 @@ class EngagementAgent(BaseAgent):
         channels: List[str],
     ):
         """Log nudge event for outcome tracking and cooldown management."""
-        if not self.db:
+        if self.db is None:
             return
 
         now = datetime.now(timezone.utc).isoformat()
@@ -1030,7 +1030,7 @@ class EngagementAgent(BaseAgent):
 
         outcome_type: delivered, opened, clicked, game_started, muted
         """
-        if not self.db:
+        if self.db is None:
             return
 
         now = datetime.now(timezone.utc).isoformat()
@@ -1089,7 +1089,7 @@ class EngagementAgent(BaseAgent):
 
     async def _get_group_admins(self, group_id: str) -> List[str]:
         """Get admin user IDs for a group."""
-        if not self.db:
+        if self.db is None:
             return []
 
         admins = await self.db.group_members.find(
@@ -1101,7 +1101,7 @@ class EngagementAgent(BaseAgent):
 
     async def _get_group_member_ids(self, group_id: str) -> List[str]:
         """Get all member user IDs for a group."""
-        if not self.db:
+        if self.db is None:
             return []
 
         members = await self.db.group_members.find(
@@ -1113,7 +1113,7 @@ class EngagementAgent(BaseAgent):
 
     async def _get_recent_group_games(self, group_id: str, days: int = 30) -> List[Dict]:
         """Get recent games for a group."""
-        if not self.db:
+        if self.db is None:
             return []
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)

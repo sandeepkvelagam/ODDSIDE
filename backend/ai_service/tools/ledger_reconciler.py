@@ -162,7 +162,7 @@ class LedgerReconcilerTool(BaseTool):
         - final: 7-13 days overdue (soft escalation zone)
         - escalate: 14+ days overdue (hard escalation zone)
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -267,7 +267,7 @@ class LedgerReconcilerTool(BaseTool):
           2. amount + receipt_email -> confidence 0.9
           3. amount + stripe_customer_id -> confidence 0.85
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -445,7 +445,7 @@ class LedgerReconcilerTool(BaseTool):
 
         Returns verification result. Agent only proceeds to "apply" if all pass.
         """
-        if not self.db or not ledger_id:
+        if self.db is None or not ledger_id:
             return ToolResult(success=False, error="Database and ledger_id required")
 
         try:
@@ -569,7 +569,7 @@ class LedgerReconcilerTool(BaseTool):
         - Include oldest-first allocation plan for each consolidation
         - Flag disputed/mixed-currency pairs
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -775,7 +775,7 @@ class LedgerReconcilerTool(BaseTool):
         Includes: Outstanding vs paid, avg time, overdue breakdown,
         chronic flags, consolidation opportunities.
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         if not group_id:
@@ -919,7 +919,7 @@ class LedgerReconcilerTool(BaseTool):
         This prevents false-flagging in slow-paying but chill groups.
         Internal-only: never label users as "chronic nonpayer" in notifications.
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -1083,7 +1083,7 @@ class LedgerReconcilerTool(BaseTool):
         - Orphaned entries (game doesn't exist or was cancelled)
         - Duplicate Stripe applications (same stripe_payment_intent_id on multiple entries)
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -1209,7 +1209,7 @@ class LedgerReconcilerTool(BaseTool):
         - escalation_rate: % of entries that required host escalation
         - dispute_rate: % of entries marked as disputed
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:

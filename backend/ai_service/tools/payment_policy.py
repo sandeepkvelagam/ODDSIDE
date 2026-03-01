@@ -238,7 +238,7 @@ class PaymentPolicyTool(BaseTool):
         checks_failed = []
 
         # Check 1: Group payment reminders enabled
-        if self.db and group_id:
+        if self.db is not None and group_id:
             group_pref = await self.db.payment_settings.find_one(
                 {"group_id": group_id}, {"_id": 0}
             )
@@ -301,7 +301,7 @@ class PaymentPolicyTool(BaseTool):
         checks_passed.append("weekend")
 
         # Check 4: Per-user daily cap
-        if self.db and user_id:
+        if self.db is not None and user_id:
             today_start = now.replace(
                 hour=0, minute=0, second=0, microsecond=0
             ).isoformat()
@@ -326,7 +326,7 @@ class PaymentPolicyTool(BaseTool):
         checks_passed.append("user_daily_cap")
 
         # Check 5: Per-group daily cap
-        if self.db and group_id:
+        if self.db is not None and group_id:
             today_start = now.replace(
                 hour=0, minute=0, second=0, microsecond=0
             ).isoformat()
@@ -351,7 +351,7 @@ class PaymentPolicyTool(BaseTool):
         checks_passed.append("group_daily_cap")
 
         # Check 6: Cooldown since last reminder per entry
-        if self.db and ledger_id:
+        if self.db is not None and ledger_id:
             cooldown_hours = settings["reminder_cooldown_hours"]
             min_days = settings["min_days_between_reminders"]
             # Effective cooldown is the max of cooldown_hours and min_days
@@ -381,7 +381,7 @@ class PaymentPolicyTool(BaseTool):
         checks_passed.append("cooldown")
 
         # Check 7: Max reminders per entry
-        if self.db and ledger_id:
+        if self.db is not None and ledger_id:
             from bson import ObjectId
             entry = await self.db.ledger_entries.find_one(
                 {"_id": ObjectId(ledger_id)},
@@ -437,7 +437,7 @@ class PaymentPolicyTool(BaseTool):
         """
         settings = await self._get_group_settings(group_id)
 
-        if not self.db or not user_id:
+        if self.db is None or not user_id:
             return ToolResult(
                 success=True,
                 data={"remaining_today": settings["max_reminders_per_user_per_day"]}
@@ -487,7 +487,7 @@ class PaymentPolicyTool(BaseTool):
         """
         settings = await self._get_group_settings(group_id)
 
-        if not self.db or not ledger_id:
+        if self.db is None or not ledger_id:
             return ToolResult(success=False, error="Database and ledger_id required")
 
         try:
@@ -641,7 +641,7 @@ class PaymentPolicyTool(BaseTool):
                 success=True,
                 data={"allowed": False, "reason": "consolidation_disabled_for_group"}
             )
-        if self.db and group_id:
+        if self.db is not None and group_id:
             group_pref = await self.db.payment_settings.find_one(
                 {"group_id": group_id}, {"_id": 0}
             )

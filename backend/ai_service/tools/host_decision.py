@@ -176,7 +176,7 @@ class HostDecisionTool(BaseTool):
             if player:
                 decision["player_name"] = player.get("name") or player.get("email", "Unknown")
 
-        if self.db:
+        if self.db is not None:
             await self.db.host_decisions.insert_one(decision)
 
             # Also create a notification for the host
@@ -209,7 +209,7 @@ class HostDecisionTool(BaseTool):
 
     async def _get_pending(self, host_id: str = None, game_id: str = None) -> ToolResult:
         """Get pending decisions for a host or game"""
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         query = {"status": "pending", "expires_at": {"$gt": datetime.utcnow()}}
@@ -251,7 +251,7 @@ class HostDecisionTool(BaseTool):
         if not decision_id:
             return ToolResult(success=False, error="decision_id is required")
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         # Get the decision
@@ -291,7 +291,7 @@ class HostDecisionTool(BaseTool):
         if not decision_id:
             return ToolResult(success=False, error="decision_id is required")
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         decision = await self.db.host_decisions.find_one(
@@ -365,7 +365,7 @@ class HostDecisionTool(BaseTool):
 
     async def _expire_old(self) -> ToolResult:
         """Expire old pending decisions"""
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         result = await self.db.host_decisions.update_many(
@@ -393,7 +393,7 @@ class HostDecisionTool(BaseTool):
         context = decision.get("context", {})
         game_id = decision.get("game_id")
 
-        if not self.db:
+        if self.db is None:
             return {"success": False, "error": "Database not available"}
 
         if decision_type == "join_request":

@@ -320,7 +320,7 @@ class FeedbackPolicyTool(BaseTool):
         group_id: str
     ) -> Dict:
         """Check if auto-fixes are enabled for this group."""
-        if not self.db:
+        if self.db is None:
             return {"allowed": True}
 
         settings = await self.db.engagement_settings.find_one(
@@ -357,7 +357,7 @@ class FeedbackPolicyTool(BaseTool):
         user_id: str = None
     ) -> Dict:
         """Check if the cooldown period has passed since last fix attempt."""
-        if not self.db:
+        if self.db is None:
             return {"allowed": True}
 
         cooldown = FIX_COOLDOWNS.get(fix_type, timedelta(hours=1))
@@ -386,7 +386,7 @@ class FeedbackPolicyTool(BaseTool):
         feedback_id: str
     ) -> Dict:
         """Check if the maximum retry limit has been reached."""
-        if not self.db:
+        if self.db is None:
             return {"allowed": True}
 
         # Count total attempts for this feedback + fix type

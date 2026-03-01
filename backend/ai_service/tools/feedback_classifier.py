@@ -453,7 +453,7 @@ Confidence guide:
 
     async def _batch_classify(self, feedback_ids: List[str]) -> ToolResult:
         """Classify multiple feedback entries from the database."""
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         if not feedback_ids:

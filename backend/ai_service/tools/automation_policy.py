@@ -459,7 +459,7 @@ class AutomationPolicyTool(BaseTool):
         """Get automation usage statistics for a user."""
         user_id = kwargs.get("user_id")
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         total_automations = await self.db.user_automations.count_documents(
@@ -575,7 +575,7 @@ class AutomationPolicyTool(BaseTool):
         self, user_id: str, group_id: str
     ) -> Optional[str]:
         """Get user's role in a group (admin, member, etc.)."""
-        if not self.db:
+        if self.db is None:
             return "member"  # Permissive when DB unavailable
 
         member = await self.db.group_members.find_one(
@@ -643,7 +643,7 @@ class AutomationPolicyTool(BaseTool):
         Get the user's timezone (IANA string like 'America/New_York').
         Falls back to group timezone, then UTC.
         """
-        if not self.db:
+        if self.db is None:
             return None  # Will use UTC
 
         # Try user-level timezone
@@ -698,7 +698,7 @@ class AutomationPolicyTool(BaseTool):
 
     async def _get_user_daily_count(self, user_id: str) -> int:
         """Get number of automation runs by a user today."""
-        if not self.db:
+        if self.db is None:
             return 0
 
         today_start = datetime.now(timezone.utc).replace(
@@ -722,7 +722,7 @@ class AutomationPolicyTool(BaseTool):
 
     async def _get_group_daily_count(self, group_id: str) -> int:
         """Get number of automation runs targeting a group today."""
-        if not self.db:
+        if self.db is None:
             return 0
 
         today_start = datetime.now(timezone.utc).replace(
@@ -745,7 +745,7 @@ class AutomationPolicyTool(BaseTool):
 
     async def _get_automation_daily_count(self, automation_id: str) -> int:
         """Get number of runs for a specific automation today."""
-        if not self.db:
+        if self.db is None:
             return 0
 
         today_start = datetime.now(timezone.utc).replace(
@@ -761,7 +761,7 @@ class AutomationPolicyTool(BaseTool):
         self, user_id: str, action_type: str
     ) -> int:
         """Get daily count of a specific action type for a user."""
-        if not self.db:
+        if self.db is None:
             return 0
 
         today_start = datetime.now(timezone.utc).replace(
@@ -796,7 +796,7 @@ class AutomationPolicyTool(BaseTool):
 
     async def _get_last_run_time(self, automation_id: str) -> Optional[datetime]:
         """Get the last run time for an automation."""
-        if not self.db:
+        if self.db is None:
             return None
 
         auto = await self.db.user_automations.find_one(
@@ -814,7 +814,7 @@ class AutomationPolicyTool(BaseTool):
 
     async def _get_user_daily_cost(self, user_id: str) -> int:
         """Get total action cost points consumed by a user today."""
-        if not self.db:
+        if self.db is None:
             return 0
 
         today_start = datetime.now(timezone.utc).replace(
@@ -853,7 +853,7 @@ class AutomationPolicyTool(BaseTool):
         self, user_id: str, group_id: str
     ) -> bool:
         """Check if user is a member of the group."""
-        if not self.db:
+        if self.db is None:
             return True  # Permissive when DB unavailable
 
         member = await self.db.group_members.find_one(

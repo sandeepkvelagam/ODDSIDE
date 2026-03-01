@@ -49,7 +49,7 @@ class RSVPTrackerService:
             response: "confirmed", "declined", or "maybe"
             group_id: The group (for host notifications)
         """
-        if not self.db:
+        if self.db is None:
             return {"error": "no database"}
 
         # Update player RSVP in game
@@ -119,7 +119,7 @@ class RSVPTrackerService:
         2. Not recently invited and declined
         3. Not the host
         """
-        if not self.db:
+        if self.db is None:
             return []
 
         # Get current game players
@@ -175,7 +175,7 @@ class RSVPTrackerService:
         Check for stale polls (active but with few responses after threshold).
         Returns list of polls that need re-proposal.
         """
-        if not self.db:
+        if self.db is None:
             return []
 
         threshold = datetime.now(timezone.utc) - timedelta(hours=self.STALE_POLL_HOURS)
@@ -200,7 +200,7 @@ class RSVPTrackerService:
         Close a stale poll and create a new one with adjusted options.
         Posts a message in group chat about the re-proposal.
         """
-        if not self.db:
+        if self.db is None:
             return None
 
         # Close the old poll
@@ -329,7 +329,7 @@ class RSVPTrackerService:
         Send reminders to players who haven't RSVPed.
         Returns number of reminders sent.
         """
-        if not self.db:
+        if self.db is None:
             return 0
 
         game = await self.db.game_nights.find_one(
@@ -381,7 +381,7 @@ class RSVPTrackerService:
 
     async def _get_group_host(self, group_id: str) -> Optional[str]:
         """Get the group admin/host user_id."""
-        if not self.db:
+        if self.db is None:
             return None
         admin = await self.db.group_members.find_one(
             {"group_id": group_id, "role": "admin"},
@@ -391,7 +391,7 @@ class RSVPTrackerService:
 
     async def _get_player_name(self, user_id: str) -> str:
         """Get a player's display name."""
-        if not self.db:
+        if self.db is None:
             return "A player"
         user = await self.db.users.find_one(
             {"user_id": user_id},

@@ -121,7 +121,7 @@ class ReportGeneratorTool(BaseTool):
                 error="game_id is required for game summary"
             )
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"
@@ -216,7 +216,7 @@ class ReportGeneratorTool(BaseTool):
                 error="user_id is required for player stats"
             )
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"
@@ -273,7 +273,7 @@ class ReportGeneratorTool(BaseTool):
                 error="group_id is required for leaderboard"
             )
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"
@@ -330,7 +330,7 @@ class ReportGeneratorTool(BaseTool):
                 error="group_id is required for group analytics"
             )
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"
@@ -374,7 +374,7 @@ class ReportGeneratorTool(BaseTool):
                 error="game_id is required for settlement report"
             )
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"

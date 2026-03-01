@@ -255,7 +255,7 @@ class AutomationBuilderTool(BaseTool):
             )
 
         # Check per-user limit
-        if self.db:
+        if self.db is not None:
             count = await self.db.user_automations.count_documents(
                 {"user_id": user_id}
             )
@@ -303,7 +303,7 @@ class AutomationBuilderTool(BaseTool):
 
         # Snapshot user timezone for stability
         user_tz = None
-        if self.db:
+        if self.db is not None:
             user_doc = await self.db.users.find_one(
                 {"user_id": user_id},
                 {"_id": 0, "timezone": 1}
@@ -348,7 +348,7 @@ class AutomationBuilderTool(BaseTool):
             }],
         }
 
-        if self.db:
+        if self.db is not None:
             await self.db.user_automations.insert_one(doc)
             doc.pop("_id", None)
 
@@ -374,7 +374,7 @@ class AutomationBuilderTool(BaseTool):
         if not automation_id:
             return ToolResult(success=False, error="automation_id required")
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         existing = await self.db.user_automations.find_one(
@@ -495,7 +495,7 @@ class AutomationBuilderTool(BaseTool):
         if not automation_id:
             return ToolResult(success=False, error="automation_id required")
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         result = await self.db.user_automations.delete_one(
@@ -541,7 +541,7 @@ class AutomationBuilderTool(BaseTool):
         user_id = kwargs.get("user_id")
         group_id = kwargs.get("group_id")
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         query = {"user_id": user_id}
@@ -597,7 +597,7 @@ class AutomationBuilderTool(BaseTool):
         if not automation_id or enabled is None:
             return ToolResult(success=False, error="automation_id and enabled required")
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         now = datetime.now(timezone.utc).isoformat()

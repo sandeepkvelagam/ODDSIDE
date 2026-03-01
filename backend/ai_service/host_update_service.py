@@ -53,7 +53,7 @@ class HostUpdateService:
         Stores in host_updates collection + creates a notification.
         Optionally sends push notification for high-priority updates.
         """
-        if not self.db:
+        if self.db is None:
             logger.warning("HostUpdateService: no database connection")
             return {"error": "no database"}
 
@@ -222,7 +222,7 @@ class HostUpdateService:
         self, group_id: str, host_id: str, limit: int = 20, unread_only: bool = False
     ) -> List[Dict]:
         """Get host updates feed."""
-        if not self.db:
+        if self.db is None:
             return []
 
         query = {"group_id": group_id, "host_id": host_id}
@@ -236,7 +236,7 @@ class HostUpdateService:
 
     async def mark_read(self, update_id: str, host_id: str):
         """Mark a host update as read."""
-        if self.db:
+        if self.db is not None:
             await self.db.host_updates.update_one(
                 {"update_id": update_id, "host_id": host_id},
                 {"$set": {"read": True}}
@@ -244,7 +244,7 @@ class HostUpdateService:
 
     async def mark_all_read(self, group_id: str, host_id: str):
         """Mark all updates for a group as read."""
-        if self.db:
+        if self.db is not None:
             await self.db.host_updates.update_many(
                 {"group_id": group_id, "host_id": host_id, "read": False},
                 {"$set": {"read": True}}
@@ -253,7 +253,7 @@ class HostUpdateService:
     async def _send_push(self, user_id: str, title: str, message: str, data: Dict = None):
         """Send push notification via Expo."""
         try:
-            if not self.db:
+            if self.db is None:
                 return
             # Look up user's push token
             user = await self.db.users.find_one(

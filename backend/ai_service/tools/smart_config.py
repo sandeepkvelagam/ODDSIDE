@@ -98,7 +98,7 @@ class SmartConfigTool(BaseTool):
         Returns:
             ToolResult with suggested buy-in, chips per buy-in, and title
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"
@@ -186,7 +186,7 @@ class SmartConfigTool(BaseTool):
         Returns:
             ToolResult with ranked list of suggested players
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"
@@ -304,7 +304,7 @@ class SmartConfigTool(BaseTool):
         Returns:
             ToolResult with suggested day and time
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"
@@ -419,7 +419,7 @@ class SmartConfigTool(BaseTool):
         Returns:
             ToolResult with player analysis
         """
-        if not self.db or not user_id:
+        if self.db is None or not user_id:
             return ToolResult(
                 success=False,
                 error="Database or user_id not available"
@@ -545,7 +545,7 @@ class SmartConfigTool(BaseTool):
         Returns:
             ToolResult with group patterns
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(
                 success=False,
                 error="Database not available"

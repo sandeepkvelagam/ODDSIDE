@@ -199,7 +199,7 @@ class ChatWatcherService:
 
     async def _check_ai_enabled(self, group_id: str) -> bool:
         """Check if AI is enabled for this group (host setting)."""
-        if not self.db:
+        if self.db is None:
             return True  # Default to enabled if no DB
 
         settings = await self.db.group_ai_settings.find_one(
@@ -222,7 +222,7 @@ class ChatWatcherService:
             "external_context": {}
         }
 
-        if not self.db:
+        if self.db is None:
             return context
 
         # Get recent messages

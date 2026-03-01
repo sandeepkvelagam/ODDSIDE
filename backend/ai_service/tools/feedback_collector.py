@@ -253,7 +253,7 @@ class FeedbackCollectorTool(BaseTool):
         idempotency_key: str = None
     ) -> ToolResult:
         """Store a feedback submission with PII redaction, dedup, and idempotency."""
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         if not user_id or not content:
@@ -428,7 +428,7 @@ class FeedbackCollectorTool(BaseTool):
         content: str = ""
     ) -> ToolResult:
         """Store a post-game survey with anti-spam checks."""
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         if not user_id or not game_id or rating is None:
@@ -559,7 +559,7 @@ class FeedbackCollectorTool(BaseTool):
         - game_duration_hours: how long the game lasted
         """
         ctx = {}
-        if not self.db or not game_id:
+        if self.db is None or not game_id:
             return ctx
 
         try:
@@ -610,7 +610,7 @@ class FeedbackCollectorTool(BaseTool):
 
         Green: 80-100, Yellow: 50-79, Red: 0-49
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -674,7 +674,7 @@ class FeedbackCollectorTool(BaseTool):
         - Rolling window (default 90 days)
         - Returns None if confidence floor not met
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -757,7 +757,7 @@ class FeedbackCollectorTool(BaseTool):
         days: int = 30
     ) -> ToolResult:
         """Retrieve feedback with filters."""
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -797,7 +797,7 @@ class FeedbackCollectorTool(BaseTool):
         days: int = 30
     ) -> ToolResult:
         """Retrieve survey responses with aggregates."""
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -844,7 +844,7 @@ class FeedbackCollectorTool(BaseTool):
         days: int = 30
     ) -> ToolResult:
         """Get feedback trends with observability metrics."""
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -1001,7 +1001,7 @@ class FeedbackCollectorTool(BaseTool):
         actor_id: str = None
     ) -> ToolResult:
         """Mark a feedback entry as resolved with resolution code."""
-        if not self.db or not feedback_id:
+        if self.db is None or not feedback_id:
             return ToolResult(success=False, error="Database or feedback_id not available")
 
         if resolution_code and resolution_code not in VALID_RESOLUTION_CODES:
@@ -1054,7 +1054,7 @@ class FeedbackCollectorTool(BaseTool):
         linked_feedback_id: str = None
     ) -> ToolResult:
         """Update feedback status, ownership, or link duplicates."""
-        if not self.db or not feedback_id:
+        if self.db is None or not feedback_id:
             return ToolResult(success=False, error="Database or feedback_id not available")
 
         try:
@@ -1121,7 +1121,7 @@ class FeedbackCollectorTool(BaseTool):
         details: Dict = None
     ) -> ToolResult:
         """Append an event to a feedback entry's audit trail."""
-        if not self.db or not feedback_id:
+        if self.db is None or not feedback_id:
             return ToolResult(success=False, error="Database or feedback_id not available")
 
         try:
@@ -1158,7 +1158,7 @@ class FeedbackCollectorTool(BaseTool):
         feedback_type: str = None
     ) -> ToolResult:
         """Get all unresolved feedback entries."""
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:

@@ -201,7 +201,7 @@ class AutoFixerTool(BaseTool):
         VERIFY-ONLY: Re-check settlement for a game without modifying anything.
         Reports findings to user and host.
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -340,7 +340,7 @@ class AutoFixerTool(BaseTool):
         Check notification delivery logs and resend the most recent unread.
         This is a low-risk verify operation (resending doesn't mutate core data).
         """
-        if not self.db or not user_id:
+        if self.db is None or not user_id:
             return ToolResult(success=False, error="Database or user_id not available")
 
         context = context or {}
@@ -474,7 +474,7 @@ class AutoFixerTool(BaseTool):
         VERIFY-ONLY: Find payment matches without writing anything.
         Returns what would be reconciled if apply is called.
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -586,7 +586,7 @@ class AutoFixerTool(BaseTool):
         MUTATE: Actually mark matched ledger entries as paid.
         Requires confirmed=true and host/admin role (enforced by policy).
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -685,7 +685,7 @@ class AutoFixerTool(BaseTool):
         """
         VERIFY-ONLY: Diagnose permission/access issues without changing anything.
         """
-        if not self.db or not user_id:
+        if self.db is None or not user_id:
             return ToolResult(success=False, error="Database or user_id not available")
 
         try:
@@ -784,7 +784,7 @@ class AutoFixerTool(BaseTool):
         MUTATE: Apply permission fixes (resend invites, notify admins).
         Requires confirmed=true and host/admin role.
         """
-        if not self.db or not user_id:
+        if self.db is None or not user_id:
             return ToolResult(success=False, error="Database or user_id not available")
 
         try:
@@ -879,7 +879,7 @@ class AutoFixerTool(BaseTool):
         1. If feedback involves critical severity → always block mutation
         2. If game has total pot > HIGH_VALUE_THRESHOLD → block mutation
         """
-        if not self.db:
+        if self.db is None:
             return None
 
         # Check 1: Critical severity feedback → never auto-mutate
@@ -969,7 +969,7 @@ class AutoFixerTool(BaseTool):
         result: Dict = None
     ):
         """Log an auto-fix attempt for audit trail."""
-        if not self.db:
+        if self.db is None:
             return
 
         try:

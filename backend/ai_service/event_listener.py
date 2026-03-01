@@ -142,7 +142,7 @@ class EventListenerService:
         data["event_type"] = event_type
 
         # Log the event
-        if self.db:
+        if self.db is not None:
             await self.db.event_logs.insert_one({
                 "event_type": event_type,
                 "event_id": data["event_id"],
@@ -194,7 +194,7 @@ class EventListenerService:
             return
 
         # Get game details
-        if self.db:
+        if self.db is not None:
             game = await self.db.game_nights.find_one({"game_id": game_id})
             if game:
                 player_ids = [p.get("user_id") for p in game.get("players", [])]
@@ -314,7 +314,7 @@ class EventListenerService:
         notification_tool = self.orchestrator.tool_registry.get("notification_sender")
         if notification_tool:
             player_name = "A player"
-            if self.db:
+            if self.db is not None:
                 player = await self.db.users.find_one({"user_id": player_id})
                 if player:
                     player_name = player.get("name") or player.get("email", "A player")
@@ -407,7 +407,7 @@ class EventListenerService:
         Track engagement outcomes: when a game starts, check if there was
         a recent nudge for that group and record the conversion.
         """
-        if not self.db or not self.engagement_agent:
+        if self.db is None or not self.engagement_agent:
             return
 
         group_id = data.get("group_id")
@@ -837,7 +837,7 @@ class EventListenerService:
 
     async def _post_ai_message(self, group_id: str, content: str, agent_data: Dict):
         """Post an AI-generated message to the group chat."""
-        if not self.db:
+        if self.db is None:
             return
 
         import uuid

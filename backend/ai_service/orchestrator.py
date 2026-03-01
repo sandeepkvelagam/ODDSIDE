@@ -263,7 +263,7 @@ class AIOrchestrator:
             log_entry["error"] = str(e)
 
         # Store log
-        if self.db:
+        if self.db is not None:
             await self.db.ai_orchestrator_logs.insert_one(log_entry)
 
         return result

@@ -339,7 +339,7 @@ class PaymentReconciliationAgent(BaseAgent):
                     amount=entry.get("amount", 0),
                 )
                 # Update reminder count
-                if self.db and entry.get("ledger_id"):
+                if self.db is not None and entry.get("ledger_id"):
                     from bson import ObjectId
                     await self.db.ledger_entries.update_one(
                         {"_id": ObjectId(entry["ledger_id"])},
@@ -443,7 +443,7 @@ class PaymentReconciliationAgent(BaseAgent):
         ledger_id = best_match.get("ledger_id")
         group_id = None
 
-        if self.db and ledger_id:
+        if self.db is not None and ledger_id:
             from bson import ObjectId
             entry = await self.db.ledger_entries.find_one(
                 {"_id": ObjectId(ledger_id)},
@@ -526,7 +526,7 @@ class PaymentReconciliationAgent(BaseAgent):
         stripe_pi_id = match_data.get("stripe_payment_intent_id")
 
         # Update ledger entry with Stripe data before marking paid
-        if self.db and ledger_id and stripe_pi_id:
+        if self.db is not None and ledger_id and stripe_pi_id:
             await self.db.ledger_entries.update_one(
                 {"_id": ObjectId(ledger_id)},
                 {"$set": {
@@ -1040,7 +1040,7 @@ class PaymentReconciliationAgent(BaseAgent):
 
     async def _run_daily_scan(self, context: Dict, steps: List) -> AgentResult:
         """Daily scan: process all groups with overdue payments."""
-        if not self.db:
+        if self.db is None:
             return AgentResult(
                 success=False, error="Database not available", steps_taken=steps
             )
@@ -1095,7 +1095,7 @@ class PaymentReconciliationAgent(BaseAgent):
 
     async def _run_weekly_report(self, context: Dict, steps: List) -> AgentResult:
         """Weekly report: health reports + nonpayer flagging for all active groups."""
-        if not self.db:
+        if self.db is None:
             return AgentResult(
                 success=False, error="Database not available", steps_taken=steps
             )
@@ -1268,7 +1268,7 @@ class PaymentReconciliationAgent(BaseAgent):
             )
 
         # Mark escalation on ledger entry
-        if self.db and ledger_id:
+        if self.db is not None and ledger_id:
             from bson import ObjectId
             update = {
                 f"{escalation_type}_escalated": True,
@@ -1443,7 +1443,7 @@ class PaymentReconciliationAgent(BaseAgent):
 
     async def _get_user_name(self, user_id: str) -> str:
         """Get a user's display name."""
-        if not self.db or not user_id:
+        if self.db is None or not user_id:
             return "Unknown"
         user = await self.db.users.find_one(
             {"user_id": user_id}, {"_id": 0, "name": 1}
@@ -1452,7 +1452,7 @@ class PaymentReconciliationAgent(BaseAgent):
 
     async def _get_group_admins(self, group_id: str) -> List[str]:
         """Get admin user IDs for a group."""
-        if not self.db or not group_id:
+        if self.db is None or not group_id:
             return []
         admins = await self.db.group_members.find(
             {"group_id": group_id, "role": "admin"},
@@ -1469,7 +1469,7 @@ class PaymentReconciliationAgent(BaseAgent):
         amount: float = 0,
     ):
         """Log a reminder for cooldown + daily cap tracking."""
-        if not self.db:
+        if self.db is None:
             return
         await self.db.payment_reminders_log.insert_one({
             "user_id": user_id,
@@ -1490,7 +1490,7 @@ class PaymentReconciliationAgent(BaseAgent):
         data: Dict = None,
     ):
         """Log a reconciliation event for audit trail."""
-        if not self.db:
+        if self.db is None:
             return
         event = {
             "event_type": event_type,

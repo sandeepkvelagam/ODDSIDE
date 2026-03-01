@@ -522,7 +522,7 @@ class HostPersonaAgent(BaseAgent):
         user_id = context.get("user_id")
 
         # Get outstanding ledger entries
-        if self.db:
+        if self.db is not None:
             query = {"status": {"$ne": "paid"}}
             if game_id:
                 query["game_id"] = game_id
@@ -625,7 +625,7 @@ class HostPersonaAgent(BaseAgent):
 
     async def _get_game(self, game_id: str) -> Optional[Dict]:
         """Get game data from database"""
-        if self.db and game_id:
+        if self.db is not None and game_id:
             return await self.db.game_nights.find_one(
                 {"game_id": game_id},
                 {"_id": 0}
@@ -634,7 +634,7 @@ class HostPersonaAgent(BaseAgent):
 
     async def _analyze_player(self, player_id: str, game_id: str) -> str:
         """Analyze player and generate recommendation"""
-        if not self.db:
+        if self.db is None:
             return "OK: Player analysis unavailable"
 
         # Check outstanding debts
@@ -663,7 +663,7 @@ class HostPersonaAgent(BaseAgent):
 
     async def _analyze_group_history(self, group_id: str) -> Dict:
         """Analyze group's game history for suggestions"""
-        if not self.db or not group_id:
+        if self.db is None or not group_id:
             return {
                 "buy_in_amount": 20,
                 "chips_per_buy_in": 20,

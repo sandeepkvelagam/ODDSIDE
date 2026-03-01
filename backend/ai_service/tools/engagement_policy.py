@@ -153,7 +153,7 @@ class EngagementPolicyTool(BaseTool):
         """
         Full policy check pipeline. Returns allowed/blocked with reasons.
         """
-        if not self.db or not recipient_id:
+        if self.db is None or not recipient_id:
             return ToolResult(success=False, error="Database or recipient_id not available")
 
         context = context or {}
@@ -347,7 +347,7 @@ class EngagementPolicyTool(BaseTool):
         category: str = None
     ) -> ToolResult:
         """Record that a user muted engagement notifications."""
-        if not self.db or not recipient_id:
+        if self.db is None or not recipient_id:
             return ToolResult(success=False, error="Database or recipient_id not available")
 
         try:
@@ -395,7 +395,7 @@ class EngagementPolicyTool(BaseTool):
         group_id: str = None
     ) -> ToolResult:
         """Get a user's engagement preferences."""
-        if not self.db or not recipient_id:
+        if self.db is None or not recipient_id:
             return ToolResult(success=False, error="Database or recipient_id not available")
 
         try:

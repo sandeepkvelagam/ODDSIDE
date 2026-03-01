@@ -94,7 +94,7 @@ class ProactiveScheduler:
 
     async def _check_game_suggestions(self):
         """Check all groups for proactive game suggestions."""
-        if not self.db:
+        if self.db is None:
             return
 
         # Get all groups with AI enabled
@@ -109,7 +109,7 @@ class ProactiveScheduler:
 
     async def _check_stale_polls(self):
         """Check all groups for stale polls that need re-proposal."""
-        if not self.db:
+        if self.db is None:
             return
 
         groups = await self._get_ai_enabled_groups()
@@ -132,7 +132,7 @@ class ProactiveScheduler:
 
     async def _check_rsvp_reminders(self):
         """Send RSVP reminders for upcoming games with pending responses."""
-        if not self.db:
+        if self.db is None:
             return
 
         # Find games happening in the next 24 hours with pending RSVPs
@@ -234,7 +234,7 @@ class ProactiveScheduler:
 
     async def _get_ai_enabled_groups(self):
         """Get all groups where AI is enabled."""
-        if not self.db:
+        if self.db is None:
             return []
 
         # Get all groups

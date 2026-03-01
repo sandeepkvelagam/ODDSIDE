@@ -219,7 +219,7 @@ class SmartSchedulerService:
             "days_since_last_game": None,
         }
 
-        if not self.db:
+        if self.db is None:
             return defaults
 
         # Get recent games (last 20) for pattern analysis

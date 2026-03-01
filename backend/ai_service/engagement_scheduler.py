@@ -59,7 +59,7 @@ class EngagementScheduler:
         logger.info("EngagementScheduler starting (job-queue mode)...")
 
         # Pick up any orphaned jobs from before restart
-        if self.db:
+        if self.db is not None:
             recovered = await self._recover_stale_jobs()
             if recovered > 0:
                 logger.info(f"Recovered {recovered} stale jobs from previous run")
@@ -114,7 +114,7 @@ class EngagementScheduler:
         Only targets groups/users that are close to needing a nudge,
         instead of sweeping all groups.
         """
-        if not self.db:
+        if self.db is None:
             return
 
         now = datetime.now(timezone.utc)
@@ -204,7 +204,7 @@ class EngagementScheduler:
 
     async def _enqueue_digests(self):
         """Enqueue weekly digest jobs for all enabled groups."""
-        if not self.db:
+        if self.db is None:
             return
 
         groups = await self._get_engagement_enabled_groups()
@@ -270,7 +270,7 @@ class EngagementScheduler:
 
     async def _process_jobs(self):
         """Process pending jobs from the queue, highest priority first."""
-        if not self.db:
+        if self.db is None:
             return
 
         agent = await self._get_engagement_agent()
@@ -351,7 +351,7 @@ class EngagementScheduler:
 
     async def _recover_stale_jobs(self) -> int:
         """Reset jobs stuck in 'processing' state from a previous crash."""
-        if not self.db:
+        if self.db is None:
             return 0
 
         result = await self.db.engagement_jobs.update_many(
@@ -400,7 +400,7 @@ class EngagementScheduler:
 
     async def _get_engagement_enabled_groups(self) -> List[Dict]:
         """Get all groups where engagement is enabled."""
-        if not self.db:
+        if self.db is None:
             return []
 
         groups = await self.db.groups.find(

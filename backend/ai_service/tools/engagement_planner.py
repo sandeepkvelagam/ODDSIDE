@@ -362,7 +362,7 @@ class EngagementPlannerTool(BaseTool):
 
         # Check group settings for amount visibility
         show_amounts = False
-        if self.db and group_id:
+        if self.db is not None and group_id:
             settings = await self.db.engagement_settings.find_one(
                 {"group_id": group_id}, {"_id": 0}
             )

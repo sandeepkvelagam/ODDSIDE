@@ -121,7 +121,7 @@ class EngagementScorerTool(BaseTool):
         - Consistency: regular play pattern (0-20 points)
         - Social: number of groups active in (0-20 points)
         """
-        if not self.db or not user_id:
+        if self.db is None or not user_id:
             return ToolResult(success=False, error="Database or user_id not available")
 
         try:
@@ -299,7 +299,7 @@ class EngagementScorerTool(BaseTool):
         - Participation: avg. player count per game (0-20 points)
         - Growth: new members in last 30 days (0-20 points)
         """
-        if not self.db or not group_id:
+        if self.db is None or not group_id:
             return ToolResult(success=False, error="Database or group_id not available")
 
         try:
@@ -479,7 +479,7 @@ class EngagementScorerTool(BaseTool):
         Find users who haven't played in the specified number of days.
         Optionally scoped to a specific group.
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -560,7 +560,7 @@ class EngagementScorerTool(BaseTool):
         """
         Find groups that haven't had a game in the specified number of days.
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -652,7 +652,7 @@ class EngagementScorerTool(BaseTool):
         - User: 5th, 10th, 25th, 50th, 100th game
         - Group: 10th, 25th, 50th, 100th game
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -725,7 +725,7 @@ class EngagementScorerTool(BaseTool):
         """
         Find the big winner(s) from a game for celebration nudges.
         """
-        if not self.db or not game_id:
+        if self.db is None or not game_id:
             return ToolResult(success=False, error="Database or game_id not available")
 
         try:
@@ -797,7 +797,7 @@ class EngagementScorerTool(BaseTool):
         Generate a comprehensive engagement report for a group or globally.
         Includes nudge effectiveness outcomes from engagement_events.
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:

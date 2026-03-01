@@ -315,7 +315,7 @@ class FeedbackAgent(BaseAgent):
         classification = classify_result.get("data", {})
 
         # Step 3: UPDATE — persist classification + set SLA
-        if self.db and feedback_id and classification:
+        if self.db is not None and feedback_id and classification:
             severity = classification.get("severity", "medium")
             sla_duration = SLA_DURATIONS.get(severity, timedelta(days=7))
             sla_due_at = (datetime.now(timezone.utc) + sla_duration).isoformat()
@@ -382,7 +382,7 @@ class FeedbackAgent(BaseAgent):
                 steps.append({"step": "auto_fix_verify", "result": auto_fix_result})
 
                 # Step 4c: LOG — update feedback with fix result
-                if self.db and feedback_id:
+                if self.db is not None and feedback_id:
                     fix_success = auto_fix_result.get("success", False)
                     fix_data = auto_fix_result.get("data", {})
                     new_status = "auto_fixed" if fix_success else "classified"
@@ -413,7 +413,7 @@ class FeedbackAgent(BaseAgent):
                     )
             else:
                 # Policy blocked the fix — log the denial
-                if self.db and feedback_id:
+                if self.db is not None and feedback_id:
                     await self.db.feedback.update_one(
                         {"feedback_id": feedback_id},
                         {"$push": {"events": {
@@ -1086,7 +1086,7 @@ class FeedbackAgent(BaseAgent):
 
     async def _batch_classify_feedback(self, context: Dict, steps: List) -> AgentResult:
         """Classify all unclassified feedback entries with policy-gated auto-fix."""
-        if not self.db:
+        if self.db is None:
             return AgentResult(
                 success=False,
                 error="Database not available",

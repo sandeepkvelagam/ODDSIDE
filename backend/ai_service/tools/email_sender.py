@@ -133,7 +133,7 @@ class EmailSenderTool(BaseTool):
                 }
 
                 # Store email record
-                if self.db:
+                if self.db is not None:
                     await self.db.email_logs.insert_one(email_record)
 
                 # Send email (or queue if scheduled)

@@ -137,7 +137,7 @@ class AutomationRunnerTool(BaseTool):
         Check if this (automation_id, event_id) pair has already been processed.
         Returns True if it's a duplicate (should skip).
         """
-        if not self.db or not event_id:
+        if self.db is None or not event_id:
             return False
 
         dedupe_key = f"{automation_id}:{event_id}"
@@ -202,7 +202,7 @@ class AutomationRunnerTool(BaseTool):
             )
 
         # Guard 2: Hot-loop detection
-        if self.db:
+        if self.db is not None:
             window_start = (
                 datetime.now(timezone.utc) - timedelta(minutes=HOT_LOOP_WINDOW_MINUTES)
             ).isoformat()
@@ -752,7 +752,7 @@ class AutomationRunnerTool(BaseTool):
 
         # Get email addresses
         emails = []
-        if self.db:
+        if self.db is not None:
             users = await self.db.users.find(
                 {"user_id": {"$in": recipients}},
                 {"_id": 0, "email": 1}
@@ -829,7 +829,7 @@ class AutomationRunnerTool(BaseTool):
         self, params: Dict, user_id: str, event_data: Dict
     ) -> Dict:
         """Auto-RSVP to a game."""
-        if not self.db:
+        if self.db is None:
             return {"success": False, "error": "Database not available"}
 
         game_id = event_data.get("game_id")
@@ -1120,7 +1120,7 @@ class AutomationRunnerTool(BaseTool):
 
     async def _increment_skip_count(self, automation_id: str):
         """Increment skip count and check for repeated-skip auto-disable."""
-        if not self.db:
+        if self.db is None:
             return
 
         await self.db.user_automations.update_one(
@@ -1149,7 +1149,7 @@ class AutomationRunnerTool(BaseTool):
         self, automation_id: str, reason: str, disable_type: str = "error"
     ):
         """Auto-disable an automation with reason and user notification."""
-        if not self.db:
+        if self.db is None:
             return
 
         now = datetime.now(timezone.utc).isoformat()
@@ -1209,7 +1209,7 @@ class AutomationRunnerTool(BaseTool):
         event_id: str = None,
     ):
         """Update automation run statistics."""
-        if not self.db:
+        if self.db is None:
             return
 
         update = {
@@ -1270,7 +1270,7 @@ class AutomationRunnerTool(BaseTool):
         engine_version: str = None,
     ):
         """Log an automation run with full traceability."""
-        if not self.db:
+        if self.db is None:
             return
 
         log_entry = {
@@ -1327,7 +1327,7 @@ class AutomationRunnerTool(BaseTool):
         automation_id = kwargs.get("automation_id")
         user_id = kwargs.get("user_id")
 
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         if automation_id and user_id:

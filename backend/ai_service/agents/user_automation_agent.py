@@ -717,7 +717,7 @@ class UserAutomationAgent(BaseAgent):
             )
 
         # Step 1: FIND matching automations
-        if not self.db:
+        if self.db is None:
             return AgentResult(
                 success=False,
                 error="Database not available",
@@ -994,7 +994,7 @@ class UserAutomationAgent(BaseAgent):
         Run all schedule-based automations that are due.
         Called by the scheduler/cron job.
         """
-        if not self.db:
+        if self.db is None:
             return AgentResult(
                 success=False,
                 error="Database not available",

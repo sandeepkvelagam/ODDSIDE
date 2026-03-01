@@ -144,7 +144,7 @@ class GameManagerTool(BaseTool):
             "players": []
         }
 
-        if self.db:
+        if self.db is not None:
             await self.db.game_nights.insert_one(game)
 
         return ToolResult(
@@ -170,7 +170,7 @@ class GameManagerTool(BaseTool):
             }
             invited.append(player_entry)
 
-            if self.db:
+            if self.db is not None:
                 await self.db.game_nights.update_one(
                     {"game_id": game_id},
                     {"$push": {"players": player_entry}}
@@ -190,7 +190,7 @@ class GameManagerTool(BaseTool):
                 error="game_id is required"
             )
 
-        if self.db:
+        if self.db is not None:
             game = await self.db.game_nights.find_one(
                 {"game_id": game_id},
                 {"_id": 0}
@@ -215,7 +215,7 @@ class GameManagerTool(BaseTool):
                 error="game_id is required"
             )
 
-        if self.db:
+        if self.db is not None:
             result = await self.db.game_nights.update_one(
                 {"game_id": game_id, "status": "scheduled"},
                 {
@@ -245,7 +245,7 @@ class GameManagerTool(BaseTool):
                 error="game_id is required"
             )
 
-        if self.db:
+        if self.db is not None:
             result = await self.db.game_nights.update_one(
                 {"game_id": game_id, "status": "active"},
                 {
@@ -275,7 +275,7 @@ class GameManagerTool(BaseTool):
                 error="game_id is required"
             )
 
-        if self.db:
+        if self.db is not None:
             game = await self.db.game_nights.find_one(
                 {"game_id": game_id},
                 {"_id": 0, "players": 1}
@@ -308,7 +308,7 @@ class GameManagerTool(BaseTool):
                 error="game_id is required"
             )
 
-        if self.db:
+        if self.db is not None:
             game = await self.db.game_nights.find_one(
                 {"game_id": game_id},
                 {"_id": 0}

@@ -406,7 +406,7 @@ class GamePlannerAgent(BaseAgent):
             "days_since_last_game": None,
         }
 
-        if not self.db:
+        if self.db is None:
             return defaults
 
         # Get last 10 games
@@ -454,7 +454,7 @@ class GamePlannerAgent(BaseAgent):
 
     async def _days_since_last_game(self, group_id: str) -> Optional[int]:
         """Get days since the last game in this group."""
-        if not self.db:
+        if self.db is None:
             return None
 
         last_game = await self.db.game_nights.find_one(
@@ -474,7 +474,7 @@ class GamePlannerAgent(BaseAgent):
 
     async def _has_upcoming_game(self, group_id: str) -> bool:
         """Check if there's already an upcoming game scheduled."""
-        if not self.db:
+        if self.db is None:
             return False
 
         count = await self.db.game_nights.count_documents({

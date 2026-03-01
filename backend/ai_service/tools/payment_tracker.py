@@ -119,7 +119,7 @@ class PaymentTrackerTool(BaseTool):
         Returns:
             ToolResult with list of outstanding payments
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -193,7 +193,7 @@ class PaymentTrackerTool(BaseTool):
         Returns:
             ToolResult with amounts owed and amounts owed to user
         """
-        if not self.db or not user_id:
+        if self.db is None or not user_id:
             return ToolResult(success=False, error="Database or user_id not available")
 
         try:
@@ -263,7 +263,7 @@ class PaymentTrackerTool(BaseTool):
         Returns:
             ToolResult with reminder status
         """
-        if not self.db or not ledger_id:
+        if self.db is None or not ledger_id:
             return ToolResult(success=False, error="Database or ledger_id not available")
 
         try:
@@ -344,7 +344,7 @@ class PaymentTrackerTool(BaseTool):
         Returns:
             ToolResult with count of reminders sent
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -388,7 +388,7 @@ class PaymentTrackerTool(BaseTool):
         Returns:
             ToolResult with escalation status
         """
-        if not self.db or not ledger_id:
+        if self.db is None or not ledger_id:
             return ToolResult(success=False, error="Database or ledger_id not available")
 
         try:
@@ -469,7 +469,7 @@ class PaymentTrackerTool(BaseTool):
         Returns:
             ToolResult with updated payment status
         """
-        if not self.db or not ledger_id:
+        if self.db is None or not ledger_id:
             return ToolResult(success=False, error="Database or ledger_id not available")
 
         try:
@@ -542,7 +542,7 @@ class PaymentTrackerTool(BaseTool):
         Returns:
             ToolResult with payment statistics
         """
-        if not self.db:
+        if self.db is None:
             return ToolResult(success=False, error="Database not available")
 
         try:
@@ -620,7 +620,7 @@ class PaymentTrackerTool(BaseTool):
         Returns:
             ToolResult with scheduled reminder info
         """
-        if not self.db or not game_id:
+        if self.db is None or not game_id:
             return ToolResult(success=False, error="Database or game_id not available")
 
         try:

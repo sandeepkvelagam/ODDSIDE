@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "../api/client";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 import { useTheme } from "../context/ThemeContext";
@@ -37,7 +38,10 @@ type Message = {
   error?: boolean;
   source?: string;
   navigation?: { screen: string; params?: Record<string, any> };
+  followUps?: string[];
 };
+
+const CHAT_STORAGE_KEY = "kvitt_assistant_chat";
 
 const SUGGESTIONS = [
   "How do I create a group?",
@@ -129,7 +133,6 @@ function TypingText({ text, style, onComplete }: { text: string; style?: any; on
       setDisplayedLength((prev) => {
         if (prev >= text.length) {
           clearInterval(interval);
-          onComplete?.();
           return prev;
         }
         return prev + 1;
@@ -138,6 +141,13 @@ function TypingText({ text, style, onComplete }: { text: string; style?: any; on
 
     return () => clearInterval(interval);
   }, [text]);
+
+  // Fire onComplete AFTER render, when typing finishes
+  useEffect(() => {
+    if (isComplete) {
+      onComplete?.();
+    }
+  }, [isComplete]);
 
   useEffect(() => {
     const blink = Animated.loop(
@@ -230,6 +240,30 @@ export function AIAssistantScreen() {
     }).catch(() => {});
   }, []);
 
+  // Restore chat history from storage
+  useEffect(() => {
+    AsyncStorage.getItem(CHAT_STORAGE_KEY).then((stored) => {
+      if (!stored) return;
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 1) {
+          setMessages(parsed);
+          setHasStarted(true);
+          setWelcomeTyped(true);
+        }
+      } catch {
+        // ignore corrupt data
+      }
+    });
+  }, []);
+
+  // Persist chat history (filter out error messages)
+  useEffect(() => {
+    if (messages.length <= 1) return;
+    const safe = messages.filter((m) => !m.error);
+    AsyncStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(safe));
+  }, [messages]);
+
   useEffect(() => {
     if (chatVisible) {
       scrollRef.current?.scrollToEnd({ animated: true });
@@ -256,11 +290,24 @@ export function AIAssistantScreen() {
     }
 
     try {
+      const conversationHistory = messages
+        .filter((m) => !m.error)
+        .slice(-20)
+        .map((m) => ({ role: m.role, content: m.content }));
+
       const response = await api.post("/assistant/ask", {
         message: text,
         context: { current_page: "mobile_app" },
+        conversation_history: conversationHistory,
       });
       const data = response.data;
+      if (!data?.response) throw new Error("Invalid assistant response");
+
+      // Thinking delay only for successful fast responses
+      if (data.source === "quick_answer" || data.source === "fast_answer") {
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+
       setMessages((prev) => [
         ...prev,
         {
@@ -268,6 +315,7 @@ export function AIAssistantScreen() {
           content: data.response,
           source: data.source,
           navigation: data.navigation,
+          followUps: data.follow_ups,
         },
       ]);
       if (data.requests_remaining !== undefined) {
@@ -297,6 +345,13 @@ export function AIAssistantScreen() {
 
   const handleNavigation = (nav: { screen: string; params?: Record<string, any> }) => {
     navigation.navigate(nav.screen as any, nav.params as any);
+  };
+
+  const clearChat = async () => {
+    await AsyncStorage.removeItem(CHAT_STORAGE_KEY);
+    setMessages([{ role: "assistant", content: WELCOME_MESSAGE }]);
+    setHasStarted(false);
+    setWelcomeTyped(false);
   };
 
   return (
@@ -331,6 +386,17 @@ export function AIAssistantScreen() {
         </View>
 
         <View style={styles.headerActions}>
+          {messages.length > 1 && (
+            <TouchableOpacity
+              style={[styles.toggleBtn, { backgroundColor: lc.glassBg, borderColor: lc.glassBorder }]}
+              onPress={clearChat}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="refresh" size={18} color={lc.textSecondary} />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={[styles.toggleBtn, { backgroundColor: lc.glassBg, borderColor: lc.glassBorder }]}
             onPress={toggleChatVisibility}
@@ -513,12 +579,12 @@ export function AIAssistantScreen() {
                             onComplete={() => setWelcomeTyped(true)}
                           />
                         ) : (
-                          <Text style={[styles.messageText, msg.role === "user" ? styles.messageTextUser : { color: lc.textPrimary }]}>
+                          <Text style={[styles.messageText, { color: msg.role === "user" ? (isDark ? "#ffffff" : lc.textPrimary) : lc.textPrimary }]}>
                             {msg.content}
                           </Text>
                         )}
-                        {msg.source === "quick_answer" && (
-                          <Text style={[styles.quickAnswerTag, { color: lc.textMuted }]}>⚡ Quick answer</Text>
+                        {(msg.source === "quick_answer" || msg.source === "fast_answer") && (
+                          <Text style={[styles.quickAnswerTag, { color: lc.textMuted }]}>⚡ Instant</Text>
                         )}
                       </View>
                       {msg.role === "user" && (
@@ -541,6 +607,22 @@ export function AIAssistantScreen() {
                         </Text>
                       </TouchableOpacity>
                     )}
+
+                    {/* Follow-up chips — only on last assistant message */}
+                    {i === messages.length - 1 && msg.role === "assistant" && !msg.error && msg.followUps && msg.followUps.length > 0 && !loading && (
+                      <View style={styles.followUpContainer}>
+                        {msg.followUps.map((f, j) => (
+                          <TouchableOpacity
+                            key={`${j}-${f}`}
+                            style={[styles.suggestionChip, { backgroundColor: lc.glassBg, borderColor: lc.glassBorder }]}
+                            onPress={() => sendMessage(f)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.suggestionText, { color: lc.textPrimary }]}>{f}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 ))}
 
@@ -556,10 +638,15 @@ export function AIAssistantScreen() {
                 )}
               </ScrollView>
 
-              {/* Suggestions */}
-              {messages.length <= 2 && (
+              {/* Suggestions — show when no dynamic follow-ups available */}
+              {!loading && (() => {
+                const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant" && !m.error);
+                return !lastAssistant?.followUps?.length;
+              })() && (
                 <View style={[styles.suggestionsContainer, { borderTopColor: lc.glassBorder }]}>
-                  <Text style={[styles.suggestionsLabel, { color: lc.textMuted }]}>Quick questions:</Text>
+                  <Text style={[styles.suggestionsLabel, { color: lc.textMuted }]}>
+                    {messages.length <= 2 ? "Quick questions:" : "Need help with:"}
+                  </Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -816,7 +903,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.bodySmall,
     lineHeight: 20,
   },
-  messageTextUser: { color: "#ffffff" },
+  // messageTextUser removed — now theme-aware inline
   quickAnswerTag: {
     fontSize: 9,
     marginTop: 4,
@@ -835,6 +922,14 @@ const styles = StyleSheet.create({
   navButtonText: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  followUpContainer: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: SPACING.sm,
+    marginLeft: 36,
+    marginTop: SPACING.sm,
+    paddingRight: SPACING.container,
   },
 
   /* ── Suggestions ── */

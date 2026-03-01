@@ -83,7 +83,7 @@ class ClaudeClient:
 
         model = model or ROUTING_MODEL
 
-        system_prompt = """You are the ODDSIDE poker game assistant orchestrator.
+        system_prompt = """You are the Kvitt poker game assistant orchestrator.
 
 Your job is to understand the user's request and call the right tool or agent to handle it.
 

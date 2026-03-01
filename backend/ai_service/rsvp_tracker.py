@@ -302,7 +302,7 @@ class RSVPTrackerService:
             from websocket_manager import emit_group_message
             await emit_group_message(group_id, {
                 **msg_doc,
-                "user": {"user_id": "ai_assistant", "name": "ODDSIDE", "picture": None},
+                "user": {"user_id": "ai_assistant", "name": "Kvitt", "picture": None},
                 "poll": new_poll
             })
         except Exception as e:

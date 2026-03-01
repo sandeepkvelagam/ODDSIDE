@@ -17,7 +17,7 @@ class ChatWatcherService:
     Watches group messages and decides when the AI should respond.
 
     Decision rules:
-    - Direct mention (@ODDSIDE) → ALWAYS respond
+    - Direct mention (@Kvitt / @ODDSIDE) → ALWAYS respond
     - Scheduling/planning discussion → respond with suggestions
     - Availability mentions → start tracking for a poll
     - Payment/settlement discussion → offer to check status
@@ -74,9 +74,9 @@ class ChatWatcherService:
         # Check throttle (skip for high-priority triggers)
         is_throttled = self._is_throttled(group_id)
 
-        # Check for AI settings (host may have disabled AI)
-        ai_enabled = await self._check_ai_enabled(group_id)
-        if not ai_enabled:
+        # Fetch full AI settings for this group
+        settings = await self._get_ai_settings(group_id)
+        if not settings.get("ai_enabled", True):
             return {"respond": False, "reason": "AI disabled for this group", "priority": "none"}
 
         content_lower = content.lower()
@@ -91,8 +91,19 @@ class ChatWatcherService:
                 "response_type": "direct_response"
             }
 
-        # HIGH PRIORITY: Scheduling/planning discussion
-        if self._is_scheduling_talk(content_lower):
+        # HIGH PRIORITY: Summary request (if chat_summaries enabled)
+        if settings.get("chat_summaries", True) and self._is_summary_request(content_lower):
+            if not is_throttled:
+                self._record_response(group_id)
+                return {
+                    "respond": True,
+                    "reason": "Summary request",
+                    "priority": "high",
+                    "response_type": "summary"
+                }
+
+        # HIGH PRIORITY: Scheduling/planning discussion (if smart_scheduling enabled)
+        if settings.get("smart_scheduling", True) and self._is_scheduling_talk(content_lower):
             if not is_throttled:
                 self._record_response(group_id)
                 return {
@@ -141,8 +152,21 @@ class ChatWatcherService:
 
     def _is_direct_mention(self, content: str) -> bool:
         """Check if the message directly mentions the AI."""
-        triggers = ["@oddside", "hey oddside", "oddside,", "oddside!", "oddside?", "yo oddside"]
+        triggers = [
+            "@kvitt", "hey kvitt", "kvitt,", "kvitt!", "kvitt?", "yo kvitt",
+            "@oddside", "hey oddside", "oddside,", "oddside!", "oddside?", "yo oddside",
+        ]
         return any(trigger in content for trigger in triggers)
+
+    def _is_summary_request(self, content: str) -> bool:
+        """Check if the message is requesting a conversation summary."""
+        keywords = [
+            "summarize", "summary", "recap", "what did we decide",
+            "what was decided", "kvitt summarize", "kvitt recap",
+            "tldr", "tl;dr", "catch me up", "what'd i miss",
+            "what did i miss", "key points"
+        ]
+        return any(kw in content for kw in keywords)
 
     def _is_scheduling_talk(self, content: str) -> bool:
         """Check if the message is about scheduling a game."""
@@ -197,18 +221,30 @@ class ChatWatcherService:
         self._last_response_time[group_id] = datetime.now(timezone.utc)
         self._message_count_since_ai[group_id] = 0
 
-    async def _check_ai_enabled(self, group_id: str) -> bool:
-        """Check if AI is enabled for this group (host setting)."""
+    async def _get_ai_settings(self, group_id: str) -> Dict:
+        """Get full AI settings for this group. Returns defaults if not set."""
+        defaults = {
+            "ai_enabled": True,
+            "smart_scheduling": True,
+            "auto_poll_suggestions": True,
+            "chat_summaries": True,
+            "safety_filters": True,
+            "respond_to_chat": True,
+            "auto_suggest_games": True,
+            "weather_alerts": True,
+            "holiday_alerts": True,
+        }
         if self.db is None:
-            return True  # Default to enabled if no DB
+            return defaults
 
         settings = await self.db.group_ai_settings.find_one(
             {"group_id": group_id},
-            {"_id": 0, "ai_enabled": 1}
+            {"_id": 0}
         )
         if settings is None:
-            return True  # Default to enabled
-        return settings.get("ai_enabled", True)
+            return defaults
+        # Merge with defaults so missing fields use defaults
+        return {**defaults, **settings}
 
     async def get_message_context(self, group_id: str, limit: int = 20) -> Dict:
         """
@@ -244,7 +280,7 @@ class ChatWatcherService:
 
         for msg in messages:
             if msg["user_id"] == "ai_assistant":
-                msg["user"] = {"user_id": "ai_assistant", "name": "ODDSIDE"}
+                msg["user"] = {"user_id": "ai_assistant", "name": "Kvitt"}
             else:
                 msg["user"] = users_info.get(msg["user_id"], {"name": "Unknown"})
 

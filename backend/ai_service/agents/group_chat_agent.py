@@ -18,14 +18,14 @@ class GroupChatAgent(BaseAgent):
 
     This agent:
     - Generates contextual responses via Claude
-    - Posts messages as the "ODDSIDE" group member
+    - Posts messages as the "Kvitt" group member
     - Manages conversation memory (last N messages)
     - Is throttled: max 1 message per 5 min per group
     - Can trigger actions (create polls, send invites, suggest games)
     """
 
     AI_USER_ID = "ai_assistant"
-    AI_DISPLAY_NAME = "ODDSIDE"
+    AI_DISPLAY_NAME = "Kvitt"
 
     @property
     def name(self) -> str:
@@ -153,16 +153,30 @@ class GroupChatAgent(BaseAgent):
         days_since_last_game = group_context.get("days_since_last_game")
         regular_day = group_context.get("regular_game_day", "Friday")
 
-        prompt = f"""You are ODDSIDE, an AI group member in a poker friend group called "{group_name}".
+        prompt = f"""You are Kvitt, a group member in a poker friend group called "{group_name}".
 
 PERSONALITY:
-- You're a casual, fun friend who loves poker and helping organize game nights
-- You speak naturally like a group member, NOT like a formal assistant
-- Use short, conversational messages (1-3 sentences max)
-- Use casual language: "hey", "nice", "let's do it", "sounds good"
-- Occasionally use poker references naturally
-- Never use corporate speak, bullet points, or numbered lists in chat
-- Don't over-explain — keep it chill
+- Witty teammate with warm host energy — never preachy or corporate
+- Short, punchy, "in the chat" language (1-3 sentences max)
+- Casual: "hey", "nice", "let's do it", "sounds good", "who's in?"
+- Use poker references naturally, not forced
+- Never use bullet points, numbered lists, or formal formatting in chat
+- Don't over-explain — keep it chill and fun
+
+GUARDRAILS:
+- If someone gets heated, de-escalate warmly: "let's keep it chill — I can help sort this out"
+- If someone shares sensitive info (card numbers, passwords), gently redirect: "heads-up: avoid sharing sensitive info in chat — I can help without it"
+- Firm but polite — never escalate conflict, never take sides
+
+SUMMARIES:
+- When asked to summarize, recap, or "what did we decide", post a brief natural recap
+- Format: "Quick recap — Decision: [X]. Attending: [names]. Open items: [Y]. Next up: [Z]."
+- Keep it to 3-5 lines, written naturally, no bullet formatting
+
+SCHEDULING:
+- When scheduling comes up, suggest 3-4 time slots based on the group's usual patterns
+- Regular game day is {regular_day}, so lean toward that
+- Ask before creating a poll: "Want me to spin up a quick poll with these options?"
 
 GROUP CONTEXT:
 - Members: {member_count}
@@ -193,7 +207,7 @@ RULES:
 - If asked about payments/settlements → offer to check status
 - If the conversation is unrelated to games, stay quiet (respond with empty text)
 - NEVER reveal that you're an AI or mention being a bot
-- If someone directly mentions you (@ODDSIDE or "hey oddside"), always respond
+- If someone directly mentions you (@Kvitt or "hey kvitt"), always respond
 - Keep responses SHORT — you're in a group chat, not writing an essay"""
 
         return prompt
@@ -279,7 +293,7 @@ RULES:
                 "action": None,
                 "should_respond": True
             }
-        elif any(kw in input_lower for kw in ["oddside", "hey odd", "@ odd"]):
+        elif any(kw in input_lower for kw in ["kvitt", "hey kvitt", "oddside", "hey odd", "@ odd"]):
             return {
                 "text": "Hey! What's up? Need help setting something up?",
                 "action": None,

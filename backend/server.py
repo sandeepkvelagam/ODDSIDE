@@ -305,6 +305,10 @@ class GroupAISettings(BaseModel):
     respond_to_chat: bool = True  # Respond in group chat
     weather_alerts: bool = True  # Mention weather-based game opportunities
     holiday_alerts: bool = True  # Mention holiday-based game opportunities
+    smart_scheduling: bool = True  # Detect availability talk, offer time suggestions & polls
+    auto_poll_suggestions: bool = True  # When group debates dates, Kvitt recommends a poll
+    chat_summaries: bool = True  # Kvitt posts brief recaps after busy threads
+    safety_filters: bool = True  # Block offensive content, de-escalate conflicts
     max_messages_per_hour: int = 5  # Rate limit for AI messages
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None  # user_id of admin who changed settings
@@ -471,6 +475,10 @@ class GroupAISettingsUpdate(BaseModel):
     respond_to_chat: Optional[bool] = None
     weather_alerts: Optional[bool] = None
     holiday_alerts: Optional[bool] = None
+    smart_scheduling: Optional[bool] = None
+    auto_poll_suggestions: Optional[bool] = None
+    chat_summaries: Optional[bool] = None
+    safety_filters: Optional[bool] = None
     max_messages_per_hour: Optional[int] = None
 
 class PollCreate(BaseModel):
@@ -4038,7 +4046,7 @@ async def get_group_messages(
     # Attach user info
     for msg in messages:
         if msg["user_id"] == "ai_assistant":
-            msg["user"] = {"user_id": "ai_assistant", "name": "ODDSIDE", "picture": None}
+            msg["user"] = {"user_id": "ai_assistant", "name": "Kvitt", "picture": None}
         else:
             msg["user"] = users_info.get(msg["user_id"])
 
@@ -4619,7 +4627,7 @@ async def _resolve_poll(group_id: str, poll_id: str) -> Dict:
 
     await emit_group_message(group_id, {
         **msg_dict,
-        "user": {"user_id": "ai_assistant", "name": "ODDSIDE", "picture": None},
+        "user": {"user_id": "ai_assistant", "name": "Kvitt", "picture": None},
         "poll_result": {"winning_option": winning_id, "winning_label": winning_label, "votes": vote_count}
     })
 

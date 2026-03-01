@@ -21,6 +21,7 @@ import { PrivacyScreen } from "../screens/PrivacyScreen";
 import { BillingScreen } from "../screens/BillingScreen";
 import { LanguageScreen } from "../screens/LanguageScreen";
 import { AIAssistantScreen } from "../screens/AIAssistantScreen";
+import { GroupChatScreen } from "../screens/GroupChatScreen";
 import { SettlementScreen } from "../screens/SettlementScreen";
 import { PokerAIScreen } from "../screens/PokerAIScreen";
 import { AIToolkitScreen } from "../screens/AIToolkitScreen";
@@ -39,6 +40,7 @@ export type RootStackParamList = {
   Chats: undefined;
   PendingRequests: undefined;
   GroupHub: { groupId: string; groupName?: string };
+  GroupChat: { groupId: string; groupName?: string };
   GameNight: { gameId: string };
   Settlement: { gameId: string };
   PokerAI: undefined;
@@ -147,6 +149,13 @@ function handleNotificationDeepLink(data: Record<string, any>) {
       navigationRef.navigate("Automations");
       break;
 
+    case "group_message":
+    case "group_chat":
+      if (data.group_id) {
+        navigationRef.navigate("GroupChat", { groupId: data.group_id });
+      }
+      break;
+
     default:
       // Fallback: go to Notifications inbox
       navigationRef.navigate("Notifications");
@@ -238,6 +247,7 @@ export default function RootNavigator() {
               <Stack.Screen name="Groups" component={GroupsScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Chats" component={ChatsScreen} options={{ headerShown: false }} />
               <Stack.Screen name="GroupHub" component={GroupHubScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="GroupChat" component={GroupChatScreen} options={{ headerShown: false }} />
               <Stack.Screen name="GameNight" component={GameNightScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Settlement" component={SettlementScreen} options={{ headerShown: false }} />
               <Stack.Screen name="PokerAI" component={PokerAIScreen} options={{ headerShown: false }} />

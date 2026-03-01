@@ -436,6 +436,18 @@ export function GroupHubScreen() {
           <Text style={styles.fabLabel}>AI Chat</Text>
         </TouchableOpacity>
 
+        {/* Group Chat Button - Labeled */}
+        <TouchableOpacity
+          style={[styles.labeledFab, { backgroundColor: lc.moonstone }]}
+          onPress={() => navigation.navigate("GroupChat", { groupId, groupName: group?.name })}
+          activeOpacity={0.8}
+        >
+          <View style={styles.fabIconContainer}>
+            <Ionicons name="chatbubbles" size={22} color="#fff" />
+          </View>
+          <Text style={styles.fabLabel}>Chat</Text>
+        </TouchableOpacity>
+
         {/* Start Game Button - Labeled */}
         <TouchableOpacity
           style={[styles.labeledFab, styles.primaryFab, { backgroundColor: lc.trustBlue }]}
@@ -916,6 +928,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 16,
+    gap: 10,
     backgroundColor: "transparent",
   },
   labeledFab: {

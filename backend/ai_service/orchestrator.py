@@ -284,6 +284,9 @@ class AIOrchestrator:
         """
         tools = self._build_tool_schemas()
 
+        # Extract conversation history before passing context to Claude
+        conversation_history = context.pop("conversation_history", [])
+
         # Inject user_id into context for Claude
         enriched_context = {**context}
         if user_id:
@@ -292,7 +295,8 @@ class AIOrchestrator:
         routing_result = await self.llm_client.route_with_tools(
             user_input=user_input,
             context=enriched_context,
-            tools=tools
+            tools=tools,
+            conversation_history=conversation_history
         )
 
         # If Claude couldn't route (error/unavailable), fall back

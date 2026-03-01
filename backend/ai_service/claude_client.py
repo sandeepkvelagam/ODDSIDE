@@ -58,7 +58,8 @@ class ClaudeClient:
         user_input: str,
         context: Dict,
         tools: List[Dict],
-        model: str = None
+        model: str = None,
+        conversation_history: List[Dict] = None
     ) -> Dict:
         """
         Use Claude's tool-use API to intelligently route a request.
@@ -71,6 +72,7 @@ class ClaudeClient:
             context: Additional context (game_id, group_id, user_id, etc.)
             tools: List of Anthropic tool schemas (from tools + agents)
             model: Override model (defaults to ROUTING_MODEL for speed)
+            conversation_history: Prior conversation messages [{role, content}]
 
         Returns:
             Dict with:
@@ -83,12 +85,18 @@ class ClaudeClient:
 
         model = model or ROUTING_MODEL
 
-        system_prompt = """You are the Kvitt poker game assistant orchestrator.
+        system_prompt = """You are the Kvitt poker game assistant. You are conversational and helpful.
 
-Your job is to understand the user's request and call the right tool or agent to handle it.
+Your job is to understand the user's request and either answer directly or call the right tool/agent.
+
+IMPORTANT - USER DATA:
+The user's real data (groups, games, profile, settlements) is provided in the Context under "user_data".
+When users ask about their own data, use this information to give accurate, personalized answers.
+Do NOT say you don't have their data — you do.
 
 RULES:
-- Always call a tool if the request matches one. Do NOT respond with text if a tool fits.
+- If the user asks about their own groups, games, stats, or settlements and the data is in user_data, respond with helpful text using their actual data.
+- Always call a tool if the request requires an ACTION (creating, scheduling, sending, etc.). Do NOT respond with text if a tool fits.
 - If the request is about game creation, scheduling, or invites, use agent_game_setup.
 - If the request is about notifications, reminders, or alerts, use agent_notification.
 - If the request is about reports, stats, leaderboards, or analytics, use agent_analytics.
@@ -101,15 +109,45 @@ RULES:
 - If the request is about engagement, inactive users/groups, nudges, milestones, or re-engagement, use agent_engagement.
 - For general questions or help, respond with helpful text (don't call a tool).
 - Pass through all context parameters (game_id, group_id, user_id, etc.) from the context to the tool.
-- Set user_input to a clean version of what the user asked."""
+- Set user_input to a clean version of what the user asked.
 
-        # Build the user message with context
+CONVERSATION STYLE:
+- Be concise, friendly, and conversational. Keep answers under 150 words unless more detail is needed.
+- Reference the conversation history when relevant (the user may say "tell me more" or refer back).
+
+FOLLOW-UP SUGGESTIONS:
+When responding with text (no tool call), always end your response with contextual follow-up suggestions in this exact format:
+
+---FOLLOW_UPS---
+["Suggestion 1?", "Suggestion 2?", "Suggestion 3?"]
+---END_FOLLOW_UPS---
+
+Make follow-ups relevant to what was just discussed and varied. Examples:
+"Want to see your game stats?", "Should I plan a game?", "Check who owes you?"
+"""
+
+        # Build messages array with conversation history
+        messages = []
+
+        if conversation_history:
+            for msg in conversation_history:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
+
+        # Add the current user message with context
         user_message = f"User request: {user_input}"
         if context:
-            # Filter out None values for cleaner context
-            ctx_display = {k: v for k, v in context.items() if v is not None}
+            # Filter out None values and conversation_history for cleaner context
+            ctx_display = {k: v for k, v in context.items() if v is not None and k != "conversation_history"}
             if ctx_display:
                 user_message += f"\n\nContext: {json.dumps(ctx_display, default=str)}"
+
+        messages.append({"role": "user", "content": user_message})
+
+        # Ensure valid message alternation for Claude API
+        messages = self._sanitize_message_history(messages)
 
         try:
             response = await self.async_client.messages.create(
@@ -117,7 +155,7 @@ RULES:
                 max_tokens=1024,
                 system=system_prompt,
                 tools=tools,
-                messages=[{"role": "user", "content": user_message}]
+                messages=messages
             )
 
             tool_calls = []
@@ -142,6 +180,28 @@ RULES:
         except Exception as e:
             logger.error(f"Claude tool-use routing error: {e}")
             return {"tool_calls": [], "text_response": None, "stop_reason": "error", "error": str(e)}
+
+    def _sanitize_message_history(self, messages: List[Dict]) -> List[Dict]:
+        """
+        Ensure messages alternate between user and assistant roles.
+        The Claude API requires strict alternation.
+        """
+        if not messages:
+            return [{"role": "user", "content": "Hello"}]
+
+        sanitized = [messages[0]]
+        for msg in messages[1:]:
+            if msg["role"] == sanitized[-1]["role"]:
+                # Merge consecutive same-role messages
+                sanitized[-1]["content"] += "\n" + msg["content"]
+            else:
+                sanitized.append(msg)
+
+        # Claude requires messages start with "user"
+        if sanitized[0]["role"] != "user":
+            sanitized.insert(0, {"role": "user", "content": "(continuing conversation)"})
+
+        return sanitized
 
     async def classify_intent(self, user_input: str, context: Dict = None) -> Dict:
         """

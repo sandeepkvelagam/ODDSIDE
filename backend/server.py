@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import json
 import logging
 import asyncio
 from pathlib import Path as FilePath
@@ -4982,6 +4983,7 @@ def parse_voice_command(text: str) -> Optional[Dict[str, Any]]:
 class AskAssistantRequest(BaseModel):
     message: str
     context: Optional[Dict[str, Any]] = None
+    conversation_history: Optional[List[Dict[str, str]]] = None
 
 class PokerAnalyzeRequest(BaseModel):
     your_hand: List[str]  # ["A of spades", "K of spades"]
@@ -5068,6 +5070,78 @@ def validate_ai_input(message: str) -> str | None:
         return "Message too long. Please keep it under 1000 characters."
     return None
 
+# --- AI Assistant: Follow-up Extraction ---
+
+def extract_follow_ups(text: str) -> tuple:
+    """Extract follow-up suggestions from LLM response text.
+    Returns (cleaned_text, follow_ups_list)."""
+    import re as _re
+    match = _re.search(r'---FOLLOW_UPS---\s*(\[.*?\])\s*---END_FOLLOW_UPS---', text, _re.DOTALL)
+    if match:
+        try:
+            follow_ups = json.loads(match.group(1))
+            cleaned = text[:match.start()].rstrip()
+            return cleaned, follow_ups[:3]
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return text, []
+
+
+async def fetch_user_context_summary(database, user_id: str) -> Dict:
+    """Fetch lightweight user data summary for LLM context (Tier 2 calls only)."""
+    ctx = {}
+    try:
+        # Profile
+        user_doc = await database.users.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "name": 1, "level": 1, "total_games": 1, "total_profit": 1, "badges": 1}
+        )
+        if user_doc:
+            ctx["profile"] = {
+                "name": user_doc.get("name", "Unknown"),
+                "level": user_doc.get("level", "Rookie"),
+                "total_games": user_doc.get("total_games", 0),
+                "total_profit": user_doc.get("total_profit", 0.0),
+                "badges_count": len(user_doc.get("badges", [])),
+            }
+
+        # Groups
+        memberships = await database.group_members.find(
+            {"user_id": user_id}, {"_id": 0, "group_id": 1, "role": 1}
+        ).to_list(50)
+        group_ids = [m["group_id"] for m in memberships]
+        if group_ids:
+            groups = await database.groups.find(
+                {"group_id": {"$in": group_ids}}, {"_id": 0, "group_id": 1, "name": 1}
+            ).to_list(50)
+            ctx["groups"] = [
+                {"name": g.get("name", "Unnamed"), "role": next((m.get("role", "member") for m in memberships if m["group_id"] == g["group_id"]), "member")}
+                for g in groups
+            ]
+
+        # Active games count
+        if group_ids:
+            active_count = await database.game_nights.count_documents(
+                {"group_id": {"$in": group_ids}, "status": "active"}
+            )
+            ctx["active_games_count"] = active_count
+
+        # Pending settlements
+        owed_to = await database.ledger.find(
+            {"to_user_id": user_id, "status": {"$ne": "paid"}}, {"_id": 0, "amount": 1}
+        ).to_list(50)
+        owes = await database.ledger.find(
+            {"from_user_id": user_id, "status": {"$ne": "paid"}}, {"_id": 0, "amount": 1}
+        ).to_list(50)
+        ctx["settlements"] = {
+            "owed_to_you": round(sum(e.get("amount", 0) for e in owed_to), 2),
+            "you_owe": round(sum(e.get("amount", 0) for e in owes), 2),
+        }
+    except Exception as e:
+        logger.warning(f"Failed to fetch user context for assistant: {e}")
+    return ctx
+
+
 # --- AI Assistant: Endpoints ---
 
 @api_router.get("/assistant/usage")
@@ -5084,7 +5158,7 @@ async def get_assistant_usage(user: User = Depends(get_current_user)):
 
 @api_router.post("/assistant/ask")
 async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_current_user)):
-    """Ask the AI assistant a question (BETA - powered by orchestrator)."""
+    """Ask the AI assistant a question (BETA - powered by tiered Kvitt Brain)."""
     from ai_assistant import get_quick_answer
 
     # Step 1: Validate input
@@ -5092,8 +5166,73 @@ async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_curr
     if validation_error:
         return {"response": validation_error, "source": "guardrail", "requests_remaining": None}
 
-    # Step 2: Check rate limit
+    # Step 2: Check rate limit (checked early, but Tier 0 won't consume a request)
     daily_limit, is_premium = await get_user_ai_limit(user.user_id)
+
+    # Step 3: Cap conversation history
+    history = (data.conversation_history or [])[-20:]
+
+    # Step 4: Quick answer fast path (no API call needed)
+    quick = get_quick_answer(data.message)
+    if quick:
+        remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
+        resp = {
+            "response": quick["text"],
+            "source": "quick_answer",
+            "requests_remaining": remaining,
+        }
+        if quick.get("follow_ups"):
+            resp["follow_ups"] = quick["follow_ups"]
+        if quick.get("navigation"):
+            resp["navigation"] = quick["navigation"]
+        return resp
+
+    # Step 5: IntentRouter — local classification (no LLM)
+    try:
+        from ai_service.intent_router import IntentRouter
+        from ai_service.fast_answer_engine import FastAnswerEngine
+
+        router = IntentRouter()
+        intent_result = router.classify(data.message, context=data.context, history=history)
+
+        # Step 6: Tier 0 — Fast answer from DB (free, no rate limit consumed)
+        if intent_result.confidence >= 0.75 and not intent_result.requires_llm:
+            engine = FastAnswerEngine(db=db)
+            answer = await engine.answer(intent_result, user_id=user.user_id)
+            remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
+
+            # Detect navigation intent
+            navigation = answer.navigation or detect_navigation(data.message, answer.text)
+
+            resp = {
+                "response": answer.text,
+                "source": "fast_answer",
+                "follow_ups": answer.follow_ups,
+                "requests_remaining": remaining,
+            }
+            if navigation:
+                resp["navigation"] = navigation
+
+            # Log for analytics (non-blocking)
+            try:
+                await db.assistant_events.insert_one({
+                    "user_id": user.user_id,
+                    "message": data.message,
+                    "intent": intent_result.intent,
+                    "confidence": intent_result.confidence,
+                    "tier": "fast_answer",
+                    "follow_ups_shown": answer.follow_ups,
+                    "timestamp": datetime.now(timezone.utc),
+                })
+            except Exception:
+                pass
+
+            return resp
+    except Exception as e:
+        logger.warning(f"IntentRouter/FastAnswer error: {e}")
+        # Fall through to Tier 2
+
+    # Step 7: Tier 2 — Route through orchestrator (consumes rate limit)
     allowed = await check_ai_rate_limit(user.user_id, daily_limit)
     if not allowed:
         raise HTTPException(
@@ -5107,19 +5246,17 @@ async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_curr
             }
         )
 
-    # Step 3: Quick answer fast path (no API call needed)
-    quick = get_quick_answer(data.message)
-    if quick:
-        remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
-        return {"response": quick, "source": "quick_answer", "requests_remaining": remaining}
-
-    # Step 4: Route through orchestrator
     try:
         orchestrator = get_orchestrator()
         if orchestrator:
             context = data.context or {}
             context["user_id"] = user.user_id
             context["is_beta"] = True
+            context["conversation_history"] = history
+
+            # Fetch user data for LLM context
+            user_data = await fetch_user_context_summary(db, user.user_id)
+            context["user_data"] = user_data
 
             result = await orchestrator.process(
                 user_input=data.message,
@@ -5131,6 +5268,9 @@ async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_curr
             if isinstance(response_text, dict):
                 response_text = str(response_text)
 
+            # Extract follow-ups from LLM response
+            response_text, follow_ups = extract_follow_ups(response_text)
+
             # Detect navigation intent
             navigation = detect_navigation(data.message, response_text)
             remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
@@ -5138,14 +5278,33 @@ async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_curr
             resp = {
                 "response": response_text,
                 "source": "orchestrator",
-                "requests_remaining": remaining
+                "requests_remaining": remaining,
             }
+            if follow_ups:
+                resp["follow_ups"] = follow_ups
             if navigation:
                 resp["navigation"] = navigation
+
+            # Log for analytics (non-blocking)
+            try:
+                await db.assistant_events.insert_one({
+                    "user_id": user.user_id,
+                    "message": data.message,
+                    "intent": "orchestrator",
+                    "confidence": 0.0,
+                    "tier": "orchestrator",
+                    "follow_ups_shown": follow_ups,
+                    "timestamp": datetime.now(timezone.utc),
+                })
+            except Exception:
+                pass
+
             return resp
         else:
             raise Exception("Orchestrator not available")
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Orchestrator error in assistant: {e}")
         # Fallback to simple AI
@@ -5154,6 +5313,12 @@ async def ask_assistant(data: AskAssistantRequest, user: User = Depends(get_curr
             session_id = f"kvitt_{user.user_id}"
             ctx = data.context or {}
             ctx["user_role"] = "user"
+            # Inject user data into fallback context too
+            try:
+                user_data = await fetch_user_context_summary(db, user.user_id)
+                ctx["user_data"] = user_data
+            except Exception:
+                pass
             fallback_response = await get_ai_response(data.message, session_id, ctx)
             remaining = await get_ai_requests_remaining(user.user_id, daily_limit)
             navigation = detect_navigation(data.message, fallback_response)

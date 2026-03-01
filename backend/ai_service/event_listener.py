@@ -874,6 +874,24 @@ class EventListenerService:
 
         logger.info(f"AI posted message in group {group_id}: {content[:50]}...")
 
+        # Push notification to group members for AI message
+        try:
+            from server import send_push_to_users
+            group = await self.db.groups.find_one({"group_id": group_id}, {"_id": 0, "name": 1})
+            group_name = group["name"] if group else "Group Chat"
+            members = await self.db.group_members.find(
+                {"group_id": group_id}, {"_id": 0, "user_id": 1}
+            ).to_list(100)
+            member_ids = [m["user_id"] for m in members]
+            if member_ids:
+                truncated = content[:100] + ("..." if len(content) > 100 else "")
+                await send_push_to_users(
+                    member_ids, group_name, f"Kvitt: {truncated}",
+                    {"type": "group_message", "group_id": group_id}
+                )
+        except Exception as e:
+            logger.debug(f"AI message push error (non-critical): {e}")
+
         # Notify host about AI action
         if self.host_update_service:
             try:

@@ -1,13 +1,20 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  ScrollView,
   Text,
   View,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
-  Animated,
+  Animated as RNAnimated,
 } from "react-native";
+import Reanimated, {
+  FadeInDown,
+  FadeInUp,
+  FadeOutDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,9 +22,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api/client";
 import { useTheme } from "../context/ThemeContext";
 import { usePokerAI } from "../context/PokerAIContext";
-import { getThemedColors, COLORS, SPACING, RADIUS, SHADOWS } from "../styles/liquidGlass";
+import { getThemedColors, COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY, SPRINGS, ANIMATION } from "../styles/liquidGlass";
 import { AIGlowBorder, SnakeGlowBorder } from "../components/ui";
 import { AnimatedModal } from "../components/AnimatedModal";
+import { GlassHeader, GLASS_HEADER_HEIGHT } from "../components/ui/GlassHeader";
+import { GlassButton, GlassIconButton } from "../components/ui/GlassButton";
+import { useScrollGlass } from "../hooks/useScrollGlass";
 import type { RootStackParamList } from "../navigation/RootNavigator";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -35,14 +45,55 @@ const CONFETTI_COLORS = ["#EE6C29", "#FF6EA8", "#7848FF", "#3B82F6", "#22C55E"];
 
 type Card = { rank: string; suit: string } | null;
 
+/* ─── Animated Card Slot (spring press feedback) ─── */
+function AnimatedCardSlot({ children, onPress, style }: { children: React.ReactNode; onPress: () => void; style: any }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <Reanimated.View style={animStyle}>
+      <TouchableOpacity
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+        onPressIn={() => { scale.value = withSpring(ANIMATION.scale.cardPressed, SPRINGS.press); }}
+        onPressOut={() => { scale.value = withSpring(1, SPRINGS.snap); }}
+        activeOpacity={0.9}
+        style={style}
+      >
+        {children}
+      </TouchableOpacity>
+    </Reanimated.View>
+  );
+}
+
+/* ─── Animated Picker Button (spring press feedback) ─── */
+function AnimatedPickerButton({ children, onPress, style }: { children: React.ReactNode; onPress: () => void; style: any }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <Reanimated.View style={animStyle}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={() => { scale.value = withSpring(ANIMATION.scale.pressed, SPRINGS.press); }}
+        onPressOut={() => { scale.value = withSpring(1, SPRINGS.snap); }}
+        activeOpacity={0.9}
+        style={style}
+      >
+        {children}
+      </TouchableOpacity>
+    </Reanimated.View>
+  );
+}
+
 /* ─── Confetti Burst Component ─── */
 function ConfettiBurst({ active }: { active: boolean }) {
   const particles = useRef(
     Array.from({ length: 24 }, () => ({
-      x: new Animated.Value(0),
-      y: new Animated.Value(0),
-      rotate: new Animated.Value(0),
-      opacity: new Animated.Value(0),
+      x: new RNAnimated.Value(0),
+      y: new RNAnimated.Value(0),
+      rotate: new RNAnimated.Value(0),
+      opacity: new RNAnimated.Value(0),
       color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
       targetX: (Math.random() - 0.5) * 300,
       targetY: (Math.random() - 0.7) * 400,
@@ -53,7 +104,6 @@ function ConfettiBurst({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active) return;
 
-    // Reset all particles
     particles.forEach((p) => {
       p.x.setValue(0);
       p.y.setValue(0);
@@ -61,14 +111,13 @@ function ConfettiBurst({ active }: { active: boolean }) {
       p.opacity.setValue(1);
     });
 
-    // Burst animation
-    Animated.parallel(
+    RNAnimated.parallel(
       particles.map((p) =>
-        Animated.parallel([
-          Animated.timing(p.x, { toValue: p.targetX, duration: 1200, useNativeDriver: true }),
-          Animated.timing(p.y, { toValue: p.targetY, duration: 1200, useNativeDriver: true }),
-          Animated.timing(p.rotate, { toValue: 360, duration: 1200, useNativeDriver: true }),
-          Animated.timing(p.opacity, { toValue: 0, duration: 1200, useNativeDriver: true }),
+        RNAnimated.parallel([
+          RNAnimated.timing(p.x, { toValue: p.targetX, duration: 1200, useNativeDriver: true }),
+          RNAnimated.timing(p.y, { toValue: p.targetY, duration: 1200, useNativeDriver: true }),
+          RNAnimated.timing(p.rotate, { toValue: 360, duration: 1200, useNativeDriver: true }),
+          RNAnimated.timing(p.opacity, { toValue: 0, duration: 1200, useNativeDriver: true }),
         ])
       )
     ).start();
@@ -79,7 +128,7 @@ function ConfettiBurst({ active }: { active: boolean }) {
   return (
     <View style={confettiStyles.container} pointerEvents="none">
       {particles.map((p, i) => (
-        <Animated.View
+        <RNAnimated.View
           key={i}
           style={[
             confettiStyles.particle,
@@ -125,6 +174,7 @@ export function PokerAIScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const lc = getThemedColors(isDark, colors);
+  const { scrollY, scrollHandler } = useScrollGlass();
 
   // Persistent state from context (survives navigation)
   const {
@@ -230,6 +280,7 @@ export function PokerAIScreen() {
   const handleAnalyze = async () => {
     if (!canAnalyze) return;
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setAnalyzing(true);
     setError(null);
     setSuggestion(null);
@@ -245,9 +296,10 @@ export function PokerAIScreen() {
       setSuggestion(res.data);
       setShowResultModal(true);
 
-      // Check for strong hand → confetti
+      // Check for strong hand → confetti + success haptic
       const strength = res.data?.hand_strength || "";
       if (STRONG_HANDS.some((h) => strength.toLowerCase().includes(h.toLowerCase()))) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 1500);
       }
@@ -270,7 +322,7 @@ export function PokerAIScreen() {
     const suitData = card ? SUITS.find((s) => s.name === card.suit) : null;
 
     return (
-      <TouchableOpacity
+      <AnimatedCardSlot
         key={`${type}-${index}`}
         style={[
           styles.cardSlot,
@@ -282,7 +334,6 @@ export function PokerAIScreen() {
           setSelectedSlot({ type, index });
           setSelectedRank(null);
         }}
-        activeOpacity={0.7}
       >
         {card ? (
           hidden ? (
@@ -302,7 +353,7 @@ export function PokerAIScreen() {
         ) : (
           <Text style={[styles.cardPlaceholder, { color: lc.textMuted }]}>Tap</Text>
         )}
-      </TouchableOpacity>
+      </AnimatedCardSlot>
     );
   };
 
@@ -365,13 +416,16 @@ export function PokerAIScreen() {
 
         {/* "Got it" button — only in modal */}
         {inModal && (
-          <TouchableOpacity
-            style={[styles.gotItButton, { backgroundColor: lc.orangeDark }]}
-            onPress={() => setShowResultModal(false)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.gotItText}>Got it</Text>
-          </TouchableOpacity>
+          <View style={{ marginTop: SPACING.xl }}>
+            <GlassButton
+              variant="primaryDark"
+              onPress={() => setShowResultModal(false)}
+              fullWidth
+              size="large"
+            >
+              Got it
+            </GlassButton>
+          </View>
         )}
       </View>
     </View>
@@ -379,190 +433,212 @@ export function PokerAIScreen() {
 
   return (
     <AIGlowBorder backgroundColor={lc.jetDark}>
-      <View style={[styles.wrapper, { paddingTop: insets.top }]}>
-        {/* Page Header */}
-        <View style={[styles.pageHeader, { borderBottomColor: lc.liquidGlassBorder }]}>
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={22} color={lc.textPrimary} />
-          </TouchableOpacity>
-          <Text style={[styles.pageTitle, { color: lc.textPrimary }]}>Poker AI</Text>
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}
-            onPress={() => navigation.navigate("Dashboard" as any)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="home-outline" size={20} color={lc.textPrimary} />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.wrapper}>
+        {/* Scroll-aware glass header */}
+        <GlassHeader
+          scrollY={scrollY}
+          title="Poker AI"
+          leftElement={
+            <GlassIconButton
+              icon={<Ionicons name="chevron-back" size={22} color={COLORS.text.primary} />}
+              onPress={() => navigation.goBack()}
+              variant="ghost"
+              size="small"
+              accessibilityLabel="Go back"
+            />
+          }
+          rightElement={
+            <GlassIconButton
+              icon={<Ionicons name="home-outline" size={20} color={COLORS.text.primary} />}
+              onPress={() => navigation.navigate("Dashboard" as any)}
+              variant="ghost"
+              size="small"
+              accessibilityLabel="Home"
+            />
+          }
+        />
 
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Reanimated.ScrollView
+          style={styles.container}
+          contentContainerStyle={[styles.content, { paddingTop: GLASS_HEADER_HEIGHT + insets.top }]}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+        >
           {/* BETA Badge */}
-          <View style={[styles.betaBadge, { backgroundColor: lc.liquidGlowOrange }]}>
-            <Text style={[styles.betaText, { color: lc.orange }]}>BETA</Text>
-          </View>
+          <Reanimated.View entering={FadeInDown.springify().damping(SPRINGS.layout.damping)}>
+            <View style={[styles.betaBadge, { backgroundColor: lc.liquidGlowOrange }]}>
+              <Text style={[styles.betaText, { color: lc.orange }]}>BETA</Text>
+            </View>
+          </Reanimated.View>
 
           {/* Disclaimer Banner */}
-          <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
-            <View style={[styles.liquidInner, { backgroundColor: lc.glowWarning }]}>
-              <View style={styles.disclaimerRow}>
-                <Ionicons name="warning" size={18} color={lc.warning} />
-                <Text style={[styles.disclaimerText, { color: lc.warning }]}>
-                  Suggestions are educational and for entertainment only. They do not guarantee outcomes.
-                </Text>
+          <Reanimated.View entering={FadeInDown.delay(50).springify().damping(SPRINGS.layout.damping)}>
+            <View style={[styles.liquidCard, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+              <View style={[styles.liquidInner, { backgroundColor: lc.glowWarning }]}>
+                <View style={styles.disclaimerRow}>
+                  <Ionicons name="warning" size={18} color={lc.warning} />
+                  <Text style={[styles.disclaimerText, { color: lc.warning }]}>
+                    Suggestions are educational and for entertainment only. They do not guarantee outcomes.
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
+          </Reanimated.View>
 
           {/* Card Selection Area */}
-          <SnakeGlowBorder
-            borderRadius={RADIUS.xxl}
-            glowColors={["#EE6C29", "#FF6EA8", "#7848FF"]}
-            dashedColor={lc.dashedBorder}
-            backgroundColor={lc.liquidGlassBg}
-          >
-            <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg, borderRadius: RADIUS.xl }]}>
-              {/* Your Hand */}
-              <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={[styles.sectionTitle, { color: lc.textPrimary }]}>Your Hand</Text>
-                  <TouchableOpacity
-                    style={[styles.visibilityToggle, { backgroundColor: lc.liquidGlassBg }]}
-                    onPress={toggleHandVisibility}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={showHand ? "eye" : "eye-off"}
-                      size={18}
-                      color={lc.textMuted}
+          <Reanimated.View entering={FadeInDown.delay(100).springify().damping(SPRINGS.layout.damping)}>
+            <SnakeGlowBorder
+              borderRadius={RADIUS.xxl}
+              glowColors={["#EE6C29", "#FF6EA8", "#7848FF"]}
+              dashedColor={lc.dashedBorder}
+              backgroundColor={lc.liquidGlassBg}
+            >
+              <View style={[styles.liquidInner, { backgroundColor: lc.liquidInnerBg, borderRadius: RADIUS.xl }]}>
+                {/* Your Hand */}
+                <View style={styles.section}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={[styles.sectionTitle, { color: lc.textPrimary }]}>Your Hand</Text>
+                    <GlassIconButton
+                      icon={<Ionicons name={showHand ? "eye" : "eye-off"} size={18} color={lc.textMuted} />}
+                      onPress={toggleHandVisibility}
+                      variant="ghost"
+                      size="small"
+                      accessibilityLabel="Toggle hand visibility"
                     />
-                  </TouchableOpacity>
+                  </View>
+                  <View style={styles.cardRow}>
+                    {handCards.map((card, idx) => renderCardSlot(card, "hand", idx, !showHand))}
+                  </View>
                 </View>
-                <View style={styles.cardRow}>
-                  {handCards.map((card, idx) => renderCardSlot(card, "hand", idx, !showHand))}
-                </View>
-              </View>
 
-              {/* Community Cards */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: lc.textPrimary }]}>Community Cards</Text>
-                <View style={styles.cardRow}>
-                  {communityCards.map((card, idx) => renderCardSlot(card, "community", idx))}
+                {/* Community Cards */}
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: lc.textPrimary }]}>Community Cards</Text>
+                  <View style={styles.cardRow}>
+                    {communityCards.map((card, idx) => renderCardSlot(card, "community", idx))}
+                  </View>
                 </View>
-              </View>
 
-              {/* Duplicate Warning */}
-              {hasDuplicates && (
-                <View style={[styles.warningBanner, { backgroundColor: lc.glowRed, borderColor: lc.danger + "30" }]}>
-                  <Ionicons name="alert-circle" size={16} color={lc.danger} />
-                  <Text style={[styles.warningText, { color: lc.danger }]}>Duplicate card detected</Text>
-                </View>
-              )}
+                {/* Duplicate Warning */}
+                {hasDuplicates && (
+                  <Reanimated.View entering={FadeInDown.duration(200).springify()}>
+                    <View style={[styles.warningBanner, { backgroundColor: lc.glowRed, borderColor: lc.danger + "30" }]}>
+                      <Ionicons name="alert-circle" size={16} color={lc.danger} />
+                      <Text style={[styles.warningText, { color: lc.danger }]}>Duplicate card detected</Text>
+                    </View>
+                  </Reanimated.View>
+                )}
 
-              {/* Card Input (Rank/Suit Picker) */}
-              {selectedSlot && (
-                <View style={[styles.inputSection, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
-                  {!selectedRank ? (
-                    <>
-                      <Text style={[styles.inputTitle, { color: lc.textPrimary }]}>
-                        Select Rank
-                      </Text>
-                      <View style={styles.rankGrid}>
-                        {RANKS.map((rank) => (
-                          <TouchableOpacity
-                            key={rank}
-                            style={[styles.rankButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
-                            onPress={() => setSelectedRank(rank)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.rankButtonText, { color: lc.cardText }]}>{rank}</Text>
+                {/* Card Input (Rank/Suit Picker) */}
+                {selectedSlot && (
+                  <Reanimated.View
+                    entering={FadeInDown.duration(200).springify().damping(SPRINGS.layout.damping)}
+                    exiting={FadeOutDown.duration(150)}
+                  >
+                    <View style={[styles.inputSection, { backgroundColor: lc.liquidGlassBg, borderColor: lc.liquidGlassBorder }]}>
+                      {!selectedRank ? (
+                        <>
+                          <Text style={[styles.inputTitle, { color: lc.textPrimary }]}>
+                            Select Rank
+                          </Text>
+                          <View style={styles.rankGrid}>
+                            {RANKS.map((rank) => (
+                              <AnimatedPickerButton
+                                key={rank}
+                                style={[styles.rankButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
+                                onPress={() => setSelectedRank(rank)}
+                              >
+                                <Text style={[styles.rankButtonText, { color: lc.cardText }]}>{rank}</Text>
+                              </AnimatedPickerButton>
+                            ))}
+                          </View>
+                          <TouchableOpacity onPress={cancelPicker} style={styles.cancelButton} activeOpacity={0.7}>
+                            <Text style={[styles.cancelText, { color: lc.textMuted }]}>Cancel</Text>
                           </TouchableOpacity>
-                        ))}
-                      </View>
-                      <TouchableOpacity onPress={cancelPicker} style={styles.cancelButton} activeOpacity={0.7}>
-                        <Text style={[styles.cancelText, { color: lc.textMuted }]}>Cancel</Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <>
-                      {/* Back + title row */}
-                      <View style={styles.pickerHeaderRow}>
-                        <TouchableOpacity onPress={() => setSelectedRank(null)} activeOpacity={0.7}>
-                          <Ionicons name="chevron-back" size={20} color={lc.textSecondary} />
-                        </TouchableOpacity>
-                        <Text style={[styles.inputTitle, { color: lc.textPrimary, marginBottom: 0 }]}>
-                          Suit for {selectedRank}
-                        </Text>
-                      </View>
-                      <View style={styles.suitRow}>
-                        {SUITS.map((suit) => (
-                          <TouchableOpacity
-                            key={suit.name}
-                            style={[styles.suitButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
-                            onPress={() => setCard(selectedRank, suit.name)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.suitSymbol, { color: getSuitColor(suit.color) }]}>{suit.symbol}</Text>
+                        </>
+                      ) : (
+                        <>
+                          {/* Back + title row */}
+                          <View style={styles.pickerHeaderRow}>
+                            <TouchableOpacity onPress={() => setSelectedRank(null)} activeOpacity={0.7}>
+                              <Ionicons name="chevron-back" size={20} color={lc.textSecondary} />
+                            </TouchableOpacity>
+                            <Text style={[styles.inputTitle, { color: lc.textPrimary, marginBottom: 0 }]}>
+                              Suit for {selectedRank}
+                            </Text>
+                          </View>
+                          <View style={styles.suitRow}>
+                            {SUITS.map((suit) => (
+                              <AnimatedPickerButton
+                                key={suit.name}
+                                style={[styles.suitButton, { borderColor: lc.liquidGlassBorder, backgroundColor: lc.cardSlotBg }]}
+                                onPress={() => setCard(selectedRank, suit.name)}
+                              >
+                                <Text style={[styles.suitSymbol, { color: getSuitColor(suit.color) }]}>{suit.symbol}</Text>
+                              </AnimatedPickerButton>
+                            ))}
+                          </View>
+                          <TouchableOpacity onPress={cancelPicker} style={styles.cancelButton} activeOpacity={0.7}>
+                            <Text style={[styles.cancelText, { color: lc.textMuted }]}>Cancel</Text>
                           </TouchableOpacity>
-                        ))}
-                      </View>
-                      <TouchableOpacity onPress={cancelPicker} style={styles.cancelButton} activeOpacity={0.7}>
-                        <Text style={[styles.cancelText, { color: lc.textMuted }]}>Cancel</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              )}
-            </View>
-          </SnakeGlowBorder>
+                        </>
+                      )}
+                    </View>
+                  </Reanimated.View>
+                )}
+              </View>
+            </SnakeGlowBorder>
+          </Reanimated.View>
 
           {/* Consent Checkbox */}
-          <TouchableOpacity
-            style={styles.consentRow}
-            onPress={() => setConsentChecked(!consentChecked)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, { borderColor: consentChecked ? lc.orange : lc.liquidGlassBorder, backgroundColor: consentChecked ? lc.orange : "transparent" }]}>
-              {consentChecked && <Ionicons name="checkmark" size={16} color="#fff" />}
-            </View>
-            <Text style={[styles.consentText, { color: lc.textPrimary }]}>
-              AI suggestions only - I decide my actions
-            </Text>
-          </TouchableOpacity>
-
-          {/* Action Buttons */}
-          <View style={styles.actionRow}>
+          <Reanimated.View entering={FadeInDown.delay(150).springify().damping(SPRINGS.layout.damping)}>
             <TouchableOpacity
-              style={[styles.resetButton, { borderColor: lc.liquidGlassBorder }]}
-              onPress={handleReset}
+              style={styles.consentRow}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setConsentChecked(!consentChecked);
+              }}
               activeOpacity={0.7}
             >
-              <Ionicons name="refresh" size={18} color={lc.textPrimary} />
-              <Text style={[styles.resetText, { color: lc.textPrimary }]}>Reset</Text>
+              <View style={[styles.checkbox, { borderColor: consentChecked ? lc.orange : lc.liquidGlassBorder, backgroundColor: consentChecked ? lc.orange : "transparent" }]}>
+                {consentChecked && <Ionicons name="checkmark" size={16} color="#fff" />}
+              </View>
+              <Text style={[styles.consentText, { color: lc.textPrimary }]}>
+                AI suggestions only - I decide my actions
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.analyzeButton,
-                { backgroundColor: lc.orangeDark },
-                !canAnalyze && styles.buttonDisabled,
-              ]}
-              onPress={handleAnalyze}
-              disabled={!canAnalyze || analyzing}
-              activeOpacity={0.8}
-            >
-              {analyzing ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={18} color="#fff" />
-                  <Text style={styles.analyzeText}>Get Suggestion</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          </Reanimated.View>
+
+          {/* Action Buttons */}
+          <Reanimated.View entering={FadeInDown.delay(200).springify().damping(SPRINGS.layout.damping)}>
+            <View style={styles.actionRow}>
+              <View style={{ flex: 1 }}>
+                <GlassButton
+                  variant="ghost"
+                  onPress={handleReset}
+                  size="medium"
+                  fullWidth
+                  leftIcon={<Ionicons name="refresh" size={18} color={lc.textPrimary} />}
+                >
+                  Reset
+                </GlassButton>
+              </View>
+              <View style={{ flex: 2 }}>
+                <GlassButton
+                  variant="primaryDark"
+                  onPress={handleAnalyze}
+                  disabled={!canAnalyze || analyzing}
+                  loading={analyzing}
+                  size="medium"
+                  fullWidth
+                  leftIcon={!analyzing ? <Ionicons name="sparkles" size={18} color="#fff" /> : undefined}
+                >
+                  Get Suggestion
+                </GlassButton>
+              </View>
+            </View>
+          </Reanimated.View>
 
           {/* Validation Hints */}
           {!canAnalyze && !suggestion && (
@@ -587,14 +663,20 @@ export function PokerAIScreen() {
 
           {/* Error */}
           {error && (
-            <View style={[styles.errorBanner, { backgroundColor: lc.glowRed }]}>
-              <Ionicons name="alert-circle" size={16} color={lc.danger} />
-              <Text style={[styles.errorText, { color: lc.danger }]}>{error}</Text>
-            </View>
+            <Reanimated.View entering={FadeInDown.duration(200).springify()}>
+              <View style={[styles.errorBanner, { backgroundColor: lc.glowRed }]}>
+                <Ionicons name="alert-circle" size={16} color={lc.danger} />
+                <Text style={[styles.errorText, { color: lc.danger }]}>{error}</Text>
+              </View>
+            </Reanimated.View>
           )}
 
           {/* Inline Suggestion Result (persistent, shown after modal dismissal) */}
-          {suggestion && !showResultModal && renderSuggestionContent(false)}
+          {suggestion && !showResultModal && (
+            <Reanimated.View entering={FadeInUp.springify().damping(SPRINGS.layout.damping)}>
+              {renderSuggestionContent(false)}
+            </Reanimated.View>
+          )}
 
           {/* Footer Note */}
           <Text style={[styles.footerNote, { color: lc.textSecondary }]}>
@@ -602,7 +684,7 @@ export function PokerAIScreen() {
           </Text>
 
           <View style={{ height: 40 }} />
-        </ScrollView>
+        </Reanimated.ScrollView>
 
         {/* Suggestion Preview Modal */}
         <AnimatedModal
@@ -623,27 +705,6 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
   },
-  pageHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.md,
-    borderWidth: 1.5,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  pageTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: "700",
-    textAlign: "center",
-  },
   container: {
     flex: 1,
   },
@@ -658,8 +719,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   betaText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
 
   // Liquid Glass Card pattern
@@ -678,11 +739,11 @@ const styles = StyleSheet.create({
   disclaimerRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
+    gap: SPACING.md,
   },
   disclaimerText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: TYPOGRAPHY.sizes.caption,
     lineHeight: 20,
   },
 
@@ -694,18 +755,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 14,
-  },
-  visibilityToggle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
+    marginBottom: SPACING.gap,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -719,7 +773,7 @@ const styles = StyleSheet.create({
   cardSlot: {
     width: 52,
     height: 76,
-    borderRadius: 10,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderStyle: "dashed",
     justifyContent: "center",
@@ -730,13 +784,13 @@ const styles = StyleSheet.create({
   },
   cardRank: {
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   cardSuit: {
-    fontSize: 18,
+    fontSize: TYPOGRAPHY.sizes.heading3,
   },
   cardPlaceholder: {
-    fontSize: 11,
+    fontSize: TYPOGRAPHY.sizes.micro,
   },
 
   // Warnings
@@ -744,13 +798,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    padding: 12,
-    borderRadius: 10,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
-    marginBottom: 12,
+    marginBottom: SPACING.md,
   },
   warningText: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
   },
 
   // Card input
@@ -762,40 +816,40 @@ const styles = StyleSheet.create({
   pickerHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 14,
+    gap: SPACING.sm,
+    marginBottom: SPACING.gap,
     justifyContent: "center",
   },
   inputTitle: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.caption,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: 14,
+    marginBottom: SPACING.gap,
     textAlign: "center",
   },
   rankGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: SPACING.sm,
     justifyContent: "center",
   },
   rankButton: {
     width: 44,
     height: 44,
-    borderRadius: 10,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
   },
   rankButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
   },
   suitRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 16,
+    gap: SPACING.lg,
   },
   suitButton: {
     width: 60,
@@ -809,29 +863,29 @@ const styles = StyleSheet.create({
     fontSize: 30,
   },
   cancelButton: {
-    marginTop: 12,
+    marginTop: SPACING.md,
     alignItems: "center",
   },
   cancelText: {
-    fontSize: 13,
+    fontSize: TYPOGRAPHY.sizes.caption,
   },
 
   // Consent
   consentRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: SPACING.gap,
   },
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 6,
+    borderRadius: RADIUS.sm,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
   },
   consentText: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
     flex: 1,
     lineHeight: 20,
   },
@@ -839,39 +893,7 @@ const styles = StyleSheet.create({
   // Actions
   actionRow: {
     flexDirection: "row",
-    gap: 14,
-  },
-  resetButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-  },
-  resetText: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  analyzeButton: {
-    flex: 2,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: RADIUS.md,
-    minHeight: 52,
-  },
-  analyzeText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  buttonDisabled: {
-    opacity: 0.5,
+    gap: SPACING.gap,
   },
 
   // Hints
@@ -879,19 +901,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   hintText: {
-    fontSize: 13,
+    fontSize: TYPOGRAPHY.sizes.caption,
   },
 
   // Error
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
+    padding: SPACING.gap,
     borderRadius: RADIUS.md,
     gap: 10,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
     flex: 1,
   },
 
@@ -900,65 +922,54 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   suggestionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.heading3,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
   },
   suggestionContent: {
     alignItems: "center",
-    gap: 16,
+    gap: SPACING.lg,
   },
   actionBadge: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.xxl,
+    paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
   },
   actionText: {
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: TYPOGRAPHY.sizes.heading2,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   potentialRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: SPACING.sm,
   },
   potentialLabel: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
   },
   potentialValue: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
   },
   reasoningText: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
     lineHeight: 22,
     textAlign: "center",
   },
   handStrengthBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
     borderRadius: RADIUS.sm,
   },
   handStrengthText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  gotItButton: {
-    marginTop: 20,
-    paddingVertical: 14,
-    borderRadius: RADIUS.md,
-    alignItems: "center",
-  },
-  gotItText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: TYPOGRAPHY.sizes.bodySmall,
+    fontWeight: TYPOGRAPHY.weights.semiBold,
   },
   footerNote: {
-    fontSize: 12,
+    fontSize: TYPOGRAPHY.sizes.caption,
     textAlign: "center",
-    marginTop: 8,
+    marginTop: SPACING.sm,
   },
 });

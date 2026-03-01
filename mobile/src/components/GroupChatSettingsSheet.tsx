@@ -14,8 +14,6 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { GlassBottomSheet } from "./ui/GlassModal";
-import { GlassModal } from "./ui/GlassModal";
-import { GlassButton } from "./ui/GlassButton";
 import { GlassListSection, GlassListDivider } from "./ui/GlassListItem";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SPRINGS } from "../styles/liquidGlass";
 import { getGroupAISettings, updateGroupAISettings } from "../api/groupMessages";
@@ -100,7 +98,6 @@ export function GroupChatSettingsSheet({ visible, onClose, groupId, isAdmin }: P
   const [settings, setSettings] = useState<AISettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
-  const [showDisableModal, setShowDisableModal] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -129,9 +126,20 @@ export function GroupChatSettingsSheet({ visible, onClose, groupId, isAdmin }: P
   async function handleToggle(key: keyof AISettings, value: boolean) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Show loss-aversion modal when disabling AI
+    // Confirm before disabling AI
     if (key === "ai_enabled" && !value) {
-      setShowDisableModal(true);
+      Alert.alert(
+        "Disable Kvitt AI",
+        "Do you want to disable Kvitt AI for this group?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Disable",
+            style: "destructive",
+            onPress: () => saveToggle("ai_enabled", false),
+          },
+        ]
+      );
       return;
     }
 
@@ -152,14 +160,7 @@ export function GroupChatSettingsSheet({ visible, onClose, groupId, isAdmin }: P
     }
   }
 
-  async function confirmDisableAI() {
-    setShowDisableModal(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    await saveToggle("ai_enabled", false);
-  }
-
   return (
-    <>
       <GlassBottomSheet visible={visible} onClose={onClose} title="Chat Settings">
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -235,42 +236,6 @@ export function GroupChatSettingsSheet({ visible, onClose, groupId, isAdmin }: P
           </>
         )}
       </GlassBottomSheet>
-
-      {/* Loss-aversion disable modal */}
-      <GlassModal
-        visible={showDisableModal}
-        onClose={() => setShowDisableModal(false)}
-        title="Disable Kvitt for this group?"
-        size="small"
-      >
-        <Text style={styles.disableBody}>
-          {"If you disable Kvitt, you'll lose:\n\n" +
-            "\u2022 Date/time poll creation\n" +
-            "\u2022 Smart scheduling suggestions\n" +
-            "\u2022 Conversation summaries\n" +
-            "\u2022 Quick 'what we decided' recaps\n\n" +
-            "You can re-enable anytime."}
-        </Text>
-        <View style={styles.disableButtons}>
-          <GlassButton
-            variant="secondary"
-            onPress={() => setShowDisableModal(false)}
-            fullWidth
-            size="large"
-          >
-            Keep Kvitt On
-          </GlassButton>
-          <GlassButton
-            variant="destructive"
-            onPress={confirmDisableAI}
-            fullWidth
-            size="large"
-          >
-            Disable Anyway
-          </GlassButton>
-        </View>
-      </GlassModal>
-    </>
   );
 }
 
@@ -349,15 +314,5 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginTop: 2,
     color: COLORS.text.muted,
-  },
-  // Disable modal
-  disableBody: {
-    fontSize: TYPOGRAPHY.sizes.bodySmall,
-    lineHeight: 22,
-    color: COLORS.text.secondary,
-    marginBottom: SPACING.lg,
-  },
-  disableButtons: {
-    gap: SPACING.sm,
   },
 });

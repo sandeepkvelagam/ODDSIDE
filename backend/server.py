@@ -4106,6 +4106,13 @@ async def post_group_message(
     # Fire-and-forget: trigger AI processing for group chat
     asyncio.create_task(_trigger_group_chat_ai(group_id, msg_dict))
 
+    # Fire-and-forget: push notification to offline group members
+    asyncio.create_task(_send_group_message_push(
+        group_id, user.user_id,
+        user_info.get("name", "Someone") if user_info else "Someone",
+        data.content
+    ))
+
     return {"message_id": message.message_id}
 
 
@@ -4120,6 +4127,26 @@ async def _trigger_group_chat_ai(group_id: str, message: dict):
         })
     except Exception as e:
         logger.debug(f"Group chat AI trigger error (non-critical): {e}")
+
+
+async def _send_group_message_push(group_id: str, sender_id: str, sender_name: str, content: str):
+    """Fire-and-forget: send push notifications to group members for a new message."""
+    try:
+        group = await db.groups.find_one({"group_id": group_id}, {"_id": 0, "name": 1})
+        group_name = group["name"] if group else "Group Chat"
+        members = await db.group_members.find(
+            {"group_id": group_id}, {"_id": 0, "user_id": 1}
+        ).to_list(100)
+        recipient_ids = [m["user_id"] for m in members if m["user_id"] != sender_id]
+        if not recipient_ids:
+            return
+        truncated = content[:100] + ("..." if len(content) > 100 else "")
+        await send_push_to_users(
+            recipient_ids, group_name, f"{sender_name}: {truncated}",
+            {"type": "group_message", "group_id": group_id}
+        )
+    except Exception as e:
+        logger.debug(f"Group message push error (non-critical): {e}")
 
 
 @api_router.put("/groups/{group_id}/messages/{message_id}")

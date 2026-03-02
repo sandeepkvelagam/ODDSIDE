@@ -346,7 +346,16 @@ class FeedbackCollectorTool(BaseTool):
                     message="Duplicate feedback detected — linked to existing entry"
                 )
 
-            feedback_id = f"fb_{uuid.uuid4().hex[:12]}"
+            # Monthly-scoped sequential ID: KV-YYMM-NNNN
+            prefix = now.strftime("%y%m")  # e.g. "2603" for March 2026
+            counter = await self.db.counters.find_one_and_update(
+                {"_id": f"feedback_{prefix}"},
+                {"$inc": {"seq": 1}},
+                upsert=True,
+                return_document=True,
+            )
+            seq = counter["seq"]
+            feedback_id = f"KV-{prefix}-{seq:04d}"
 
             # Build context_refs (structured pointers)
             refs = context_refs or {}

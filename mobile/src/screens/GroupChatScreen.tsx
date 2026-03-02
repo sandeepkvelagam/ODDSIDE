@@ -231,8 +231,21 @@ export function GroupChatScreen() {
     setSendingMessage(true);
     setNewMessage("");
     try {
-      await postGroupMessage(groupId, content);
-      // Message will arrive via socket; no need to add locally
+      const result = await postGroupMessage(groupId, content);
+      // Optimistic insert — socket handler deduplicates by message_id
+      const optimistic: GroupMessage = {
+        message_id: result.message_id,
+        group_id: groupId,
+        user_id: user?.user_id ?? "",
+        content,
+        type: "user",
+        created_at: new Date().toISOString(),
+        user: { user_id: user?.user_id ?? "", name: user?.name ?? "You" },
+      };
+      setMessages((prev) => {
+        if (prev.some((m) => m.message_id === result.message_id)) return prev;
+        return [optimistic, ...prev];
+      });
     } catch {
       setNewMessage(content); // Restore on failure
     } finally {

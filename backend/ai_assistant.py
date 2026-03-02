@@ -121,7 +121,7 @@ QUICK_ANSWERS = {
             "• Players join and automatically receive their chips\n\n"
             "As host, you'll manage buy-ins, rebuys, and cash-outs during the game."
         ),
-        "navigation": {"screen": "GameNight"},
+        "navigation": {"screen": "Groups"},
         "follow_ups": ["How does buy-in work?", "How do I cash out?", "Any active games?"],
     },
     "how does buy-in work": {
@@ -133,7 +133,7 @@ QUICK_ANSWERS = {
             "• Players can request rebuys during the game if they run out\n\n"
             "The buy-in amount is used later to calculate settlements."
         ),
-        "navigation": {"screen": "GameNight"},
+        "navigation": {"screen": "Groups"},
         "follow_ups": ["How do I cash out?", "What is settlement?", "Any active games?"],
     },
     "how do i cash out": {
@@ -146,7 +146,7 @@ QUICK_ANSWERS = {
             "• Kvitt calculates your net result\n\n"
             "Once everyone has cashed out, settlement kicks in automatically."
         ),
-        "navigation": {"screen": "GameNight"},
+        "navigation": {"screen": "Groups"},
         "follow_ups": ["What is settlement?", "Who owes me money?", "Show my recent games"],
     },
     "what is settlement": {

@@ -399,7 +399,27 @@ export function AIAssistantScreen() {
     }
   };
 
+  // Schema-driven param validation — prevents crashes on screens that require params
+  const NAV_REQUIREMENTS: Record<string, string[]> = {
+    GameNight: ["gameId"],
+    Settlement: ["gameId"],
+    GroupHub: ["groupId"],
+    GroupChat: ["groupId"],
+  };
+
   const handleNavigation = (nav: { screen: string; params?: Record<string, any> }) => {
+    const required = NAV_REQUIREMENTS[nav.screen];
+    if (required) {
+      const ok = required.every((k) => nav.params?.[k]);
+      if (!ok) {
+        navigation.navigate("Groups" as any);
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Opening Groups — pick a game from there to continue." },
+        ]);
+        return;
+      }
+    }
     navigation.navigate(nav.screen as any, nav.params as any);
   };
 
@@ -694,9 +714,14 @@ export function AIAssistantScreen() {
                       </TouchableOpacity>
                     )}
 
-                    {/* Follow-up chips — only on last assistant message */}
+                    {/* Follow-up chips — only on last assistant message, horizontal scroll */}
                     {i === messages.length - 1 && msg.role === "assistant" && !msg.error && msg.followUps && msg.followUps.length > 0 && !loading && (
-                      <View style={styles.followUpContainer}>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.followUpScroll}
+                        contentContainerStyle={styles.followUpContent}
+                      >
                         {msg.followUps.map((f, j) => (
                           <TouchableOpacity
                             key={`${j}-${f}`}
@@ -707,7 +732,7 @@ export function AIAssistantScreen() {
                             <Text style={[styles.suggestionText, { color: lc.textPrimary }]}>{f}</Text>
                           </TouchableOpacity>
                         ))}
-                      </View>
+                      </ScrollView>
                     )}
                   </View>
                 ))}
@@ -1014,13 +1039,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  followUpContainer: {
-    flexDirection: "row" as const,
-    flexWrap: "wrap" as const,
-    gap: SPACING.sm,
+  followUpScroll: {
     marginLeft: 36,
     marginTop: SPACING.sm,
+    maxHeight: 40,
+  },
+  followUpContent: {
+    gap: SPACING.sm,
     paddingRight: SPACING.container,
+    paddingVertical: 2,
   },
 
   /* ── Suggestions ── */

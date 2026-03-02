@@ -219,7 +219,7 @@ class FastAnswerEngine:
         if not games:
             return FastAnswer(
                 text="No active games right now. Time to start one?",
-                follow_ups=["Any upcoming games?", "Show my groups", "How do I start a game?"],
+                follow_ups=["Any upcoming games?", "Show my groups", "Start a game"],
             )
 
         count = len(games)
@@ -235,7 +235,7 @@ class FastAnswerEngine:
         return FastAnswer(
             text=text,
             follow_ups=self._pick_follow_ups("ACTIVE_GAMES"),
-            navigation={"screen": "GameNight"},
+            navigation={"screen": "Groups"},
         )
 
     async def _handle_upcoming_games(self, user_id: str, params: Dict) -> FastAnswer:

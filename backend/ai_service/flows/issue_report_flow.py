@@ -131,7 +131,7 @@ class IssueReportFlow(BaseFlow):
                 if result.success:
                     feedback_id = result.data.get("feedback_id", "N/A")
                     return FlowResult(
-                        text="Thank you — your report has been logged and routed for review. If we need clarification, we'll reach out.",
+                        text="Thank you — your report has been submitted and is now under review.",
                         structured_content={
                             "schema_version": SCHEMA_VERSION,
                             "type": "confirmation",

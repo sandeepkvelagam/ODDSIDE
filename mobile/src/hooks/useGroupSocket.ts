@@ -95,8 +95,15 @@ export function useGroupSocket(
       };
       socket.on("group_typing", handleTyping);
 
-      // Connection state tracking
-      const handleConnect = () => mounted && setConnected(true);
+      // Connection state tracking — re-join group room on every connect/reconnect
+      // (server assigns a new sid after reconnect, old room membership is lost)
+      const handleConnect = () => {
+        if (!mounted) return;
+        setConnected(true);
+        socket!.emit("join_group", { group_id: groupId }, (ack: any) => {
+          if (ack?.error) console.error("Re-join after reconnect failed:", ack.error);
+        });
+      };
       const handleDisconnect = () => mounted && setConnected(false);
       socket.on("connect", handleConnect);
       socket.on("disconnect", handleDisconnect);

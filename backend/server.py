@@ -9083,6 +9083,18 @@ async def create_indexes():
     except Exception as e:
         logger.warning(f"EngagementScheduler failed to start (non-critical): {e}")
 
+    # Initialize AI event listener for group chat AI (@kvitt)
+    try:
+        from ai_service.event_listener import init_event_listener
+        orch = get_orchestrator()
+        if orch:
+            init_event_listener(orchestrator=orch, db=db)
+            logger.info("✅ EventListenerService initialized (group chat AI enabled)")
+        else:
+            logger.warning("❌ EventListenerService: orchestrator unavailable, @kvitt disabled")
+    except Exception as e:
+        logger.exception("❌ EventListenerService init failed (@kvitt disabled): %s", e)
+
     # Create indexes for engagement collections
     await db.engagement_nudges_log.create_index([("target_id", 1), ("nudge_type", 1), ("sent_at", -1)])
     await db.engagement_nudges_log.create_index([("group_id", 1), ("sent_at", -1)])

@@ -23,14 +23,19 @@ export async function createSocket(): Promise<Socket> {
     throw new Error("No session token available for Socket.IO connection");
   }
 
-  // Create socket with JWT auth
+  // Create socket with JWT auth — dynamic auth refreshes token on each reconnect
   socket = io(socketUrl, {
-    auth: { token },
+    auth: async (cb) => {
+      const { data: freshData } = await supabase.auth.getSession();
+      cb({ token: freshData.session?.access_token ?? token });
+    },
     transports: ["websocket"],
     reconnection: true,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-    reconnectionAttempts: 5,
+    reconnectionDelay: 800,
+    reconnectionDelayMax: 8000,
+    randomizationFactor: 0.4,
+    reconnectionAttempts: Infinity,
+    timeout: 10000,
   });
 
   socket.on("connect", () => {
@@ -41,8 +46,14 @@ export async function createSocket(): Promise<Socket> {
     console.log("❌ Socket.IO disconnected:", reason);
   });
 
-  socket.on("connect_error", (error) => {
+  socket.on("connect_error", async (error) => {
     console.error("Socket.IO connection error:", error.message);
+    const msg = (error.message || "").toLowerCase();
+    if (msg.includes("jwt") || msg.includes("auth") || msg.includes("expired")) {
+      try {
+        await supabase.auth.refreshSession();
+      } catch {}
+    }
   });
 
   return socket;

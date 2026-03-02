@@ -26,6 +26,9 @@ class PaymentTrackerTool(BaseTool):
     - Mark payments as complete
     """
 
+    def __init__(self, db=None):
+        self.db = db
+
     @property
     def name(self) -> str:
         return "payment_tracker"

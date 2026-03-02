@@ -90,10 +90,10 @@ if SUPABASE_URL:
 from websocket_manager import sio, emit_game_event, notify_player_joined, notify_buy_in, notify_cash_out, notify_chips_edited, notify_game_message, notify_game_state_change, emit_notification, emit_group_message, emit_group_typing
 
 # Create the main app
-app = FastAPI(title="ODDSIDE API")
+fastapi_app = FastAPI(title="ODDSIDE API")
 
-# Wrap FastAPI with Socket.IO
-socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
+# Wrap FastAPI with Socket.IO — uvicorn serves `server:app`, so this must be named `app`
+app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -9047,9 +9047,9 @@ async def get_automation_health(
 
 
 # Include the router
-app.include_router(api_router)
+fastapi_app.include_router(api_router)
 
-app.add_middleware(
+fastapi_app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
@@ -9057,7 +9057,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
+@fastapi_app.on_event("startup")
 async def create_indexes():
     """Create database indexes and start background services."""
     await db.group_messages.create_index([("group_id", 1), ("created_at", -1)])
@@ -9122,7 +9122,7 @@ async def create_indexes():
     await db.automation_runs.create_index("run_id", unique=True)
     logger.info("Database indexes ensured for automation collections")
 
-@app.on_event("shutdown")
+@fastapi_app.on_event("shutdown")
 async def shutdown_db_client():
     try:
         from ai_service.proactive_scheduler import stop_proactive_scheduler

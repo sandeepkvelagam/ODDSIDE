@@ -3,7 +3,8 @@
     "allow": [
       "Bash(bash:*)",
       "Bash(supervisorctl restart:*)",
-      "Bash(supervisorctl status:*)"
+      "Bash(supervisorctl status:*)",
+      "Bash(curl:*)"
     ]
   }
 }
